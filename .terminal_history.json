@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "workspacePath": "c:\\Users\\HP\\Documents\\GitHub\\flexiti studio project\\olas-portfolio",
+  "entries": [
+    {
+      "command": "npm run dev",
+      "timestamp": 1779904353599,
+      "cwd": "c:\\Users\\HP\\Documents\\GitHub\\flexiti studio project\\olas-portfolio"
+    },
+    {
+      "command": "git branch",
+      "timestamp": 1779904363815,
+      "cwd": "c:\\Users\\HP\\Documents\\GitHub\\flexiti studio project\\olas-portfolio"
+    },
+    {
+      "command": "git pull origin",
+      "timestamp": 1779904379109,
+      "cwd": "c:\\Users\\HP\\Documents\\GitHub\\flexiti studio project\\olas-portfolio"
+    },
+    {
+      "command": "& \"C:\\Users\\HP\\AppData\\Local\\Temp\\wshist_uke0t.ps1\"; Remove-Item \"C:\\Users\\HP\\AppData\\Local\\Temp\\wshist_uke0t.ps1\" -ErrorAction SilentlyContinue",
+      "timestamp": 1779962642198,
+      "cwd": "c:\\Users\\HP\\Documents\\GitHub\\flexiti studio project\\olas-portfolio"
+    },
+    {
+      "command": "npm run dev",
+      "timestamp": 1779963798390,
+      "cwd": "c:\\Users\\HP\\Documents\\GitHub\\flexiti studio project\\olas-portfolio"
+    },
+    {
+      "command": "& \"C:\\Users\\HP\\AppData\\Local\\Temp\\wshist_fk1xrd.ps1\"; Remove-Item \"C:\\Users\\HP\\AppData\\Local\\Temp\\wshist_fk1xrd.ps1\" -ErrorAction SilentlyContinue",
+      "timestamp": 1779982242934,
+      "cwd": "c:\\Users\\HP\\Documents\\GitHub\\flexiti studio project\\olas-portfolio"
+    },
+    {
+      "command": "npm run dev",
+      "timestamp": 1779994870672,
+      "cwd": "c:\\Users\\HP\\Documents\\GitHub\\flexiti studio project\\olas-portfolio"
+    }
+  ],
+  "lastUpdated": 1779994870672
+}
