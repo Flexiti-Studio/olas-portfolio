@@ -81,7 +81,27 @@
       "command": "npm run dev",
       "timestamp": 1781129140383,
       "cwd": "c:\\Users\\HP\\Documents\\GitHub\\flexiti studio project\\olas-portfolio"
+    },
+    {
+      "command": "git add .",
+      "timestamp": 1781130097673,
+      "cwd": "c:\\Users\\HP\\Documents\\GitHub\\flexiti studio project\\olas-portfolio"
+    },
+    {
+      "command": "git commit -m \"fixed errors \"",
+      "timestamp": 1781130116604,
+      "cwd": "c:\\Users\\HP\\Documents\\GitHub\\flexiti studio project\\olas-portfolio"
+    },
+    {
+      "command": "git push origin",
+      "timestamp": 1781130135287,
+      "cwd": "c:\\Users\\HP\\Documents\\GitHub\\flexiti studio project\\olas-portfolio"
+    },
+    {
+      "command": "npm run dev",
+      "timestamp": 1781130385519,
+      "cwd": "c:\\Users\\HP\\Documents\\GitHub\\flexiti studio project\\olas-portfolio"
     }
   ],
-  "lastUpdated": 1781129140383
+  "lastUpdated": 1781130385519
 }
