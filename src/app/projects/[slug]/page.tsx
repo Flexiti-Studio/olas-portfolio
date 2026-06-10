@@ -3,6 +3,7 @@ import Link from "next/link";
 import { client } from "@/sanity/lib/client";
 import { urlForImage } from "@/sanity/lib/image";
 import { notFound } from "next/navigation";
+import { ProjectGallery } from "@/components/sections/ProjectGallery";
 
 // Optional: you can define fallback data for predefined routes if Sanity is empty
 const fallbackProjects: Record<string, any> = {
@@ -16,7 +17,12 @@ const fallbackProjects: Record<string, any> = {
     challenge: "Managing tasks across multiple staff members is often fragmented and error-prone. The school needed a centralized dashboard that could handle daily tasks, provide real-time tracking, and generate AI-powered course materials without latency.",
     solution: "I built a custom Single Page Application (SPA) using React and Next.js for server-side rendering to ensure fast load times. The backend utilizes a scalable Node.js architecture with MongoDB to handle high-frequency data requests.",
     tags: ['React.js', 'Next.js', 'TypeScript', 'Tailwind CSS', 'Node.js', 'MongoDB', 'OpenAI API'],
-    image: "https://lh3.googleusercontent.com/aida-public/AB6AXuA_ZzGJTkBSxF-0BGCgqFa_O37EgqoFkxL5JT2dThGoy89TcU5xMDpSJrFuNQH_Eam9GuwRB-4ucRCyl-18XHkZf2d8xhYJf0R19XN7ZmIrPQdqPrKtS-B941GbKONJLqwPCrIxz-PXfP3_wpQCh0LZMx75-5MT8ebOKnpCU5gVHHkSGTwIuUPdJRGSsyFB0SmNNKBQjaQrn1MgqJT4t0-egqadcwzG1YhKjoxmjpAPtYt0IVAKnLCAMcm7i2HITbmPeUfka-ad08bH"
+    image: "https://lh3.googleusercontent.com/aida-public/AB6AXuA_ZzGJTkBSxF-0BGCgqFa_O37EgqoFkxL5JT2dThGoy89TcU5xMDpSJrFuNQH_Eam9GuwRB-4ucRCyl-18XHkZf2d8xhYJf0R19XN7ZmIrPQdqPrKtS-B941GbKONJLqwPCrIxz-PXfP3_wpQCh0LZMx75-5MT8ebOKnpCU5gVHHkSGTwIuUPdJRGSsyFB0SmNNKBQjaQrn1MgqJT4t0-egqadcwzG1YhKjoxmjpAPtYt0IVAKnLCAMcm7i2HITbmPeUfka-ad08bH",
+    images: [
+      "https://lh3.googleusercontent.com/aida-public/AB6AXuA_ZzGJTkBSxF-0BGCgqFa_O37EgqoFkxL5JT2dThGoy89TcU5xMDpSJrFuNQH_Eam9GuwRB-4ucRCyl-18XHkZf2d8xhYJf0R19XN7ZmIrPQdqPrKtS-B941GbKONJLqwPCrIxz-PXfP3_wpQCh0LZMx75-5MT8ebOKnpCU5gVHHkSGTwIuUPdJRGSsyFB0SmNNKBQjaQrn1MgqJT4t0-egqadcwzG1YhKjoxmjpAPtYt0IVAKnLCAMcm7i2HITbmPeUfka-ad08bH",
+      "https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=2015&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1964&auto=format&fit=crop"
+    ]
   },
   "fintrack-saas": {
     title: "FinTrack SaaS",
@@ -27,12 +33,17 @@ const fallbackProjects: Record<string, any> = {
     challenge: "Users needed a fast, reliable way to view financial charts on the go.",
     solution: "Implemented highly optimized chart components and a robust offline-first architecture.",
     tags: ["React", "Node.js", "PostgreSQL"],
-    image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=2070&auto=format&fit=crop"
+    image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=2070&auto=format&fit=crop",
+    images: [
+      "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=2070&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=2015&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1964&auto=format&fit=crop"
+    ]
   }
 };
 
-export default async function ProjectDetailsPage({ params }: { params: { slug: string } }) {
-  const { slug } = params;
+export default async function ProjectDetailsPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
   let project = fallbackProjects[slug];
 
   try {
@@ -44,7 +55,10 @@ export default async function ProjectDetailsPage({ params }: { params: { slug: s
       if (sanityProject) {
         project = {
           ...sanityProject,
-          image: sanityProject.image ? urlForImage(sanityProject.image)?.url() : null
+          image: sanityProject.image ? urlForImage(sanityProject.image)?.url() : null,
+          images: sanityProject.images && Array.isArray(sanityProject.images)
+            ? sanityProject.images.map((img: any) => urlForImage(img)?.url()).filter(Boolean)
+            : []
         };
       }
     }
@@ -59,6 +73,7 @@ export default async function ProjectDetailsPage({ params }: { params: { slug: s
       description: "Detailed case study for this project is currently being updated.",
       tags: ["Web", "Design"],
       image: "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?q=80&w=2071&auto=format&fit=crop",
+      images: [],
       challenge: "Details coming soon.",
       solution: "Details coming soon.",
       role: "Developer",
@@ -117,13 +132,11 @@ export default async function ProjectDetailsPage({ params }: { params: { slug: s
               </div>
             </div>
             
-            <div className="order-1 lg:order-2 w-full h-full min-h-[300px] lg:min-h-[400px] rounded-[2rem] overflow-hidden shadow-2xl bg-[#1a2333] relative group border border-[#e5e7eb] dark:border-[#222f49]">
-              <div className="absolute inset-0 bg-gradient-to-tr from-primary/20 to-transparent opacity-60 z-10 pointer-events-none mix-blend-overlay"></div>
-              <div 
-                className="w-full h-full bg-cover bg-center transition-transform duration-700 group-hover:scale-105" 
-                style={{ backgroundImage: `url('${project.image}')` }}
-              ></div>
-            </div>
+            <ProjectGallery 
+              mainImage={project.image} 
+              images={project.images || []} 
+              title={project.title} 
+            />
           </section>
 
           {/* Project Stats */}

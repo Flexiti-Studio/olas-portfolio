@@ -89,5 +89,12 @@ export const projectType = defineType({
       type: 'image',
       options: { hotspot: true },
     }),
+    defineField({
+      name: 'images',
+      title: 'Project Gallery / Screenshots',
+      type: 'array',
+      of: [{ type: 'image', options: { hotspot: true } }],
+      description: 'Upload additional screenshots/images for the project details slider.',
+    }),
   ],
 })

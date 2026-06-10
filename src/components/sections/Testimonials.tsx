@@ -6,7 +6,7 @@ export function Testimonials() {
   ];
 
   return (
-    <section className="w-full px-4 md:px-10 py-20 max-w-[1280px]" id="testimonials">
+    <section className="w-full px-4 md:px-10 py-20 max-w-[1280px] mx-auto" id="testimonials">
       <div className="flex flex-col items-center text-center mb-12">
         <h2 className="text-[#111418] dark:text-white text-3xl md:text-4xl font-bold leading-tight tracking-[-0.015em] mb-4">What People Say</h2>
       </div>
