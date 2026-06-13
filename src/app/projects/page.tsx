@@ -4,6 +4,8 @@ import { FilterableProjects } from "@/components/sections/FilterableProjects";
 import { client } from '@/sanity/lib/client';
 import { urlForImage } from '@/sanity/lib/image';
 
+export const dynamic = 'force-dynamic';
+
 const fallbackProjects = [
   {
     title: "FinTrack SaaS",
@@ -118,7 +120,7 @@ export default async function ProjectsPage() {
   }
 
   return (
-    <div className="bg-background-light dark:bg-[#101623] text-[#111418] dark:text-white font-display overflow-x-hidden flex flex-col min-h-screen">
+    <div className="bg-background-light dark:bg-[#101623] text-[#111418] dark:text-white font-display flex flex-col min-h-screen">
       <Header />
       <main className="flex-grow pt-12 pb-20 px-4 sm:px-6 lg:px-10">
         <div className="max-w-[1280px] mx-auto space-y-12">

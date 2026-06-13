@@ -179,7 +179,7 @@ export default async function ProjectDetailsPage({ params }: { params: Promise<{
   }
 
   return (
-    <div className="bg-background-light dark:bg-[#101623] text-[#111418] dark:text-white font-display overflow-x-hidden flex flex-col min-h-screen transition-colors duration-300">
+    <div className="bg-background-light dark:bg-[#101623] text-[#111418] dark:text-white font-display flex flex-col min-h-screen transition-colors duration-300">
       <Header />
       
       <main className="flex-grow flex flex-col items-center w-full py-8 md:py-12">

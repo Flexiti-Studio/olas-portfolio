@@ -36,7 +36,7 @@ export default async function Home() {
   }
 
   return (
-    <div className="bg-background-light dark:bg-background-dark text-[#111418] dark:text-white font-display overflow-x-hidden flex flex-col min-h-screen">
+    <div className="bg-background-light dark:bg-background-dark text-[#111418] dark:text-white font-display flex flex-col min-h-screen">
       <Header />
       <main className="flex-grow flex flex-col items-center w-full">
         <ScrollReveal className="w-full" direction="none">

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Space_Grotesk, Noto_Sans } from "next/font/google";
 import "./globals.css";
+import { SmoothScroll } from "@/components/layout/SmoothScroll";
 
 const spaceGrotesk = Space_Grotesk({
   variable: "--font-space-grotesk",
@@ -26,7 +27,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`scroll-smooth ${spaceGrotesk.variable} ${notoSans.variable} h-full antialiased dark`}
+      className={`scroll-smooth ${spaceGrotesk.variable} ${notoSans.variable} antialiased dark`}
     >
       <head>
         <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
@@ -44,7 +45,10 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body suppressHydrationWarning className="min-h-full flex flex-col">{children}</body>
+      <body suppressHydrationWarning className="min-h-screen flex flex-col overflow-x-hidden">
+        <SmoothScroll />
+        {children}
+      </body>
     </html>
   );
 }

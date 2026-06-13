@@ -52,7 +52,7 @@ export default function ContactPage() {
   };
 
   return (
-    <div className="bg-background-light dark:bg-[#101623] text-[#111418] dark:text-white font-display overflow-x-hidden flex flex-col min-h-screen transition-colors duration-300">
+    <div className="bg-background-light dark:bg-[#101623] text-[#111418] dark:text-white font-display flex flex-col min-h-screen transition-colors duration-300">
       <Header />
 
       <main className="flex-grow flex flex-col items-center justify-center w-full px-4 md:px-10 lg:px-40 py-12 md:py-20">
