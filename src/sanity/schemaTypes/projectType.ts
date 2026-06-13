@@ -25,6 +25,13 @@ export const projectType = defineType({
       description: 'e.g., SaaS, Mobile, AI/ML',
     }),
     defineField({
+      name: 'categories',
+      title: 'Categories',
+      type: 'array',
+      of: [{ type: 'reference', to: [{ type: 'category' }] }],
+      description: 'Select the categories this project belongs to.',
+    }),
+    defineField({
       name: 'description',
       title: 'Short Description',
       type: 'text',
@@ -57,6 +64,12 @@ export const projectType = defineType({
     defineField({
       name: 'solution',
       title: 'The Solution',
+      type: 'text',
+      rows: 5,
+    }),
+    defineField({
+      name: 'result',
+      title: 'The Result',
       type: 'text',
       rows: 5,
     }),

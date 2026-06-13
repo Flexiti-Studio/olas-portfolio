@@ -8,28 +8,32 @@ const dummyProjects = [
     description: 'A staff productivity and educational management system for QEFAS. Features daily task management, video course uploads, AI-generated course materials, and staff productivity tracking.',
     tags: ['Next.js', 'Node.js', 'MongoDB', 'Bunny.net', 'AI APIs'],
     image: 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?q=80&w=2071&auto=format&fit=crop',
-    slug: 'qefas-hub'
+    slug: 'qefas-hub',
+    categories: [{ title: 'Web App', slug: 'web-app' }]
   },
   {
     title: 'FlexBZ',
     description: 'A SaaS platform helping businesses manage inventory and monitor sales trends. Includes barcode generation, product scanning, and analytics dashboard.',
     tags: ['React', 'Node.js', 'MongoDB', 'Camera APIs'],
     image: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=2015&auto=format&fit=crop',
-    slug: 'flexbz'
+    slug: 'flexbz',
+    categories: [{ title: 'Web App', slug: 'web-app' }]
   },
   {
     title: 'Flexiti Studio',
     description: 'A digital agency focused on building MVPs, SaaS products, AI systems, web applications, and mobile apps.',
     tags: ['Startup product development', 'Product strategy', 'UI implementation'],
     image: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?q=80&w=2070&auto=format&fit=crop',
-    slug: 'flexiti-studio'
+    slug: 'flexiti-studio',
+    categories: [{ title: 'Design', slug: 'design' }]
   },
   {
     title: 'AI Chatbot System',
     description: 'An AI assistant capable of website chat, WhatsApp integration, Telegram integration, and intelligent customer support with AI-generated responses.',
     tags: ['OpenAI', 'Node.js', 'APIs', 'Automation Workflows'],
     image: 'https://images.unsplash.com/photo-1677442136019-21780ecad995?q=80&w=1932&auto=format&fit=crop',
-    slug: 'ai-chatbot-system'
+    slug: 'ai-chatbot-system',
+    categories: [{ title: 'Open Source', slug: 'open-source' }]
   }
 ];
 
@@ -43,7 +47,11 @@ export async function Projects() {
         "slug": slug.current,
         description,
         tags,
-        image
+        image,
+        categories[]->{
+          title,
+          "slug": slug.current
+        }
       }`);
       
       if (sanityProjects && sanityProjects.length > 0) {
@@ -76,6 +84,21 @@ export async function Projects() {
                 className="w-full h-full bg-center bg-no-repeat bg-cover transition-transform duration-700 group-hover:scale-105" 
                 style={{ backgroundImage: `url("${project.image || 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?q=80&w=2071&auto=format&fit=crop'}")` }}>
               </div>
+              
+              {/* Floating Category Pills */}
+              {project.categories && project.categories.length > 0 && (
+                <div className="absolute top-4 right-4 z-20 flex flex-wrap justify-end gap-1.5 max-w-[80%]">
+                  {project.categories.map((cat: any) => (
+                    <span
+                      key={cat.slug}
+                      className="px-2.5 py-0.5 bg-black/60 backdrop-blur-md border border-white/20 rounded-full text-[10px] font-bold text-white shadow-lg"
+                    >
+                      {cat.title}
+                    </span>
+                  ))}
+                </div>
+              )}
+
               <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
                 <span className="bg-white text-black px-6 py-2 rounded-full font-bold transform translate-y-4 group-hover:translate-y-0 transition-transform shadow-xl">View Details</span>
               </div>
@@ -84,7 +107,7 @@ export async function Projects() {
               <div className="flex justify-between items-start mb-3">
                 <h3 className="text-[#111418] dark:text-white text-2xl font-bold leading-normal group-hover:text-primary transition-colors">{project.title}</h3>
               </div>
-              <p className="text-[#637588] dark:text-[#90a4cb] text-base font-normal leading-relaxed mb-6">
+              <p className="text-[#637588] dark:text-[#90a4cb] text-base font-normal leading-relaxed mb-6 line-clamp-3">
                 {project.description}
               </p>
               <div className="flex flex-wrap gap-2">

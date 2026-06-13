@@ -1,5 +1,5 @@
 import { Header } from "@/components/layout/Header";
-import Link from "next/link";
+import { FilterableProjects } from "@/components/sections/FilterableProjects";
 
 import { client } from '@/sanity/lib/client';
 import { urlForImage } from '@/sanity/lib/image';
@@ -55,19 +55,52 @@ const fallbackProjects = [
   }
 ];
 
+const fallbackCategories = [
+  { title: "Web App", slug: "web-app" },
+  { title: "Mobile", slug: "mobile" },
+  { title: "Open Source", slug: "open-source" }
+];
+
+const fallbackProjectsWithCategories = fallbackProjects.map(p => {
+  let cats: { title: string; slug: string }[] = [];
+  if (p.type === "SaaS" || p.type === "Backend" || p.type === "Healthcare" || p.type === "Web3" || p.type === "AI/ML") {
+    cats.push({ title: "Web App", slug: "web-app" });
+  } else if (p.type === "Mobile") {
+    cats.push({ title: "Mobile", slug: "mobile" });
+  }
+  if (p.type === "AI/ML" || p.type === "Web3") {
+    cats.push({ title: "Open Source", slug: "open-source" });
+  }
+  return {
+    ...p,
+    categories: cats
+  };
+});
+
 export default async function ProjectsPage() {
-  let allProjects = fallbackProjects;
+  let allProjects = fallbackProjectsWithCategories;
+  let allCategories = fallbackCategories;
 
   try {
     if (client) {
-      const sanityProjects = await client.fetch(`*[_type == "project"] | order(_createdAt desc) {
-        title,
-        "slug": slug.current,
-        type,
-        description,
-        tags,
-        image
-      }`);
+      const [sanityProjects, sanityCategories] = await Promise.all([
+        client.fetch(`*[_type == "project"] | order(_createdAt desc) {
+          title,
+          "slug": slug.current,
+          type,
+          categories[]->{
+            title,
+            "slug": slug.current
+          },
+          description,
+          tags,
+          image
+        }`),
+        client.fetch(`*[_type == "category"] | order(title asc) {
+          title,
+          "slug": slug.current
+        }`)
+      ]);
       
       if (sanityProjects && sanityProjects.length > 0) {
         allProjects = sanityProjects.map((p: any) => ({
@@ -75,9 +108,13 @@ export default async function ProjectsPage() {
           image: p.image ? urlForImage(p.image)?.url() : 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?q=80&w=2071&auto=format&fit=crop'
         }));
       }
+
+      if (sanityCategories && sanityCategories.length > 0) {
+        allCategories = sanityCategories;
+      }
     }
   } catch (error) {
-    console.error("Failed to fetch all projects from Sanity, using dummy data:", error);
+    console.error("Failed to fetch data from Sanity, using dummy data:", error);
   }
 
   return (
@@ -97,73 +134,7 @@ export default async function ProjectsPage() {
             </div>
           </header>
 
-          {/* Filters */}
-          <div className="flex flex-wrap gap-3 py-4 border-b border-[#e5e7eb] dark:border-[#222f49]">
-            <button className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium shadow-[0_0_15px_rgba(13,89,242,0.2)] transition-all">
-              <span className="material-symbols-outlined text-[18px]">apps</span>
-              All Projects
-            </button>
-            <button className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#182234] hover:bg-gray-50 dark:hover:bg-[#1e2b42] border border-[#e5e7eb] dark:border-[#222f49] text-[#637588] dark:text-[#90a4cb] hover:text-[#111418] dark:hover:text-white text-sm font-medium transition-all group">
-              <span className="material-symbols-outlined text-[18px] group-hover:text-primary transition-colors">public</span>
-              Web App
-            </button>
-            <button className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#182234] hover:bg-gray-50 dark:hover:bg-[#1e2b42] border border-[#e5e7eb] dark:border-[#222f49] text-[#637588] dark:text-[#90a4cb] hover:text-[#111418] dark:hover:text-white text-sm font-medium transition-all group">
-              <span className="material-symbols-outlined text-[18px] group-hover:text-primary transition-colors">smartphone</span>
-              Mobile
-            </button>
-            <button className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#182234] hover:bg-gray-50 dark:hover:bg-[#1e2b42] border border-[#e5e7eb] dark:border-[#222f49] text-[#637588] dark:text-[#90a4cb] hover:text-[#111418] dark:hover:text-white text-sm font-medium transition-all group">
-              <span className="material-symbols-outlined text-[18px] group-hover:text-primary transition-colors">terminal</span>
-              Open Source
-            </button>
-          </div>
-
-          {/* Projects Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {allProjects.map((project, index) => (
-              <article key={index} className="group relative flex flex-col bg-white dark:bg-[#182234] border border-[#e5e7eb] dark:border-[#222f49] rounded-2xl overflow-hidden transition-all duration-300 hover:border-primary/50 hover:shadow-[0_0_15px_rgba(13,89,242,0.2)] hover:-translate-y-1">
-                <div className="relative w-full aspect-[4/3] overflow-hidden">
-                  <div className="absolute inset-0 bg-gradient-to-t from-white dark:from-[#182234] via-transparent to-transparent opacity-60 z-10 pointer-events-none"></div>
-                  <div 
-                    className="w-full h-full bg-cover bg-center transition-transform duration-700 group-hover:scale-105" 
-                    style={{ backgroundImage: `url('${project.image}')` }}
-                  ></div>
-                  {/* Floating Tech Pill */}
-                  {project.type && (
-                    <div className="absolute top-4 right-4 z-20 flex flex-wrap justify-end gap-2">
-                      <span className="px-3 py-1 bg-black/60 backdrop-blur-md border border-white/20 rounded-full text-xs font-bold text-white shadow-lg">{project.type}</span>
-                    </div>
-                  )}
-                </div>
-                
-                <div className="flex flex-col flex-grow p-6 gap-4 z-20">
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-start">
-                      <h3 className="text-xl font-bold text-[#111418] dark:text-white group-hover:text-primary transition-colors">{project.title}</h3>
-                      <span className="material-symbols-outlined text-[#637588] dark:text-[#90a4cb] group-hover:text-primary transition-transform group-hover:rotate-45">arrow_outward</span>
-                    </div>
-                    <p className="text-[#637588] dark:text-[#90a4cb] text-sm leading-relaxed line-clamp-2">
-                      {project.description}
-                    </p>
-                  </div>
-                  
-                  <div className="mt-auto pt-4 border-t border-[#e5e7eb] dark:border-[#222f49] flex flex-wrap gap-2">
-                    {project.tags?.map((tag: string) => (
-                      <span key={tag} className="px-2 py-1 bg-primary/10 text-primary text-xs font-bold rounded-md font-mono">{tag}</span>
-                    ))}
-                  </div>
-                </div>
-                <Link href={`/projects/${project.slug || project.title.toLowerCase().replace(/\s+/g, '-')}`} aria-label={`View ${project.title}`} className="absolute inset-0 z-30"></Link>
-              </article>
-            ))}
-          </div>
-
-          {/* View More Button */}
-          <div className="flex justify-center pt-10">
-            <button className="group flex items-center gap-3 px-8 py-3 rounded-xl border border-[#e5e7eb] dark:border-[#222f49] bg-white dark:bg-[#182234] hover:bg-gray-50 dark:hover:bg-[#1e2b42] transition-all hover:border-primary/50 shadow-sm">
-              <span className="text-sm font-bold text-[#111418] dark:text-white">Load More Projects</span>
-              <span className="material-symbols-outlined text-primary group-hover:translate-y-1 transition-transform">expand_more</span>
-            </button>
-          </div>
+          <FilterableProjects projects={allProjects} categories={allCategories} />
         </div>
       </main>
     </div>

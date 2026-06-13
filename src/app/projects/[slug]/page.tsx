@@ -5,6 +5,8 @@ import { urlForImage } from "@/sanity/lib/image";
 import { notFound } from "next/navigation";
 import { ProjectGallery } from "@/components/sections/ProjectGallery";
 
+export const dynamic = 'force-dynamic';
+
 // Optional: you can define fallback data for predefined routes if Sanity is empty
 const fallbackProjects: Record<string, any> = {
   "qefas-hub": {
@@ -16,6 +18,7 @@ const fallbackProjects: Record<string, any> = {
     team: "Lead Developer",
     challenge: "Managing tasks across multiple staff members is often fragmented and error-prone. The school needed a centralized dashboard that could handle daily tasks, provide real-time tracking, and generate AI-powered course materials without latency.",
     solution: "I built a custom Single Page Application (SPA) using React and Next.js for server-side rendering to ensure fast load times. The backend utilizes a scalable Node.js architecture with MongoDB to handle high-frequency data requests.",
+    result: "The platform successfully centralized task management, resulting in a 40% increase in staff productivity, over 500 AI-generated course materials produced, and zero database latency during peak usage.",
     tags: ['React.js', 'Next.js', 'TypeScript', 'Tailwind CSS', 'Node.js', 'MongoDB', 'OpenAI API'],
     image: "https://lh3.googleusercontent.com/aida-public/AB6AXuA_ZzGJTkBSxF-0BGCgqFa_O37EgqoFkxL5JT2dThGoy89TcU5xMDpSJrFuNQH_Eam9GuwRB-4ucRCyl-18XHkZf2d8xhYJf0R19XN7ZmIrPQdqPrKtS-B941GbKONJLqwPCrIxz-PXfP3_wpQCh0LZMx75-5MT8ebOKnpCU5gVHHkSGTwIuUPdJRGSsyFB0SmNNKBQjaQrn1MgqJT4t0-egqadcwzG1YhKjoxmjpAPtYt0IVAKnLCAMcm7i2HITbmPeUfka-ad08bH",
     images: [
@@ -32,6 +35,7 @@ const fallbackProjects: Record<string, any> = {
     team: "Solo",
     challenge: "Users needed a fast, reliable way to view financial charts on the go.",
     solution: "Implemented highly optimized chart components and a robust offline-first architecture.",
+    result: "Successfully improved user engagement by 25% and reduced load times by 50% for mobile clients using the offline-first dashboard.",
     tags: ["React", "Node.js", "PostgreSQL"],
     image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=2070&auto=format&fit=crop",
     images: [
@@ -42,6 +46,91 @@ const fallbackProjects: Record<string, any> = {
   }
 };
 
+function formatInlineText(text: string) {
+  const parts = text.split(/(\*\*.*?\*\*)/g);
+  return parts.map((part, index) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={index} className="font-extrabold text-[#111418] dark:text-white">{part.slice(2, -2)}</strong>;
+    }
+    return part;
+  });
+}
+
+function renderFormattedText(text: string) {
+  if (!text) {
+    return (
+      <p className="text-[#637588] dark:text-[#90a4cb] leading-relaxed text-lg font-medium">
+        Information currently unavailable.
+      </p>
+    );
+  }
+
+  const lines = text.split('\n');
+  const elements: React.ReactNode[] = [];
+  let currentList: React.ReactNode[] = [];
+  let listType: 'ul' | 'ol' | null = null;
+  let keyCounter = 0;
+
+  const flushList = () => {
+    if (currentList.length > 0) {
+      if (listType === 'ul') {
+        elements.push(
+          <ul key={`ul-${keyCounter++}`} className="list-disc pl-6 my-4 space-y-2 text-[#637588] dark:text-[#90a4cb] text-lg font-medium">
+            {currentList}
+          </ul>
+        );
+      } else if (listType === 'ol') {
+        elements.push(
+          <ol key={`ol-${keyCounter++}`} className="list-decimal pl-6 my-4 space-y-2 text-[#637588] dark:text-[#90a4cb] text-lg font-medium">
+            {currentList}
+          </ol>
+        );
+      }
+      currentList = [];
+      listType = null;
+    }
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    // Check for bullet list item: starts with -, *, or •
+    const bulletMatch = trimmed.match(/^[-*•]\s+(.*)$/);
+    // Check for numbered list item: starts with numbers like 1., 2.
+    const numberMatch = trimmed.match(/^(\d+)\.\s+(.*)$/);
+
+    if (bulletMatch) {
+      if (listType !== 'ul') {
+        flushList();
+        listType = 'ul';
+      }
+      currentList.push(<li key={`li-${keyCounter++}`} className="leading-relaxed">{formatInlineText(bulletMatch[1])}</li>);
+    } else if (numberMatch) {
+      if (listType !== 'ol') {
+        flushList();
+        listType = 'ol';
+      }
+      currentList.push(<li key={`li-${keyCounter++}`} className="leading-relaxed">{formatInlineText(numberMatch[2])}</li>);
+    } else {
+      flushList();
+      if (trimmed === '') {
+        // Empty line acts as a paragraph break or spacing
+        elements.push(<div key={`br-${keyCounter++}`} className="h-2" />);
+      } else {
+        elements.push(
+          <p key={`p-${keyCounter++}`} className="text-[#637588] dark:text-[#90a4cb] leading-relaxed text-lg font-medium my-2">
+            {formatInlineText(line)}
+          </p>
+        );
+      }
+    }
+  }
+  flushList();
+
+  return elements;
+}
+
 export default async function ProjectDetailsPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   let project = fallbackProjects[slug];
@@ -49,7 +138,13 @@ export default async function ProjectDetailsPage({ params }: { params: Promise<{
   try {
     if (client) {
       const sanityProject = await client.fetch(
-        `*[_type == "project" && slug.current == $slug][0]`,
+        `*[_type == "project" && slug.current == $slug][0] {
+          ...,
+          categories[]->{
+            title,
+            "slug": slug.current
+          }
+        }`,
         { slug }
       );
       if (sanityProject) {
@@ -76,6 +171,7 @@ export default async function ProjectDetailsPage({ params }: { params: Promise<{
       images: [],
       challenge: "Details coming soon.",
       solution: "Details coming soon.",
+      result: "Details coming soon.",
       role: "Developer",
       timeline: "2024",
       team: "Solo"
@@ -103,6 +199,15 @@ export default async function ProjectDetailsPage({ params }: { params: Promise<{
           <section className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
             <div className="flex flex-col gap-6 order-2 lg:order-1">
               <div className="space-y-4">
+                {project.categories && project.categories.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {project.categories.map((cat: any) => (
+                      <span key={cat.slug} className="px-3 py-1 bg-primary/10 text-primary text-xs font-bold rounded-full uppercase tracking-wider">
+                        {cat.title}
+                      </span>
+                    ))}
+                  </div>
+                )}
                 <h1 className="text-4xl md:text-5xl lg:text-6xl font-black leading-tight tracking-tight text-[#111418] dark:text-white drop-shadow-sm">
                   {project.title}
                 </h1>
@@ -163,15 +268,32 @@ export default async function ProjectDetailsPage({ params }: { params: Promise<{
               
               {/* Overview */}
               <div className="space-y-6">
-                <h3 className="text-2xl font-black text-[#111418] dark:text-white border-l-4 border-primary pl-4 tracking-tight">The Challenge</h3>
-                <p className="text-[#637588] dark:text-[#90a4cb] leading-relaxed text-lg font-medium whitespace-pre-line">
-                  {project.challenge || "Information currently unavailable."}
-                </p>
+                {project.challenge && (
+                  <>
+                    <h3 className="text-2xl font-black text-[#111418] dark:text-white border-l-4 border-primary pl-4 tracking-tight">The Challenge</h3>
+                    <div className="space-y-2 mb-10">
+                      {renderFormattedText(project.challenge)}
+                    </div>
+                  </>
+                )}
                 
-                <h3 className="text-2xl font-black text-[#111418] dark:text-white border-l-4 border-primary pl-4 mt-10 tracking-tight">The Solution</h3>
-                <p className="text-[#637588] dark:text-[#90a4cb] leading-relaxed text-lg font-medium whitespace-pre-line">
-                  {project.solution || "Information currently unavailable."}
-                </p>
+                {project.solution && (
+                  <>
+                    <h3 className="text-2xl font-black text-[#111418] dark:text-white border-l-4 border-primary pl-4 tracking-tight">The Solution</h3>
+                    <div className="space-y-2 mb-10">
+                      {renderFormattedText(project.solution)}
+                    </div>
+                  </>
+                )}
+
+                {project.result && (
+                  <>
+                    <h3 className="text-2xl font-black text-[#111418] dark:text-white border-l-4 border-primary pl-4 tracking-tight">The Result</h3>
+                    <div className="space-y-2">
+                      {renderFormattedText(project.result)}
+                    </div>
+                  </>
+                )}
               </div>
 
             </div>
