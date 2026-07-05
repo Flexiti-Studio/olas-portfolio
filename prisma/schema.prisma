@@ -1,0 +1,277 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Application {
+  id               String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  job_title        String
+  company          String
+  location         String?
+  job_url          String?
+  job_description  String?
+  source           String?
+  salary_min       Int?
+  salary_max       Int?
+  salary_currency  String?      @default("USD")
+  stage            String?      @default("Wishlist")
+  tags             String[]     @default([])
+  linked_cv_id     String?      @db.Uuid
+  linked_cv_slug   String?
+  cover_letter_url   String?
+  date_applied       DateTime?
+  follow_up_date     DateTime?
+  notes              String?
+  timeline           Json[]       @default([])
+  interviews         Json[]       @default([])
+  offer              Json?
+  stage_history      Json[]       @default([])
+  company_research_id String?
+  created_at         DateTime?    @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime?    @default(now()) @db.Timestamptz(6)
+
+  CoverLetter        CoverLetter[]
+  companyResearch    CompanyResearch[]
+  courses            Course[]
+  
+  @@map("applications")
+}
+
+model CoverLetter {
+  id                  String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  application_id      String?      @db.Uuid
+  linked_cv_id        String?      @db.Uuid
+  linked_cv_slug      String?
+  company             String
+  job_title           String
+  job_description     String?
+  hiring_manager      String?
+  tone                String?
+  length              String?
+  custom_instructions String?
+  slug                String?      @unique
+  versions            Json[]       @default([])
+  current_version     Int?         @default(0)
+  status              String?      @default("draft")
+  created_at          DateTime?    @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime?    @default(now()) @db.Timestamptz(6)
+
+  application         Application? @relation(fields: [application_id], references: [id], onDelete: SetNull)
+  
+  @@map("cover_letters")
+}
+
+model Template {
+  id           String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name         String
+  raw_text     String?
+  pdf_url      String?
+  sections     Json?       @default("{}")
+  is_default   Boolean     @default(false)
+  created_at   DateTime?   @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime?   @default(now()) @db.Timestamptz(6)
+
+  CvRecord     CvRecord[]
+
+  @@map("templates")
+}
+
+model CvRecord {
+  id               String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug             String       @unique
+  job_title        String
+  company          String
+  job_description  String?
+  instructions     String?
+  tone             String?
+  template_id      String?      @db.Uuid
+  versions         Json[]       @default([])
+  current_version  Int?         @default(0)
+  status           String?      @default("draft")
+  created_at       DateTime?    @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime?    @default(now()) @db.Timestamptz(6)
+
+  template         Template?    @relation(fields: [template_id], references: [id], onDelete: SetNull)
+
+  @@map("cv_records")
+}
+
+model Setting {
+  id         String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key        String      @unique
+  value      Json
+  created_at DateTime?   @default(now()) @db.Timestamptz(6)
+  updated_at DateTime?   @default(now()) @db.Timestamptz(6)
+
+  @@map("settings")
+}
+
+model CompanyResearch {
+  id              String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company         String
+  role            String?
+  depth           String?      @default("standard")
+  snapshot        Json?
+  tech_stack      Json?
+  culture         Json?
+  news            Json?
+  interview_intel Json?
+  talking_points  Json?
+  competitors     Json?
+  sources         Json?
+  raw_search_data Json?
+  application_id  String?      @db.Uuid
+  application     Application? @relation(fields: [application_id], references: [id], onDelete: SetNull)
+  created_at      DateTime?    @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime?    @default(now()) @db.Timestamptz(6)
+
+  @@index([company])
+  @@index([application_id])
+  @@map("company_research")
+}
+
+model Course {
+  id                String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title             String
+  description       String?
+  source_type       String          @default("text")
+  source_text       String?
+  focus_areas       String[]        @default([])
+  depth             String          @default("standard")
+  estimated_duration String?
+  application_id    String?         @db.Uuid
+  application       Application?    @relation(fields: [application_id], references: [id], onDelete: SetNull)
+  modules           CourseModule[]
+  progress          CourseProgress?
+  created_at        DateTime?       @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime?       @default(now()) @db.Timestamptz(6)
+
+  @@index([application_id])
+  @@map("courses")
+}
+
+model CourseModule {
+  id          String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  course_id   String      @db.Uuid
+  course      Course      @relation(fields: [course_id], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  order       Int
+  lessons     Lesson[]
+  quiz        Quiz?
+  flashcards  Flashcard[]
+  created_at  DateTime?   @default(now()) @db.Timestamptz(6)
+
+  @@index([course_id])
+  @@map("course_modules")
+}
+
+model Lesson {
+  id                String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  module_id         String       @db.Uuid
+  module            CourseModule @relation(fields: [module_id], references: [id], onDelete: Cascade)
+  title             String
+  order             Int
+  estimated_minutes Int          @default(5)
+  content           Json
+  completed         Boolean      @default(false)
+  completed_at      DateTime?
+  created_at        DateTime?    @default(now()) @db.Timestamptz(6)
+
+  @@index([module_id])
+  @@map("lessons")
+}
+
+model Quiz {
+  id         String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  module_id  String        @unique @db.Uuid
+  module     CourseModule  @relation(fields: [module_id], references: [id], onDelete: Cascade)
+  questions  Json
+  attempts   QuizAttempt[]
+  created_at DateTime?     @default(now()) @db.Timestamptz(6)
+
+  @@map("quizzes")
+}
+
+model QuizAttempt {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  quiz_id      String   @db.Uuid
+  quiz         Quiz     @relation(fields: [quiz_id], references: [id], onDelete: Cascade)
+  answers      Json
+  score        Int
+  passed       Boolean
+  completed_at DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@index([quiz_id])
+  @@map("quiz_attempts")
+}
+
+model Flashcard {
+  id         String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  module_id  String            @db.Uuid
+  module     CourseModule      @relation(fields: [module_id], references: [id], onDelete: Cascade)
+  front      String
+  back       String
+  ratings    FlashcardRating[]
+  created_at DateTime?         @default(now()) @db.Timestamptz(6)
+
+  @@index([module_id])
+  @@map("flashcards")
+}
+
+model FlashcardRating {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  flashcard_id String    @db.Uuid
+  flashcard    Flashcard @relation(fields: [flashcard_id], references: [id], onDelete: Cascade)
+  rating       String
+  rated_at     DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@index([flashcard_id])
+  @@map("flashcard_ratings")
+}
+
+model CourseProgress {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  course_id           String   @unique @db.Uuid
+  course              Course   @relation(fields: [course_id], references: [id], onDelete: Cascade)
+  completed_lessons   String[]
+  current_module_id   String?
+  current_lesson_id   String?
+  overall_percentage  Int      @default(0)
+  flashcard_mastery   Int      @default(0)
+  flashcard_history   Json[]   @default([])
+  quiz_average        Int      @default(0)
+  assessment_history  Json[]   @default([])
+  last_studied_at     DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@map("course_progress")
+}
+
+model TaskProfile {
+  id             String   @id @default("task-profile")
+  personal_info  Json     @default("{}")
+  experience     Json[]   @default([])
+  projects       Json[]   @default([])
+  skills         Json[]   @default([])
+  education      Json[]   @default([])
+  certifications Json[]   @default([])
+  base_prompt    String?
+}
+
+model TaskApplication {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  job_description    String
+  cv_content         Json
+  cover_letter       String
+  job_url            String?
+  screenshot_url     String?
+  status             String   @default("Applied")
+  created_at         DateTime @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime @default(now()) @db.Timestamptz(6)
+}

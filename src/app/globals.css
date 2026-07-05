@@ -11,6 +11,30 @@
   --font-body: var(--font-noto-sans), "Noto Sans", sans-serif;
 }
 
-html {
-  scroll-behavior: smooth;
+/* Lenis smooth scrolling recommendations */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+.lenis.lenis-scrolling iframe {
+  pointer-events: none;
+}
+
+@media print {
+  @page {
+    margin: 0;
+  }
 }
