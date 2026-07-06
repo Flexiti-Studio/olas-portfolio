@@ -47,10 +47,12 @@ export default function TaskApplier() {
   const [generatedCoverLetter, setGeneratedCoverLetter] = useState<string>("");
   const [companyName, setCompanyName] = useState<string>("");
   const [history, setHistory] = useState<any[]>([]);
+  const [allApplications, setAllApplications] = useState<any[]>([]);
 
   // Fetch history on mount
   useEffect(() => {
     fetchHistory();
+    fetchAllApps();
   }, []);
 
   const fetchHistory = async () => {
@@ -59,6 +61,18 @@ export default function TaskApplier() {
       if (res.ok) {
         const data = await res.json();
         setHistory(data);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const fetchAllApps = async () => {
+    try {
+      const res = await fetch("/api/applications");
+      if (res.ok) {
+        const data = await res.json();
+        setAllApplications(data);
       }
     } catch (e) {
       console.error(e);
@@ -89,7 +103,13 @@ export default function TaskApplier() {
         setGeneratedCv(data.cv);
         const cl = data.coverLetter || data.cover_letter || "";
         setGeneratedCoverLetter(typeof cl === 'object' ? JSON.stringify(cl, null, 2) : cl);
-        setCompanyName(data.companyName || "Unknown Company");
+        const genCompany = data.companyName || "Unknown Company";
+        setCompanyName(genCompany);
+        
+        const alreadyApplied = allApplications.some((app: any) => app.company?.toLowerCase() === genCompany.toLowerCase());
+        if (alreadyApplied) {
+          alert(`Warning: You have already applied to ${genCompany}! You cannot apply again.`);
+        }
       } else {
         alert("Error generating: " + data.error);
       }
@@ -99,6 +119,8 @@ export default function TaskApplier() {
     
     setIsGenerating(false);
   };
+
+  const isAlreadyApplied = Boolean(companyName && allApplications.some((app: any) => app.company?.toLowerCase() === companyName.toLowerCase()));
 
   const handleAccept = async () => {
     setIsAccepting(true);
@@ -317,13 +339,22 @@ export default function TaskApplier() {
             </div>
 
             <div className="p-4 bg-zinc-900 border-t border-zinc-800 shrink-0 print:hidden">
+              {isAlreadyApplied && (
+                <div className="mb-3 text-red-500 text-sm font-medium text-center bg-red-500/10 py-2 rounded-lg border border-red-500/20">
+                  You have already applied to {companyName}. Application blocked.
+                </div>
+              )}
               <button 
                 onClick={handleAccept}
-                disabled={isAccepting}
-                className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 rounded-xl font-bold flex items-center justify-center gap-2"
+                disabled={isAccepting || isAlreadyApplied}
+                className={`w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors ${
+                  isAlreadyApplied 
+                    ? "bg-zinc-800 text-zinc-500 cursor-not-allowed" 
+                    : "bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50"
+                }`}
               >
                 {isAccepting ? <Loader2 className="animate-spin" size={20}/> : <CheckCircle2 size={20}/>}
-                Download PDF & Accept
+                {isAlreadyApplied ? "Already Applied" : "Download PDF & Accept"}
               </button>
             </div>
           </>

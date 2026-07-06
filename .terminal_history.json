@@ -346,7 +346,22 @@
       "command": "& \"C:\\Users\\HP\\AppData\\Local\\Temp\\wshist_z39ol.ps1\"; Remove-Item \"C:\\Users\\HP\\AppData\\Local\\Temp\\wshist_z39ol.ps1\" -ErrorAction SilentlyContinue",
       "timestamp": 1783315631376,
       "cwd": "c:\\Users\\HP\\Documents\\GitHub\\flexiti studio project\\olas-portfolio"
+    },
+    {
+      "command": "git add .",
+      "timestamp": 1783315677407,
+      "cwd": "c:\\Users\\HP\\Documents\\GitHub\\flexiti studio project\\olas-portfolio"
+    },
+    {
+      "command": "git commit -m \"task build complete3\"",
+      "timestamp": 1783315681831,
+      "cwd": "c:\\Users\\HP\\Documents\\GitHub\\flexiti studio project\\olas-portfolio"
+    },
+    {
+      "command": "git push origin",
+      "timestamp": 1783315688137,
+      "cwd": "c:\\Users\\HP\\Documents\\GitHub\\flexiti studio project\\olas-portfolio"
     }
   ],
-  "lastUpdated": 1783315631376
+  "lastUpdated": 1783315688137
 }
