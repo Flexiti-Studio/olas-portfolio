@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { supabase } from '@/lib/supabase';
 
 export async function GET(req: NextRequest) {
   try {
@@ -8,20 +8,23 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get('search');
     const tag = searchParams.get('tag');
 
-    let whereClause: any = {};
-    if (stage) whereClause.stage = stage;
-    if (tag) whereClause.tags = { has: tag };
+    let query = supabase
+      .from('Application')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (stage) {
+      query = query.eq('stage', stage);
+    }
+    if (tag) {
+      query = query.contains('tags', [tag]);
+    }
     if (search) {
-      whereClause.OR = [
-        { company: { contains: search, mode: 'insensitive' } },
-        { job_title: { contains: search, mode: 'insensitive' } }
-      ];
+      query = query.or(`company.ilike.%${search}%,job_title.ilike.%${search}%`);
     }
 
-    const data = await prisma.application.findMany({
-      where: whereClause,
-      orderBy: { created_at: 'desc' }
-    });
+    const { data, error } = await query;
+    if (error) throw error;
 
     return NextResponse.json(data);
   } catch (error: any) {
@@ -33,8 +36,9 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     
-    const data = await prisma.application.create({
-      data: {
+    const { data, error } = await supabase
+      .from('Application')
+      .insert([{
         job_title: body.jobTitle,
         company: body.company,
         stage: body.stage || 'Wishlist',
@@ -43,13 +47,17 @@ export async function POST(req: NextRequest) {
         cover_letter_url: body.cover_letter_url || null,
         linked_cv_id: body.linked_cv_id || null,
         linked_cv_slug: body.linked_cv_slug || null,
-        created_at: body.created_at ? new Date(body.created_at) : new Date(),
+        created_at: body.created_at ? new Date(body.created_at).toISOString() : new Date().toISOString(),
         timeline: [{ event: 'Application Created', date: new Date().toISOString(), auto: true }]
-      }
-    });
+      }])
+      .select()
+      .single();
+
+    if (error) throw error;
 
     return NextResponse.json(data);
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+

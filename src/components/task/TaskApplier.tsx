@@ -48,6 +48,8 @@ export default function TaskApplier() {
   const [companyName, setCompanyName] = useState<string>("");
   const [history, setHistory] = useState<any[]>([]);
   const [allApplications, setAllApplications] = useState<any[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
 
   // Fetch history on mount
   useEffect(() => {
@@ -223,7 +225,7 @@ export default function TaskApplier() {
     <div className="flex flex-col gap-8">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 print:block print:h-auto">
       {/* Left Panel: Inputs */}
-      <div className="flex flex-col gap-6 h-full print:hidden">
+      <div className="flex flex-col gap-6 print:hidden">
         {/* Job Details & Configuration (Moved to Top) */}
         <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6 flex-none flex flex-col">
           <h3 className="text-lg font-semibold mb-4">Job Details & Configuration</h3>
@@ -260,7 +262,7 @@ export default function TaskApplier() {
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto pr-2 space-y-6">
+        <div className="flex-1 pr-2 space-y-6">
           {/* Quick Copy Panel */}
           <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
             <h3 className="text-lg font-semibold mb-4 text-white flex items-center gap-2">
@@ -306,7 +308,7 @@ export default function TaskApplier() {
       </div>
 
       {/* Right Panel: Preview */}
-      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl flex flex-col overflow-hidden h-full print:border-none print:bg-white print:text-black print:overflow-visible print:block">
+      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl flex flex-col overflow-hidden print:border-none print:bg-white print:text-black print:overflow-visible print:block">
         {!generatedCv ? (
           <div className="flex-1 flex flex-col items-center justify-center text-zinc-500 print:hidden">
             <FileText size={48} className="mb-4 opacity-50"/>
@@ -329,7 +331,7 @@ export default function TaskApplier() {
               </button>
             </div>
             
-            <div className="flex-1 overflow-y-auto bg-white print:overflow-visible">
+            <div className="flex-1 bg-white print:overflow-visible">
               <div id="cv-print-container" className={activeTab === "cv" ? "block" : "hidden"}>
                 <AtsCvTemplate data={generatedCv} />
               </div>
@@ -482,19 +484,27 @@ export default function TaskApplier() {
           <p className="text-zinc-500 text-sm">No applications recorded yet.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left">
-              <thead className="text-xs text-zinc-400 uppercase bg-zinc-950 border-b border-zinc-800">
-                <tr>
-                  <th className="px-4 py-3 rounded-tl-lg">Date</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Job Link</th>
-                  <th className="px-4 py-3">Screenshot</th>
-                  <th className="px-4 py-3 rounded-tr-lg">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {history.map((app) => (
-                  <tr key={app.id} className="border-b border-zinc-800/50 hover:bg-zinc-800/20">
+            {(() => {
+              const indexOfLastItem = currentPage * itemsPerPage;
+              const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+              const currentItems = history.slice(indexOfFirstItem, indexOfLastItem);
+              const totalPages = Math.ceil(history.length / itemsPerPage);
+
+              return (
+                <>
+                  <table className="w-full text-sm text-left mb-4">
+                    <thead className="text-xs text-zinc-400 uppercase bg-zinc-950 border-b border-zinc-800">
+                      <tr>
+                        <th className="px-4 py-3 rounded-tl-lg">Date</th>
+                        <th className="px-4 py-3">Status</th>
+                        <th className="px-4 py-3">Job Link</th>
+                        <th className="px-4 py-3">Screenshot</th>
+                        <th className="px-4 py-3 rounded-tr-lg">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {currentItems.map((app) => (
+                        <tr key={app.id} className="border-b border-zinc-800/50 hover:bg-zinc-800/20">
                     <td className="px-4 py-3 text-zinc-300">
                       {new Date(app.created_at).toLocaleDateString()}
                     </td>
@@ -538,6 +548,33 @@ export default function TaskApplier() {
                 ))}
               </tbody>
             </table>
+            
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t border-zinc-800">
+                <span className="text-sm text-zinc-400">
+                  Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, history.length)} of {history.length} entries
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1.5 text-sm bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 disabled:hover:bg-zinc-800 rounded-lg transition-colors"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1.5 text-sm bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 disabled:hover:bg-zinc-800 rounded-lg transition-colors"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
+            </>
+            );
+          })()}
           </div>
         )}
       </div>

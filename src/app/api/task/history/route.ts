@@ -1,15 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { supabase } from "@/lib/supabase";
 
 export async function GET(req: NextRequest) {
   try {
-    const history = await prisma.taskApplication.findMany({
-      orderBy: { created_at: 'desc' },
-      take: 20
-    });
+    const { data: history, error } = await supabase
+      .from('TaskApplication')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    if (error) throw error;
     
     return NextResponse.json(history);
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { FileText, Send } from "lucide-react";
 import TaskApplier from "@/components/task/TaskApplier";
@@ -9,6 +9,28 @@ export default function TaskDashboard() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
+  const [counter, setCounter] = useState<{ sessionCount: number; linkCount: number } | null>(null);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    
+    const fetchCounter = async () => {
+      try {
+        const res = await fetch("/api/task/counter");
+        if (res.ok) {
+          const json = await res.json();
+          if (json.data) setCounter(json.data);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    };
+
+    fetchCounter();
+    const interval = setInterval(fetchCounter, 5000);
+    return () => clearInterval(interval);
+  }, [isAuthenticated]);
+
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,9 +94,9 @@ export default function TaskDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white flex print:bg-white print:text-black">
+    <div className="min-h-screen bg-zinc-950 text-white flex print:bg-white print:text-black print:h-auto print:overflow-visible">
       {/* Sidebar */}
-      <div className="w-64 border-r border-zinc-800 bg-zinc-900/50 flex flex-col hidden md:flex shrink-0 print:hidden">
+      <div className="w-64 border-r border-zinc-800 bg-zinc-900/50 flex flex-col hidden md:flex shrink-0 sticky top-0 h-screen print:hidden">
         <div className="p-6 border-b border-zinc-800">
           <div className="flex items-center gap-2 text-white font-bold text-xl">
             <Send className="text-indigo-500" />
@@ -88,11 +110,30 @@ export default function TaskDashboard() {
             <span className="font-medium">Auto Apply</span>
           </button>
         </div>
+
+        {counter && (
+          <div className="p-6 border-t border-zinc-800">
+            <h3 className="text-sm font-semibold text-zinc-400 mb-3 uppercase tracking-wider">Today's Progress</h3>
+            <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-4">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-zinc-300 text-sm font-medium">Session {counter.sessionCount}</span>
+                <span className="text-indigo-400 text-sm font-bold">{counter.linkCount} / 20</span>
+              </div>
+              <div className="w-full bg-zinc-800 rounded-full h-1.5 mb-1">
+                <div 
+                  className="bg-indigo-500 h-1.5 rounded-full transition-all duration-500" 
+                  style={{ width: `${Math.min(100, (counter.linkCount / 20) * 100)}%` }}
+                ></div>
+              </div>
+              <p className="text-xs text-zinc-500 mt-2 text-right">Links saved in current session</p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-y-auto print:overflow-visible print:bg-white">
-        <header className="h-16 border-b border-zinc-800 flex items-center justify-between px-8 bg-zinc-900/50 sticky top-0 z-10 print:hidden">
+      <div className="flex-1 flex flex-col print:overflow-visible print:bg-white">
+        <header className="h-16 border-b border-zinc-800 flex items-center justify-between px-8 bg-zinc-900/50 sticky top-0 z-10 backdrop-blur-sm print:hidden">
           <h2 className="font-semibold text-lg">Job Application Task</h2>
         </header>
 

@@ -1,12 +1,38 @@
 import { NextRequest, NextResponse } from "next/server";
+import { supabase } from "@/lib/supabase";
 
 export async function POST(req: NextRequest) {
   try {
     const { applicationId, jobUrl, screenshotUrl } = await req.json();
 
+    const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+    
+    let { data: dailyCounter, error: fetchError } = await supabase
+      .from('task_session_counters')
+      .select('*')
+      .eq('date', today)
+      .single();
+
+    if (!dailyCounter && fetchError?.code === 'PGRST116') {
+      const { data: newCounter, error: createError } = await supabase
+        .from('task_session_counters')
+        .insert([{ date: today, sessionCount: 1, linkCount: 0 }])
+        .select()
+        .single();
+      
+      if (createError) throw createError;
+      dailyCounter = newCounter;
+    } else if (fetchError && fetchError.code !== 'PGRST116') {
+      throw fetchError;
+    }
+
+
     const telegramBotToken = process.env.TELEGRAM_BOT_TOKEN;
     const telegramChatId = process.env.TELEGRAM_CHAT_ID;
     const googleSheetWebhook = process.env.GOOGLE_SHEET_WEBHOOK_URL;
+
+    let tgSuccess = !telegramBotToken || !telegramChatId; // if not configured, treat as 'success' for recording purposes, or maybe user wants it to fail if not configured? Assuming skipped is success.
+    let sheetSuccess = !googleSheetWebhook;
 
     // 1. Notify Telegram
     if (telegramBotToken && telegramChatId) {
@@ -23,16 +49,18 @@ export async function POST(req: NextRequest) {
           formData.append('caption', caption);
           formData.append('photo', blob, 'screenshot.jpg');
           
-          await fetch(`https://api.telegram.org/bot${telegramBotToken}/sendPhoto`, {
+          const tgRes = await fetch(`https://api.telegram.org/bot${telegramBotToken}/sendPhoto`, {
             method: "POST",
             body: formData
           });
+          if (tgRes.ok) tgSuccess = true;
         } else {
-          await fetch(`https://api.telegram.org/bot${telegramBotToken}/sendMessage`, {
+          const tgRes = await fetch(`https://api.telegram.org/bot${telegramBotToken}/sendMessage`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ chat_id: telegramChatId, text: caption })
           });
+          if (tgRes.ok) tgSuccess = true;
         }
       } catch (err) {
         console.error("Telegram Error:", err);
@@ -44,7 +72,7 @@ export async function POST(req: NextRequest) {
     // 2. Append to Google Sheet
     if (googleSheetWebhook) {
       try {
-        await fetch(googleSheetWebhook, {
+        const sheetRes = await fetch(googleSheetWebhook, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -56,9 +84,10 @@ export async function POST(req: NextRequest) {
             urls: jobUrl,
             status: "Applied",
             reason: "Submitted via Dashboard",
-            screenshotUrl: screenshotUrl // In case the webhook needs the image
+            screenshotUrl: screenshotUrl
           })
         });
+        if (sheetRes.ok) sheetSuccess = true;
       } catch (err) {
         console.error("Webhook Error:", err);
       }
@@ -66,7 +95,27 @@ export async function POST(req: NextRequest) {
       console.log("Missing GOOGLE_SHEET_WEBHOOK_URL. Skipping Sheet update.");
     }
 
-    return NextResponse.json({ success: true });
+    if (tgSuccess && sheetSuccess) {
+      let newSessionCount = dailyCounter.sessionCount;
+      let newLinkCount = dailyCounter.linkCount + 1;
+
+      if (newLinkCount > 20) {
+        newSessionCount++;
+        newLinkCount = 1;
+      }
+
+      const { error: updateError } = await supabase
+        .from('task_session_counters')
+        .update({
+          sessionCount: newSessionCount,
+          linkCount: newLinkCount
+        })
+        .eq('date', today);
+
+      if (updateError) throw updateError;
+    }
+
+    return NextResponse.json({ success: true, tgSuccess, sheetSuccess });
   } catch (error: any) {
     console.error(error);
     return NextResponse.json({ error: error.message }, { status: 500 });
