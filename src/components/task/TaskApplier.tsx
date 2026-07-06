@@ -187,6 +187,8 @@ export default function TaskApplier() {
         setGeneratedCoverLetter("");
         setCompanyName("");
         setApplicationId(null);
+        setJobUrl("");
+        setScreenshotUrl("");
         fetchHistory();
       }
     } catch (e) {
