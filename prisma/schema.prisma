@@ -286,3 +286,31 @@ model TaskSessionCounter {
 
   @@map("task_session_counters")
 }
+
+model TaskLinkRecord {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  url        String
+  date       String   // Format: YYYY-MM-DD
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  
+  @@map("task_link_records")
+}
+
+model TaskPaymentSetting {
+  id             String   @id @default("default")
+  cost_per_link  Float    @default(50)
+  weekly_target  Float    @default(10000)
+  session_target Int      @default(20)
+  updated_at     DateTime @default(now()) @db.Timestamptz(6)
+
+  @@map("task_payment_settings")
+}
+
+model TaskWeeklyTarget {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  week_start String   @unique
+  target     Float
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@map("task_weekly_targets")
+}

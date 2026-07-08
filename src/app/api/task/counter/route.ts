@@ -25,7 +25,15 @@ export async function GET() {
       throw error;
     }
 
-    return NextResponse.json({ success: true, data: dailyCounter });
+    let sessionTarget = 20;
+    const { data: setting } = await supabase
+      .from('task_payment_settings')
+      .select('session_target')
+      .eq('id', 'default')
+      .single();
+    if (setting && setting.session_target) sessionTarget = setting.session_target;
+
+    return NextResponse.json({ success: true, data: dailyCounter, sessionTarget });
   } catch (error: any) {
     console.error("Counter fetch error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });

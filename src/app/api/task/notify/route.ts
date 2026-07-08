@@ -95,25 +95,41 @@ export async function POST(req: NextRequest) {
       console.log("Missing GOOGLE_SHEET_WEBHOOK_URL. Skipping Sheet update.");
     }
 
-    if (tgSuccess && sheetSuccess) {
-      let newSessionCount = dailyCounter.sessionCount;
-      let newLinkCount = dailyCounter.linkCount + 1;
-
-      if (newLinkCount > 20) {
-        newSessionCount++;
-        newLinkCount = 1;
-      }
-
-      const { error: updateError } = await supabase
-        .from('task_session_counters')
-        .update({
-          sessionCount: newSessionCount,
-          linkCount: newLinkCount
-        })
-        .eq('date', today);
-
-      if (updateError) throw updateError;
+    // Fetch session target from settings
+    let sessionTarget = 20; // Default
+    const { data: setting } = await supabase
+      .from('task_payment_settings')
+      .select('session_target')
+      .eq('id', 'default')
+      .single();
+    
+    if (setting && setting.session_target) {
+      sessionTarget = setting.session_target;
     }
+
+    // Always update counter regardless of notification success
+    let newSessionCount = dailyCounter.sessionCount;
+    let newLinkCount = dailyCounter.linkCount + 1;
+
+    if (newSessionCount === 1 && newLinkCount > sessionTarget) {
+      newSessionCount = 2; // 2 represents Overflow
+    }
+
+    const { error: updateError } = await supabase
+      .from('task_session_counters')
+      .update({
+        sessionCount: newSessionCount,
+        linkCount: newLinkCount
+      })
+      .eq('date', today);
+
+    if (updateError) throw updateError;
+
+    const { error: linkError } = await supabase
+      .from('task_link_records')
+      .insert([{ url: jobUrl, date: today }]);
+      
+    if (linkError) console.error("Failed to save link record:", linkError);
 
     return NextResponse.json({ success: true, tgSuccess, sheetSuccess });
   } catch (error: any) {
