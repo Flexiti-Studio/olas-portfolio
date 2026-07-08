@@ -11,27 +11,28 @@ export default function TaskApplier() {
   const [prompt, setPrompt] = useState("");
   
   const quickCopyData = {
-    firstName: "Emmanuel",
-    lastName: "Adeleke",
-    fullName: "Emmanuel Adeleke",
-    email: "emmanuel.success.work@gmail.com",
-    phone: "+1 (339)-399-0519",
-    location: "Brooklyn, NY 11233",
-    role: "Senior Full Stack Engineer",
-    experience: "8",
-    linkedin: "https://www.linkedin.com/in/emmanuel-adeleke-success/",
+    firstName: "James",
+    lastName: "Gao",
+    fullName: "James Gao",
+    email: "gaojames.pro.work@gmail.com",
+    phone: "+1 (339) 399-0519",
+    location: "94108 Bush Street, ChinaTown San Francisco, CA",
+    zipCode: "94108",
+    role: "Salesforce Engineer | Cloud Solutions Specialist",
+    experience: "6",
+    linkedin: "https://www.linkedin.com/in/jamessmgao/",
     github: "https://github.com/svendev888",
   };
 
   const targetJobs = [
-    "Senior Full Stack Engineer",
-    "Senior Frontend Engineer",
-    "Senior Backend Engineer",
-    "Software Engineering Manager",
-    "Tech Lead",
-    "Web3 / Blockchain Developer",
-    "Cloud / DevOps Engineer",
-    "UI/UX Developer"
+    "Salesforce Engineer",
+    "Salesforce Developer",
+    "Cloud Solutions Architect",
+    "Salesforce Platform Developer",
+    "CRM & Integration Engineer",
+    "Salesforce Technical Lead",
+    "Full Stack Salesforce Developer",
+    "Salesforce Administrator"
   ];
 
   const [toast, setToast] = useState<string | null>(null);
