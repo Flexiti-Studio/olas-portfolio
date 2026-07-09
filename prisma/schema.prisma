@@ -314,3 +314,179 @@ model TaskWeeklyTarget {
 
   @@map("task_weekly_targets")
 }
+
+// -----------------------------------------------------------------------------
+// BUDGETING (PHASE 1)
+// -----------------------------------------------------------------------------
+
+model BankAccount {
+  id            String        @id @default(cuid())
+  name          String        @unique // e.g. "GTBank", "Opay", "Cash"
+  balance       Decimal       @default(0) // running ledger balance, source of truth
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  incomes       Income[]
+  subcategories Subcategory[]
+  transfersOut  Transfer[]    @relation("TransferFrom")
+  transfersIn   Transfer[]    @relation("TransferTo")
+  transactions  Transaction[]
+}
+
+model IncomeCategory {
+  id        String   @id @default(cuid())
+  name      String   @unique // e.g. "xoxo", "Day Job", "Qefas Pallative"
+  createdAt DateTime @default(now())
+
+  incomes   Income[]
+}
+
+model Income {
+  id               String         @id @default(cuid())
+  amount           Decimal
+  description      String?
+  incomeCategoryId String
+  incomeCategory   IncomeCategory @relation(fields: [incomeCategoryId], references: [id])
+  bankAccountId    String
+  bankAccount      BankAccount    @relation(fields: [bankAccountId], references: [id])
+  createdAt        DateTime       @default(now())
+}
+
+model Transfer {
+  id             String      @id @default(cuid())
+  amount         Decimal
+  note           String?
+  fromAccountId  String
+  fromAccount    BankAccount @relation("TransferFrom", fields: [fromAccountId], references: [id])
+  toAccountId    String
+  toAccount      BankAccount @relation("TransferTo", fields: [toAccountId], references: [id])
+  createdAt      DateTime    @default(now())
+}
+
+model Category {
+  id            String        @id @default(cuid())
+  name          String        // "Needs" | "Wants" | "Savings & Investments"
+  group         BudgetGroup
+  subcategories Subcategory[]
+}
+
+enum BudgetGroup {
+  NEEDS
+  WANTS
+  SAVINGS
+}
+
+model Subcategory {
+  id            String        @id @default(cuid())
+  name          String        // "Groceries", "Emergency Fund", etc.
+  categoryId    String
+  category      Category      @relation(fields: [categoryId], references: [id])
+  bankAccountId String?
+  bankAccount   BankAccount?  @relation(fields: [bankAccountId], references: [id])
+  goals         BudgetGoal[]
+  transactions  Transaction[]
+}
+
+model BudgetGoal {
+  id            String      @id @default(cuid())
+  subcategoryId String
+  subcategory   Subcategory @relation(fields: [subcategoryId], references: [id])
+  amount        Decimal
+  periodId      String
+  period        Period      @relation(fields: [periodId], references: [id])
+  createdAt     DateTime    @default(now())
+}
+
+model Transaction {
+  id            String      @id @default(cuid())
+  amount        Decimal
+  rawText       String?
+  source        String      @default("telegram")
+  subcategoryId String
+  subcategory   Subcategory @relation(fields: [subcategoryId], references: [id])
+  bankAccountId String?
+  bankAccount   BankAccount? @relation(fields: [bankAccountId], references: [id])
+  createdAt     DateTime    @default(now())
+}
+
+model Goal {
+  id             String    @id @default(cuid())
+  title          String    // e.g. "Save ₦500,000 for new laptop"
+  targetAmount   Decimal
+  currentAmount  Decimal   @default(0)
+  deadline       DateTime?
+  aiGenerated    Boolean   @default(false)
+  status         String    @default("active") // active | achieved | abandoned
+  subcategoryId  String?
+  createdAt      DateTime  @default(now())
+}
+
+model Period {
+  id         String       @id @default(cuid())
+  label      String       // e.g. "2/3/2027" or "Mar 2027" — display only
+  startDate  DateTime     @default(now())
+  createdAt  DateTime     @default(now())
+  goals      BudgetGoal[]
+}
+
+model AppConfig {
+  id              String @id @default("singleton")
+  activePeriodId  String
+}
+
+// -----------------------------------------------------------------------------
+// FOCUS MODE (PHASE 7)
+// -----------------------------------------------------------------------------
+
+model Project {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  status      String    @default("ACTIVE") // ACTIVE | DONE | PAUSED | ARCHIVED
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+  tasks       Task[]
+}
+
+model Task {
+  id          String    @id @default(cuid())
+  projectId   String
+  project     Project   @relation(fields: [projectId], references: [id])
+  title       String
+  done        Boolean   @default(false)
+  order       Int       @default(0)
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+}
+
+model FocusState {
+  id               String   @id @default("singleton")
+  focusedProjectId String?
+  updatedAt        DateTime @updatedAt
+}
+
+// -----------------------------------------------------------------------------
+// KNOWLEDGE (PHASE 8)
+// -----------------------------------------------------------------------------
+
+model KnowledgeEntry {
+  id           String    @id @default(cuid())
+  type         String    // "IDEA" | "KNOWLEDGE"
+  content      String    // current/latest text
+  summary      String?   // optional short summary for quick scanning in the dashboard
+  tags         String[]  @default([])
+  projectId    String?   // optional — link to a Project from the focus tracker
+  vectorId     String    // Pinecone vector id, same as this row's id for simplicity
+  source       String    @default("telegram") // telegram_text | telegram_voice | telegram_photo | dashboard
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  versions     KnowledgeEntryVersion[]
+}
+
+model KnowledgeEntryVersion {
+  id        String         @id @default(cuid())
+  entryId   String
+  entry     KnowledgeEntry @relation(fields: [entryId], references: [id])
+  content   String         // snapshot of content before this version's edit
+  createdAt DateTime       @default(now())
+}

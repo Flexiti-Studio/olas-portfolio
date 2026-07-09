@@ -68,7 +68,7 @@ export default function AtsCvPdfTemplate({ data }: { data: any }) {
           <Text style={styles.name}>{p.name || "James Gao"}</Text>
           <Text style={styles.title}>{p.title || "Salesforce Engineer | Cloud Solutions Specialist"}</Text>
           <View style={styles.contactRow}>
-            <Text>{p.email || "gaojames.pro.work@gmail.com"}</Text>
+            <Text>{p.email || "jamesgao.success.upwork.pro@gmail.com"}</Text>
             <Text>{p.phone || "+1 (339) 399-0519"}</Text>
             <Text>{p.location || "San Francisco, CA"}</Text>
           </View>

@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
         name: "James Gao",
         title: "Salesforce Engineer | Cloud Solutions Specialist",
         location: "San Francisco, CA 94108",
-        email: "gaojames.pro.work@gmail.com",
+        email: "jamesgao.success.upwork.pro@gmail.com",
         phone: "+1 (339) 399-0519",
         github: "https://github.com/svendev888",
         linkedin: "https://www.linkedin.com/in/jamessmgao/"

@@ -22,6 +22,10 @@ import ApplicationTracker from "@/components/admin/ApplicationTracker";
 import CoverLetterGenerator from "@/components/admin/CoverLetterGenerator";
 import CompanyResearch from "@/components/admin/CompanyResearch";
 import InterviewPrepList from "@/app/admin/interview-prep/page";
+import BudgetStrategy from "@/app/admin/budget-strategy/page";
+import FocusMode from "@/app/admin/focus/page";
+import KnowledgeHub from "@/app/admin/knowledge/page";
+import { Brain, Focus, PiggyBank } from "lucide-react";
 
 const SIDEBAR_ITEMS = [
   { id: "overview", label: "Overview", icon: LayoutDashboard, desc: "Main statistics" },
@@ -32,6 +36,9 @@ const SIDEBAR_ITEMS = [
   { id: "company-research", label: "Company Research", icon: Search, desc: "Deep dive companies" },
   { id: "interview-prep", label: "Interview Prep", icon: MessageSquare, desc: "Notes & questions" },
   { id: "salary-benchmarker", label: "Salary Benchmarker", icon: DollarSign, desc: "Compare offers" },
+  { id: "budget-strategy", label: "Budget Strategy", icon: PiggyBank, desc: "50/30/20 Budgeting" },
+  { id: "focus-mode", label: "Focus Mode", icon: Focus, desc: "Single-project tracking" },
+  { id: "knowledge-hub", label: "Knowledge Hub", icon: Brain, desc: "Ideas and facts" },
   { id: "follow-up", label: "Follow-up Reminders", icon: Bell, desc: "Don't miss a beat" },
 ];
 
@@ -245,6 +252,48 @@ export default function AdminDashboard() {
           className="flex flex-col -m-4 md:-m-8"
         >
           <InterviewPrepList />
+        </motion.div>
+      );
+    }
+
+    if (activeTab === "budget-strategy") {
+      return (
+        <motion.div
+          key="budget-strategy"
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -20 }}
+          className="flex flex-col -m-4 md:-m-8"
+        >
+          <BudgetStrategy searchParams={{}} />
+        </motion.div>
+      );
+    }
+
+    if (activeTab === "focus-mode") {
+      return (
+        <motion.div
+          key="focus-mode"
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -20 }}
+          className="flex flex-col -m-4 md:-m-8"
+        >
+          <FocusMode />
+        </motion.div>
+      );
+    }
+
+    if (activeTab === "knowledge-hub") {
+      return (
+        <motion.div
+          key="knowledge-hub"
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -20 }}
+          className="flex flex-col -m-4 md:-m-8"
+        >
+          <KnowledgeHub />
         </motion.div>
       );
     }

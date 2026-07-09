@@ -14,7 +14,7 @@ export default function TaskApplier() {
     firstName: "James",
     lastName: "Gao",
     fullName: "James Gao",
-    email: "gaojames.pro.work@gmail.com",
+    email: "jamesgao.success.upwork.pro@gmail.com",
     phone: "+1 (339) 399-0519",
     location: "94108 Bush Street, ChinaTown San Francisco, CA",
     zipCode: "94108",
