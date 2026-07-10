@@ -19,7 +19,7 @@ export default function AtsCvTemplate({ data }: { data: any }) {
           {p.title || "Salesforce Engineer | Cloud Solutions Specialist"}
         </div>
         <div className="flex items-center justify-center gap-4 text-[11.5px] text-black mb-1 flex-wrap">
-          <span>✉ {p.email || "jamesgao.success.upwork.pro@gmail.com"}</span>
+          <span>✉ {p.email || "Jamesgao.success.pro@proton.me"}</span>
           <span>📞 {p.phone || "+1 (339) 399-0519"}</span>
           <span>📍 {p.location || "San Francisco, CA"}</span>
         </div>

@@ -68,20 +68,20 @@ export async function GET() {
       targetsData.forEach(t => weeklyTargetsMap.set(t.week_start, t.target));
     }
 
-    // Group by week (Monday to Sunday)
+    // Group by week (Tuesday to Monday)
     const weeklyMap = new Map<string, { weekStart: string; weekEnd: string; totalLinks: number; earnings: number; days: any[]; target: number }>();
 
     dailyStats.forEach(stat => {
       const d = new Date(stat.date);
-      // Get Monday of that week
+      // Get Tuesday of that week
       const day = d.getDay();
-      const diff = d.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
-      const monday = new Date(d.setDate(diff));
-      const sunday = new Date(monday);
-      sunday.setDate(monday.getDate() + 6);
+      const daysSinceTuesday = (day + 5) % 7;
+      const tuesday = new Date(d.setDate(d.getDate() - daysSinceTuesday));
+      const monday = new Date(tuesday);
+      monday.setDate(tuesday.getDate() + 6);
 
-      const weekStartStr = monday.toISOString().split('T')[0];
-      const weekEndStr = sunday.toISOString().split('T')[0];
+      const weekStartStr = tuesday.toISOString().split('T')[0];
+      const weekEndStr = monday.toISOString().split('T')[0];
       const weekKey = `${weekStartStr} to ${weekEndStr}`;
 
       if (!weeklyMap.has(weekKey)) {

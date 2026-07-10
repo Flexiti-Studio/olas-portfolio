@@ -14,7 +14,7 @@ export default function TaskApplier() {
     firstName: "James",
     lastName: "Gao",
     fullName: "James Gao",
-    email: "jamesgao.success.upwork.pro@gmail.com",
+    email: "Jamesgao.success.pro@proton.me",
     phone: "+1 (339) 399-0519",
     location: "94108 Bush Street, ChinaTown San Francisco, CA",
     zipCode: "94108",
@@ -22,6 +22,7 @@ export default function TaskApplier() {
     experience: "6",
     linkedin: "https://www.linkedin.com/in/jamessmgao/",
     github: "https://github.com/svendev888",
+    pass: "gmailistrash194!@#$",
   };
 
   const targetJobs = [
