@@ -132,16 +132,16 @@ export default function TaskDashboard() {
             <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-4">
               <div className="flex justify-between items-center mb-2">
                 <span className="text-zinc-300 text-sm font-medium">
-                  {counter.sessionCount > 1 ? 'Overflow Session' : `Session ${counter.sessionCount}`}
+                  {counter.sessionCount > 4 ? 'Overflow Session' : `Session ${counter.sessionCount}`}
                 </span>
                 <span className="text-indigo-400 text-sm font-bold">
-                  {counter.linkCount} {counter.sessionCount === 1 ? `/ ${counter.sessionTarget}` : ''}
+                  {counter.sessionCount > 4 ? counter.linkCount : (counter.linkCount === 0 ? 0 : ((counter.linkCount - 1) % counter.sessionTarget) + 1)} {counter.sessionCount <= 4 ? `/ ${counter.sessionTarget}` : ''}
                 </span>
               </div>
               <div className="w-full bg-zinc-800 rounded-full h-1.5 mb-1">
                 <div 
                   className="bg-indigo-500 h-1.5 rounded-full transition-all duration-500" 
-                  style={{ width: `${Math.min(100, counter.sessionCount > 1 ? 100 : (counter.linkCount / counter.sessionTarget) * 100)}%` }}
+                  style={{ width: `${Math.min(100, counter.sessionCount > 4 ? 100 : ((counter.linkCount === 0 ? 0 : ((counter.linkCount - 1) % counter.sessionTarget) + 1) / counter.sessionTarget) * 100)}%` }}
                 ></div>
               </div>
               <p className="text-xs text-zinc-500 mt-2 text-right">Links saved in current session</p>

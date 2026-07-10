@@ -9,12 +9,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing date or totalLinks" }, { status: 400 });
     }
 
-    let sessionCount = 1;
-    let linkCount = totalLinks;
-
-    if (totalLinks > 20) {
-      sessionCount = 2; // Overflow
+    let sessionTarget = 20;
+    const { data: setting } = await supabase
+      .from('task_payment_settings')
+      .select('session_target')
+      .eq('id', 'default')
+      .single();
+      
+    if (setting && setting.session_target) {
+      sessionTarget = setting.session_target;
     }
+
+    let linkCount = totalLinks;
+    let sessionCount = Math.floor((totalLinks > 0 ? totalLinks - 1 : 0) / sessionTarget) + 1;
 
     const { data: existing } = await supabase
       .from('task_session_counters')

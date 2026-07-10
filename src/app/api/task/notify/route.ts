@@ -108,12 +108,8 @@ export async function POST(req: NextRequest) {
     }
 
     // Always update counter regardless of notification success
-    let newSessionCount = dailyCounter.sessionCount;
     let newLinkCount = dailyCounter.linkCount + 1;
-
-    if (newSessionCount === 1 && newLinkCount > sessionTarget) {
-      newSessionCount = 2; // 2 represents Overflow
-    }
+    let newSessionCount = Math.floor((newLinkCount - 1) / sessionTarget) + 1;
 
     const { error: updateError } = await supabase
       .from('task_session_counters')
