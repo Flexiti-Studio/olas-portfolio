@@ -151,14 +151,33 @@ export default function TaskDashboard() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col print:overflow-visible print:bg-white">
-        <header className="h-16 border-b border-zinc-800 flex items-center justify-between px-8 bg-zinc-900/50 sticky top-0 z-10 backdrop-blur-sm print:hidden">
-          <h2 className="font-semibold text-lg">
-            {activeTab === 'apply' ? 'Job Application Task' : 'Payment Tracking'}
-          </h2>
+      <div className="flex-1 flex flex-col min-w-0 print:overflow-visible print:bg-white">
+        <header className="border-b border-zinc-800 flex flex-col md:flex-row md:items-center justify-between px-4 md:px-8 py-3 md:h-16 bg-zinc-900/50 sticky top-0 z-10 backdrop-blur-sm print:hidden gap-3">
+          <div className="flex items-center justify-between w-full md:w-auto">
+            <h2 className="font-semibold text-lg flex items-center gap-2">
+              <Send className="w-5 h-5 md:hidden text-indigo-500" />
+              {activeTab === 'apply' ? 'Job Application Task' : 'Payment Tracking'}
+            </h2>
+          </div>
+          
+          {/* Mobile Tabs */}
+          <div className="flex bg-zinc-950 p-1 rounded-lg border border-zinc-800 md:hidden overflow-x-auto w-full">
+            <button 
+              onClick={() => setActiveTab("apply")}
+              className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-md text-sm transition-colors ${activeTab === 'apply' ? 'bg-indigo-500/20 text-indigo-400 font-medium' : 'text-zinc-400'}`}
+            >
+              <FileText size={16} /> Auto Apply
+            </button>
+            <button 
+              onClick={() => setActiveTab("payments")}
+              className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-md text-sm transition-colors ${activeTab === 'payments' ? 'bg-green-500/20 text-green-400 font-medium' : 'text-zinc-400'}`}
+            >
+              <DollarSign size={16} /> Payments
+            </button>
+          </div>
         </header>
 
-        <main className="p-8 print:p-0">
+        <main className="p-4 md:p-8 print:p-0 overflow-x-hidden">
           {activeTab === 'apply' ? <TaskApplier /> : <PaymentTracker />}
         </main>
       </div>

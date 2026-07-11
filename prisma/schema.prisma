@@ -347,8 +347,9 @@ model Income {
   description      String?
   incomeCategoryId String
   incomeCategory   IncomeCategory @relation(fields: [incomeCategoryId], references: [id])
-  bankAccountId    String
-  bankAccount      BankAccount    @relation(fields: [bankAccountId], references: [id])
+  bankAccountId    String?
+  bankAccount      BankAccount?   @relation(fields: [bankAccountId], references: [id])
+  isRecurring      Boolean        @default(false)
   createdAt        DateTime       @default(now())
 }
 
@@ -422,11 +423,12 @@ model Goal {
 }
 
 model Period {
-  id         String       @id @default(cuid())
-  label      String       // e.g. "2/3/2027" or "Mar 2027" — display only
-  startDate  DateTime     @default(now())
-  createdAt  DateTime     @default(now())
-  goals      BudgetGoal[]
+  id            String       @id @default(cuid())
+  label         String       // e.g. "2/3/2027" or "Mar 2027" — display only
+  startDate     DateTime     @default(now())
+  rolloverAmount Decimal     @default(0)
+  createdAt     DateTime     @default(now())
+  goals         BudgetGoal[]
 }
 
 model AppConfig {

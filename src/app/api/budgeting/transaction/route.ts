@@ -6,7 +6,8 @@ const transactionSchema = z.object({
   subcategoryId: z.string().min(1),
   amount: z.number().positive(),
   rawText: z.string().optional(),
-  source: z.string().default("telegram")
+  source: z.string().default("telegram"),
+  bankName: z.string().nullable().optional()
 });
 
 export async function POST(req: Request) {
@@ -21,7 +22,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const { subcategoryId, amount, rawText, source } = result.data;
+    const { subcategoryId, amount, rawText, source, bankName } = result.data;
 
     let appConfig = await prisma.appConfig.findUnique({ where: { id: "singleton" } });
     const activePeriodId = appConfig?.activePeriodId;
@@ -45,7 +46,8 @@ export async function POST(req: Request) {
       where: { startDate: { gt: activePeriod.startDate } },
       orderBy: { startDate: 'asc' }
     });
-    const endDate = nextPeriod ? nextPeriod.startDate : new Date();
+    // If no next period, bound it far in the future so newly created transactions are included
+    const endDate = nextPeriod ? nextPeriod.startDate : new Date('2100-01-01');
 
     // Start transaction
     const txResult = await prisma.$transaction(async (tx) => {
@@ -58,7 +60,17 @@ export async function POST(req: Request) {
         throw new Error("Subcategory not found");
       }
 
-      const bankAccountId = subcategory.bankAccountId;
+      let bankAccountId = subcategory.bankAccountId;
+      
+      // If user specified a bank name, try to find it
+      if (bankName) {
+        const banks = await tx.bankAccount.findMany();
+        // naive case-insensitive match
+        const matched = banks.find(b => b.name.toLowerCase().includes(bankName.toLowerCase()) || bankName.toLowerCase().includes(b.name.toLowerCase()));
+        if (matched) {
+          bankAccountId = matched.id;
+        }
+      }
 
       const transaction = await tx.transaction.create({
         data: {
@@ -129,6 +141,9 @@ export async function POST(req: Request) {
         goalCategory,
         activePeriodLabel: activePeriod.label
       };
+    }, {
+      maxWait: 15000,
+      timeout: 15000
     });
 
     let advice = null;

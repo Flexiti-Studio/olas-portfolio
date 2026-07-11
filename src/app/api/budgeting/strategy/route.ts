@@ -18,8 +18,11 @@ export async function GET(req: Request) {
       periodId = activePeriodId;
     }
 
+    const strategySetting = await prisma.setting.findUnique({ where: { key: "budget_strategy" } });
+    const strategy = strategySetting ? strategySetting.value : { needs: 50, savings: 20, wants: 30 };
+
     if (!periodId) {
-      return NextResponse.json({ success: true, data: null, message: "No active period" });
+      return NextResponse.json({ success: true, data: { strategy }, message: "No active period" });
     }
 
     // 1. Fetch the Period
@@ -34,7 +37,7 @@ export async function GET(req: Request) {
       orderBy: { startDate: 'asc' }
     });
 
-    const endDate = nextPeriod ? nextPeriod.startDate : new Date();
+    const endDate = nextPeriod ? nextPeriod.startDate : new Date('2100-01-01');
 
     // Fetch Income for the period date range
     const periodIncomes = await prisma.income.findMany({
@@ -48,7 +51,7 @@ export async function GET(req: Request) {
     });
     
     const incomeCategoriesMap = new Map();
-    let totalIncome = 0;
+    let totalIncome = Number(period.rolloverAmount) || 0;
     
     for (const inc of periodIncomes) {
       const catName = inc.incomeCategory.name;
@@ -75,7 +78,12 @@ export async function GET(req: Request) {
           gte: period.startDate,
           lt: endDate
         }
-      }
+      },
+      include: {
+        subcategory: { include: { category: true } },
+        bankAccount: true
+      },
+      orderBy: { createdAt: 'desc' }
     });
 
     const groups = {
@@ -118,7 +126,9 @@ export async function GET(req: Request) {
         activePeriodId,
         incomes,
         totalIncome,
-        groups
+        groups,
+        strategy,
+        transactions: periodTransactions
       }
     });
   } catch (error: any) {

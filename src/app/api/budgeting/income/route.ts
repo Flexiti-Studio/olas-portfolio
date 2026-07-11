@@ -63,6 +63,10 @@ export async function POST(req: Request) {
       })
     ]);
 
+    // Auto-balance goals based on the new total income
+    const { autoBalanceCurrentPeriod } = await import("@/lib/autoBalance");
+    await autoBalanceCurrentPeriod();
+
     return NextResponse.json({ success: true, data: { income, updatedAccount } });
 
   } catch (error: any) {

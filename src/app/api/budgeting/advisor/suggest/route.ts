@@ -116,7 +116,10 @@ export async function POST(req: Request) {
       histories.push(history);
     }
 
-    const prompt = `You are a budgeting advisor. Given this subcategory spending history, identify:
+    const strategySetting = await prisma.setting.findUnique({ where: { key: "budget_strategy" } });
+    const globalStrategy = strategySetting ? (strategySetting.value as any) : { needs: 50, savings: 20, wants: 30 };
+
+    const prompt = `You are a budgeting advisor. Given this subcategory spending history and the user's global strategy (Needs: ${globalStrategy.needs}%, Savings/Investments: ${globalStrategy.savings}%, Wants: ${globalStrategy.wants}%), identify:
 1. Subcategories that consistently come in UNDER their goal (candidates to shift budget away from).
 2. Subcategories that consistently come in OVER their goal (need either more budget or flag as a behavior concern — say which, based on how far over and how consistent).
 3. Any subcategory with zero or near-zero recorded spend across all periods despite having a goal — likely unlogged spending hiding elsewhere (e.g. dumped into Miscellaneous), worth calling out explicitly rather than treated as "under goal."
@@ -124,7 +127,7 @@ export async function POST(req: Request) {
 History: ${JSON.stringify(histories)}
 Total periods analyzed: ${allPeriods.length}
 
-Propose a new goal amount for each subcategory that needs to change (omit ones that should stay the same). Keep the total allocation within the same NEEDS/WANTS/SAVINGS group totals unless you have a clear reason to recommend shifting the group split itself — if you do, call that out explicitly and explain why, rather than silently changing it.
+Propose a new goal amount for each subcategory that needs to change (omit ones that should stay the same). Keep the total allocation within the user's global strategy split (Needs/Wants/Savings) unless you have a clear reason to recommend shifting the global split itself (e.g., changing from 50/30/20 to 60/20/20). If you do recommend changing the overall strategy, call that out explicitly and explain why.
 
 Return ONLY valid JSON:
 {
@@ -132,6 +135,7 @@ Return ONLY valid JSON:
   "proposedChanges": [
     { "subcategoryId": "string", "name": "string", "currentGoal": 0, "proposedGoal": 0, "reason": "string" }
   ],
+  "proposedStrategy": { "needs": 50, "savings": 20, "wants": 30 }, // only include if suggesting a change to the global rule
   "summary": "one or two sentence plain-language takeaway"
 }
 

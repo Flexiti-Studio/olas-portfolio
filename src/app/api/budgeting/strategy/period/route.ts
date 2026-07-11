@@ -86,8 +86,15 @@ export async function POST(req: Request) {
     const skippedCount = sourceGoals.length - validGoals.length;
 
     const newPeriod = await prisma.$transaction(async (tx) => {
+      // Calculate sum of all banks to roll over into the new period pool
+      const banks = await tx.bankAccount.findMany();
+      const totalBankBalances = banks.reduce((sum, b) => sum + Number(b.balance), 0);
+
       const period = await tx.period.create({
-        data: { label: label ?? formatDateLabel(new Date()) },
+        data: { 
+          label: label ?? formatDateLabel(new Date()),
+          rolloverAmount: totalBankBalances
+        },
       });
       
       if (validGoals.length > 0) {

@@ -19,13 +19,17 @@ async function sendMessage(chatId: number, text: string, replyMarkup?: any) {
 
 // Intent Classifier
 async function classifyIntent(text: string) {
-  const prompt = `Classify this Telegram message as one of: EXPENSE, COMMAND, ADVISOR, UNCLEAR.
+  const prompt = `Classify this Telegram message as one of: EXPENSE, INCOME, TRANSFER, COMMAND, ADVISOR, CONVERSATION, UNCLEAR.
 EXPENSE = user is describing a purchase or money spent.
+INCOME = user got paid, received money, or added a new source of income.
+TRANSFER = user moved money from one bank/account to another.
 COMMAND = starts with "/" or is a direct instruction like "show my balance".
 ADVISOR = asking for help reallocating, being more efficient, understanding spending patterns, or getting budget advice — NOT logging a purchase.
-Return only the single word.
+CONVERSATION = general chat, greetings, "hi", "how are you".
+UNCLEAR = anything else.
 
-Message: "${text}"`;
+Message: "${text}"
+Output exactly ONE word.`;
 
   const completion = await openai.chat.completions.create({
     model: "gpt-4o",
@@ -40,7 +44,7 @@ Message: "${text}"`;
 async function extractExpense(text: string, subcategories: any[]) {
   const subcatList = subcategories.map(s => `${s.category.name} > ${s.name}`).join("\n");
   const prompt = `You extract structured expense data from a short message. The user is logging a personal purchase in Nigerian Naira.
-
+  
 Known subcategories (format: "Category > Subcategory"):
 ${subcatList}
 
@@ -49,13 +53,75 @@ Given the message, return ONLY valid JSON, no other text, in this exact shape:
   "amount": number,               // in Naira, no currency symbol
   "subcategory": string,          // must exactly match one from the known list above, or null
   "confidence": number,           // 0.0–1.0
-  "description": string           // short cleaned-up description
+  "description": string,          // short cleaned-up description
+  "bank": string | null           // extract the name of the bank/payment method if mentioned (e.g., "Monzo", "GTBank"), otherwise null
 }
 
 Rules:
 - If the message doesn't clearly state an amount, set "amount" to null.
 - If no subcategory is a good match, set "subcategory" to null and confidence to 0.
 - Never invent a subcategory not in the known list.
+- If no bank is mentioned, set "bank" to null.
+
+Message: "${text}"`;
+
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4o",
+    messages: [{ role: "system", content: prompt }],
+    response_format: { type: "json_object" },
+    temperature: 0.1
+  });
+
+  return JSON.parse(completion.choices[0].message.content || "{}");
+}
+
+// Extract income
+async function extractIncome(text: string, banks: any[], incomeCategories: any[]) {
+  const bankList = banks.map(b => b.name).join("\n");
+  const catList = incomeCategories.map(c => c.name).join("\n");
+  const prompt = `Extract income data from this message. The user is adding income.
+  
+Known Banks:
+${bankList}
+
+Known Income Categories:
+${catList}
+
+Return ONLY valid JSON:
+{
+  "amount": number,
+  "bankName": string | null,     // Try to match a known bank, or extract the new one
+  "incomeCategory": string,      // Try to match a known category, or extract the new one
+  "description": string
+}
+
+Message: "${text}"`;
+
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4o",
+    messages: [{ role: "system", content: prompt }],
+    response_format: { type: "json_object" },
+    temperature: 0.1
+  });
+
+  return JSON.parse(completion.choices[0].message.content || "{}");
+}
+
+// Extract transfer
+async function extractTransfer(text: string, banks: any[]) {
+  const bankList = banks.map(b => b.name).join("\n");
+  const prompt = `Extract money transfer data from this message.
+
+Known Banks:
+${bankList}
+
+Return ONLY valid JSON:
+{
+  "amount": number,
+  "fromBank": string,  // must closely match a known bank
+  "toBank": string,    // must closely match a known bank
+  "note": string
+}
 
 Message: "${text}"`;
 
@@ -72,6 +138,98 @@ Message: "${text}"`;
 export async function POST(req: Request) {
   try {
     const update = await req.json();
+
+    if (update.callback_query) {
+      const callbackQuery = update.callback_query;
+      const data = callbackQuery.data;
+      const chatId = callbackQuery.message.chat.id;
+
+      if (data === "advisor_confirm") {
+        const pending = await prisma.setting.findUnique({ where: { key: `pending_advisor_${chatId}` } });
+        if (pending) {
+          const proposal = pending.value as any;
+          const config = await prisma.appConfig.findUnique({ where: { id: "singleton" } });
+          if (config?.activePeriodId) {
+             const activeGoals = await prisma.budgetGoal.findMany({ where: { periodId: config.activePeriodId } });
+             for (const c of proposal.proposedChanges || []) {
+                const goal = activeGoals.find(g => g.subcategoryId === c.subcategoryId);
+                if (goal) {
+                   await prisma.budgetGoal.update({ where: { id: goal.id }, data: { amount: c.proposedGoal } });
+                }
+             }
+          }
+          if (proposal.proposedStrategy) {
+             await prisma.setting.upsert({
+               where: { key: "budget_strategy" },
+               update: { value: proposal.proposedStrategy },
+               create: { key: "budget_strategy", value: proposal.proposedStrategy }
+             });
+          }
+          await sendMessage(chatId, "Great! I've updated your budget goals" + (proposal.proposedStrategy ? " and adjusted your global strategy." : "."));
+          await prisma.setting.delete({ where: { key: `pending_advisor_${chatId}` } }).catch(()=> {});
+        } else {
+          await sendMessage(chatId, "Sorry, I couldn't find the pending changes. They might have expired.");
+        }
+      } else if (data === "advisor_cancel") {
+        await prisma.setting.delete({ where: { key: `pending_advisor_${chatId}` } }).catch(() => {});
+        await sendMessage(chatId, "No changes made to your budget.");
+      } else if (data === "advisor_edit") {
+        await sendMessage(chatId, "Which category would you like to edit? (e.g. '/reallocate Groceries=5000')");
+      }
+      if (data.startsWith("subcat_")) {
+        const subcatId = data.replace("subcat_", "");
+        if (subcatId === "other") {
+          await sendMessage(chatId, "Okay, please type your expense again with a clearer category.");
+        } else {
+          const pending = await prisma.setting.findUnique({ where: { key: `pending_tx_${chatId}` } });
+          if (pending) {
+            const txData = pending.value as any;
+            const host = req.headers.get("host");
+            const protocol = process.env.NODE_ENV === "development" ? "http" : "https";
+            const txRes = await fetch(`${protocol}://${host}/api/budgeting/transaction`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                subcategoryId: subcatId,
+                amount: txData.amount,
+                rawText: txData.rawText,
+                source: "telegram",
+                bankName: txData.bank
+              })
+            });
+            const txJson = await txRes.json();
+            if (!txJson.success) {
+              await sendMessage(chatId, `Error logging transaction: ${txJson.error?.message}`);
+            } else {
+              const { amount, subcategoryName, categoryName, remainingSubcategory, remainingCategory, advice, hasGoal } = txJson.data;
+              let reply = `₦${amount.toLocaleString()} logged to ${subcategoryName}.\n`;
+              if (hasGoal) {
+                reply += `₦${remainingSubcategory.toLocaleString()} left in ${subcategoryName}.\n`;
+              }
+              await sendMessage(chatId, reply);
+            }
+            await prisma.setting.delete({ where: { key: `pending_tx_${chatId}` } }).catch(() => {});
+          } else {
+            await sendMessage(chatId, "Sorry, I lost the pending transaction. Please try logging it again.");
+          }
+        }
+      }
+
+      if (data.startsWith("income_recurring_")) {
+        const incomeId = data.replace("income_recurring_", "");
+        try {
+          await prisma.income.update({ where: { id: incomeId }, data: { isRecurring: true } });
+          await sendMessage(chatId, "Got it! This income is marked as recurring and will automatically be included in your future monthly pools.");
+        } catch (e) {
+          await sendMessage(chatId, "Failed to update income.");
+        }
+      } else if (data.startsWith("income_onetime_")) {
+        await sendMessage(chatId, "Got it! Recorded as a one-time income for this month only.");
+      }
+
+      return NextResponse.json({ ok: true });
+    }
+
     if (!update.message || !update.message.text) {
       // Ignore non-text messages for now (transcription hook goes here)
       return NextResponse.json({ ok: true });
@@ -147,14 +305,40 @@ export async function POST(req: Request) {
         } else {
            await sendMessage(chatId, `Failed to send digest: ${result.error?.message}`);
         }
+      } else if (text.startsWith("/addbank")) {
+        const parts = text.replace("/addbank", "").trim().split(" ");
+        const balanceStr = parts.pop();
+        const balance = Number(balanceStr);
+        const bankName = parts.join(" ").trim();
+        if (bankName && !isNaN(balance)) {
+           try {
+             await prisma.bankAccount.create({ data: { name: bankName, balance } });
+             await sendMessage(chatId, `Added bank ${bankName} with starting balance ₦${balance.toLocaleString()}.`);
+           } catch (e: any) {
+             await sendMessage(chatId, `Failed to add bank. It might already exist.`);
+           }
+        } else {
+           await sendMessage(chatId, "Usage: /addbank <Name> <StartingBalance>\nExample: /addbank Monzo 50000");
+        }
+      } else if (text.startsWith("/start") || text.startsWith("/help")) {
+        await sendMessage(chatId, "Hi! I'm your Flexiti Budget Bot. 🤖\n\nYou can log expenses by simply typing what you bought (e.g., 'Groceries for 5000').\n\nYou can also use commands like /balance, /status, /addbank, /reallocate, or /digest, or just chat with me for budgeting advice!");
       } else {
-        await sendMessage(chatId, "Recognized as a command, but unknown command.");
+        await sendMessage(chatId, "I recognized that as a command, but I'm not sure which one. Try /balance, /status, /addbank, /reallocate, or /digest.");
       }
       return NextResponse.json({ ok: true });
     }
 
-    if (intent === "UNCLEAR") {
-      await sendMessage(chatId, "I couldn't understand that. Please rephrase as a purchase or a recognized command.");
+    if (intent === "CONVERSATION" || intent === "UNCLEAR") {
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          { role: "system", content: "You are the Flexiti Budget Bot, a friendly and concise financial assistant. Respond conversationally to the user's message. If they ask a general question, answer it. If they are just greeting, say hi back and remind them you can help track expenses or give budget advice." },
+          { role: "user", content: text }
+        ],
+        temperature: 0.7
+      });
+      const reply = response.choices[0].message.content || "I'm here to help with your budget!";
+      await sendMessage(chatId, reply);
       return NextResponse.json({ ok: true });
     }
 
@@ -182,14 +366,18 @@ export async function POST(req: Request) {
       }
       
       if (proposal.proposedChanges && proposal.proposedChanges.length > 0) {
-        reply += `\nProposed changes:\n`;
+        reply += `\nProposed goal changes:\n`;
         for (const c of proposal.proposedChanges) {
           reply += `${c.name}: ₦${c.currentGoal.toLocaleString()} → ₦${c.proposedGoal.toLocaleString()}\n`;
         }
       } else {
-        reply += `\nNo changes proposed.\n`;
+        reply += `\nNo goal changes proposed.\n`;
       }
       
+      if (proposal.proposedStrategy) {
+        reply += `\nRecommended Strategy Shift:\nNeeds: ${proposal.proposedStrategy.needs}% | Savings: ${proposal.proposedStrategy.savings}% | Wants: ${proposal.proposedStrategy.wants}%\n`;
+      }
+
       if (proposal.summary) {
         reply += `\n${proposal.summary}\n`;
       }
@@ -208,73 +396,154 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true });
     }
 
-    // EXPENSE
-    const allSubcats = await prisma.subcategory.findMany({ include: { category: true } });
-    const parsed = await extractExpense(text, allSubcats);
-
-    if (parsed.amount === null || parsed.amount === undefined) {
-      await sendMessage(chatId, "I couldn't find an amount. Please clarify the amount.");
-      return NextResponse.json({ ok: true });
-    }
-
-    if (parsed.confidence >= 0.75 && parsed.subcategory) {
-      // Proceed directly
-      const subcatName = parsed.subcategory.split(" > ")[1];
-      const matchedSubcat = allSubcats.find(s => s.name.toLowerCase() === subcatName?.toLowerCase());
+    if (intent === "EXPENSE") {
+      await sendMessage(chatId, "⏳ Logging transaction...");
       
-      if (!matchedSubcat) {
-        await sendMessage(chatId, `Failed to match subcategory ${parsed.subcategory}.`);
+      const allSubcats = await prisma.subcategory.findMany({ include: { category: true } });
+      const parsed = await extractExpense(text, allSubcats);
+
+      if (parsed.amount === null || parsed.amount === undefined) {
+        await sendMessage(chatId, "I couldn't find an amount. Please clarify the amount.");
         return NextResponse.json({ ok: true });
       }
 
-      // Hit transaction API internally
+      if (parsed.confidence >= 0.75 && parsed.subcategory) {
+        // Proceed directly
+        const subcatName = parsed.subcategory.split(" > ")[1];
+        const matchedSubcat = allSubcats.find(s => s.name.toLowerCase() === subcatName?.toLowerCase());
+        
+        if (!matchedSubcat) {
+          await sendMessage(chatId, `Failed to match subcategory ${parsed.subcategory}.`);
+          return NextResponse.json({ ok: true });
+        }
+
+        // Hit transaction API internally
+        const host = req.headers.get("host");
+        const protocol = process.env.NODE_ENV === "development" ? "http" : "https";
+        const txRes = await fetch(`${protocol}://${host}/api/budgeting/transaction`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            subcategoryId: matchedSubcat.id,
+            amount: parsed.amount,
+            rawText: text,
+            source: "telegram",
+            bankName: parsed.bank
+          })
+        });
+
+        const txJson = await txRes.json();
+        if (!txJson.success) {
+          await sendMessage(chatId, `Error logging transaction: ${txJson.error?.message}`);
+        } else {
+          const { amount, subcategoryName, categoryName, remainingSubcategory, remainingCategory, advice, hasGoal } = txJson.data;
+          let reply = `₦${amount.toLocaleString()} logged to ${subcategoryName}.\n`;
+          if (hasGoal) {
+            reply += `₦${remainingSubcategory.toLocaleString()} left in ${subcategoryName}.\n`;
+            reply += `₦${remainingCategory.toLocaleString()} left in ${categoryName} overall.\n`;
+            if (advice) reply += `\n${advice}`;
+          } else {
+            reply += "No goal set for this yet.";
+          }
+          await sendMessage(chatId, reply);
+        }
+      } else {
+        // Confidence < 0.75: Ask for confirmation using Inline Keyboard
+        // Save pending tx to settings
+        await prisma.setting.upsert({
+          where: { key: `pending_tx_${chatId}` },
+          update: { value: { amount: parsed.amount, rawText: text, desc: parsed.description, bank: parsed.bank } },
+          create: { key: `pending_tx_${chatId}`, value: { amount: parsed.amount, rawText: text, desc: parsed.description, bank: parsed.bank } }
+        });
+
+        // Suggest top 3 subcategories based on simple string match or just arbitrary ones for now
+        // Since LLM provides 'parsed.subcategory' as top choice, we'll put it first, then 2 others.
+        const suggestions = allSubcats.slice(0, 3); 
+        
+        const inlineKeyboard = suggestions.map(s => ([{ text: s.name, callback_data: `subcat_${s.id}` }]));
+        inlineKeyboard.push([{ text: "Something else...", callback_data: "subcat_other" }]);
+
+        await sendMessage(chatId, `I see ₦${parsed.amount}, but I'm not sure which category. Where does this belong?`, {
+          inline_keyboard: inlineKeyboard
+        });
+      }
+      return NextResponse.json({ ok: true });
+    }
+
+    if (intent === "INCOME") {
+      await sendMessage(chatId, "⏳ Adding income...");
+      const banks = await prisma.bankAccount.findMany();
+      const cats = await prisma.incomeCategory.findMany();
+      const parsed = await extractIncome(text, banks, cats);
+
+      if (!parsed.amount) {
+        await sendMessage(chatId, "I couldn't find an amount. Please clarify.");
+        return NextResponse.json({ ok: true });
+      }
+
       const host = req.headers.get("host");
       const protocol = process.env.NODE_ENV === "development" ? "http" : "https";
-      const txRes = await fetch(`${protocol}://${host}/api/budgeting/transaction`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      
+      const res = await fetch(`${protocol}://${host}/api/budgeting/income`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          subcategoryId: matchedSubcat.id,
-          amount: parsed.amount,
-          rawText: text,
-          source: "telegram"
+           amount: parsed.amount,
+           bankAccountName: parsed.bankName || "Unallocated/Cash",
+           incomeCategoryName: parsed.incomeCategory || "General",
+           description: parsed.description
         })
       });
 
-      const txJson = await txRes.json();
-      if (!txJson.success) {
-        await sendMessage(chatId, `Error logging transaction: ${txJson.error?.message}`);
+      const json = await res.json();
+      if (json.success) {
+         const incomeId = json.data.income.id;
+         const inlineKeyboard = [
+           [
+             { text: "One-Time", callback_data: `income_onetime_${incomeId}` },
+             { text: "Recurring", callback_data: `income_recurring_${incomeId}` }
+           ]
+         ];
+         await sendMessage(chatId, `Added ₦${parsed.amount.toLocaleString()} from ${parsed.incomeCategory || "General"}. Is this recurring every month?`, {
+           inline_keyboard: inlineKeyboard
+         });
       } else {
-        const { amount, subcategoryName, categoryName, remainingSubcategory, remainingCategory, advice, hasGoal } = txJson.data;
-        let reply = `₦${amount.toLocaleString()} logged to ${subcategoryName}.\n`;
-        if (hasGoal) {
-          reply += `₦${remainingSubcategory.toLocaleString()} left in ${subcategoryName}.\n`;
-          reply += `₦${remainingCategory.toLocaleString()} left in ${categoryName} overall.\n`;
-          if (advice) reply += `\n${advice}`;
-        } else {
-          reply += "No goal set for this yet.";
-        }
-        await sendMessage(chatId, reply);
+         await sendMessage(chatId, `Failed to add income: ${json.error?.message}`);
       }
-    } else {
-      // Confidence < 0.75: Ask for confirmation using Inline Keyboard
-      // Save pending tx to settings
-      await prisma.setting.upsert({
-        where: { key: `pending_tx_${chatId}` },
-        update: { value: { amount: parsed.amount, rawText: text, desc: parsed.description } },
-        create: { key: `pending_tx_${chatId}`, value: { amount: parsed.amount, rawText: text, desc: parsed.description } }
-      });
+      return NextResponse.json({ ok: true });
+    }
 
-      // Suggest top 3 subcategories based on simple string match or just arbitrary ones for now
-      // Since LLM provides 'parsed.subcategory' as top choice, we'll put it first, then 2 others.
-      const suggestions = allSubcats.slice(0, 3); 
+    if (intent === "TRANSFER") {
+      await sendMessage(chatId, "⏳ Transferring money...");
+      const banks = await prisma.bankAccount.findMany();
+      const parsed = await extractTransfer(text, banks);
+
+      if (!parsed.amount || !parsed.fromBank || !parsed.toBank) {
+        await sendMessage(chatId, "I need an amount, a source bank, and a destination bank.");
+        return NextResponse.json({ ok: true });
+      }
+
+      const host = req.headers.get("host");
+      const protocol = process.env.NODE_ENV === "development" ? "http" : "https";
       
-      const inlineKeyboard = suggestions.map(s => ([{ text: s.name, callback_data: `subcat_${s.id}` }]));
-      inlineKeyboard.push([{ text: "Something else...", callback_data: "subcat_other" }]);
-
-      await sendMessage(chatId, `I see ₦${parsed.amount}, but I'm not sure which category. Where does this belong?`, {
-        inline_keyboard: inlineKeyboard
+      const res = await fetch(`${protocol}://${host}/api/budgeting/transfer`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+           amount: parsed.amount,
+           fromAccountName: parsed.fromBank,
+           toAccountName: parsed.toBank,
+           note: parsed.note
+        })
       });
+
+      const json = await res.json();
+      if (json.success) {
+         await sendMessage(chatId, `Transferred ₦${parsed.amount.toLocaleString()} from ${parsed.fromBank} to ${parsed.toBank}.`);
+      } else {
+         await sendMessage(chatId, `Failed to transfer: ${json.error?.message}`);
+      }
+      return NextResponse.json({ ok: true });
     }
 
     return NextResponse.json({ ok: true });

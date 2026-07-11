@@ -270,7 +270,7 @@ export default function TaskApplier() {
             <h3 className="text-lg font-semibold mb-4 text-white flex items-center gap-2">
               Quick Copy Details
             </h3>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {Object.entries(quickCopyData).map(([key, value]) => (
                 <div key={key} className="bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 flex items-center justify-between group">
                   <div className="flex flex-col overflow-hidden pr-2">
@@ -333,12 +333,14 @@ export default function TaskApplier() {
               </button>
             </div>
             
-            <div className="flex-1 bg-white print:overflow-visible">
-              <div id="cv-print-container" className={activeTab === "cv" ? "block" : "hidden"}>
-                <AtsCvTemplate data={generatedCv} />
-              </div>
-              <div className={activeTab === "cover_letter" ? "block" : "hidden"}>
-                <CoverLetterPreview content={generatedCoverLetter} />
+            <div className="flex-1 bg-white print:overflow-visible overflow-x-auto">
+              <div className="min-w-[800px] sm:min-w-0">
+                <div id="cv-print-container" className={activeTab === "cv" ? "block" : "hidden"}>
+                  <AtsCvTemplate data={generatedCv} />
+                </div>
+                <div className={activeTab === "cover_letter" ? "block" : "hidden"}>
+                  <CoverLetterPreview content={generatedCoverLetter} />
+                </div>
               </div>
             </div>
 
@@ -381,7 +383,7 @@ export default function TaskApplier() {
               <div className="space-y-4">
                 <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-4">
                   <h3 className="text-xs font-semibold mb-3 text-zinc-400 uppercase tracking-wider">Quick Copy Details</h3>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {Object.entries(quickCopyData).map(([key, value]) => (
                       <div key={key} className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 flex items-center justify-between group">
                         <div className="flex flex-col overflow-hidden pr-2">
