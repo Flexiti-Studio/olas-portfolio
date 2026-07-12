@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
-import { Loader2, Save, History, RefreshCcw } from "lucide-react";
+import { Loader2, Save, History, RefreshCcw, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 
-export function EntryDetail({ entryId, onUpdated }: { entryId: string, onUpdated: () => void }) {
+export function EntryDetail({ entryId, onUpdated, onDeleted }: { entryId: string, onUpdated: () => void, onDeleted?: () => void }) {
   const [entry, setEntry] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   
   // editable fields
   const [content, setContent] = useState("");
@@ -53,6 +54,25 @@ export function EntryDetail({ entryId, onUpdated }: { entryId: string, onUpdated
     }
   };
 
+  const handleDelete = async () => {
+    if (!confirm("Are you sure you want to permanently delete this entry?")) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/knowledge/entries/${entryId}`, {
+        method: "DELETE"
+      });
+      const json = await res.json();
+      if (json.success) {
+        if (onDeleted) onDeleted();
+        else onUpdated();
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center p-12">
@@ -69,16 +89,26 @@ export function EntryDetail({ entryId, onUpdated }: { entryId: string, onUpdated
     <div className="bg-slate-900 border border-slate-800 rounded-lg p-6 space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-bold text-white">Entry Details</h2>
-        {hasChanges && (
+        <div className="flex gap-2">
+          {hasChanges && (
+            <button 
+              onClick={handleSave}
+              disabled={saving}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-medium flex items-center gap-2"
+            >
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              Save Changes
+            </button>
+          )}
           <button 
-            onClick={handleSave}
-            disabled={saving}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-medium flex items-center gap-2"
+            onClick={handleDelete}
+            disabled={deleting}
+            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md text-sm font-medium flex items-center gap-2"
           >
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            Save Changes
+            {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+            Delete
           </button>
-        )}
+        </div>
       </div>
 
       <div className="space-y-4">

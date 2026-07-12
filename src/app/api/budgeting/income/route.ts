@@ -77,3 +77,39 @@ export async function POST(req: Request) {
     );
   }
 }
+
+export async function DELETE(req: Request) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id");
+
+    if (!id) {
+      return NextResponse.json({ success: false, error: { message: "Income ID required" } }, { status: 400 });
+    }
+
+    const income = await prisma.income.findUnique({ where: { id } });
+    if (!income) {
+      return NextResponse.json({ success: false, error: { message: "Income not found" } }, { status: 404 });
+    }
+
+    // Delete the income and revert the bank balance
+    await prisma.$transaction([
+      prisma.income.delete({ where: { id } }),
+      ...(income.bankAccountId ? [
+        prisma.bankAccount.update({
+          where: { id: income.bankAccountId },
+          data: { balance: { decrement: income.amount } }
+        })
+      ] : [])
+    ]);
+
+    // Rebalance goals if needed
+    const { autoBalanceCurrentPeriod } = await import("@/lib/autoBalance");
+    await autoBalanceCurrentPeriod();
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error("Income DELETE Error:", error);
+    return NextResponse.json({ success: false, error: { message: "Internal server error" } }, { status: 500 });
+  }
+}

@@ -17,7 +17,12 @@ export async function autoBalanceCurrentPeriod() {
 
   // Calculate total income
   const periodIncomes = await prisma.income.findMany({
-    where: { createdAt: { gte: period.startDate, lt: endDate } }
+    where: {
+      OR: [
+        { createdAt: { gte: period.startDate, lt: endDate } },
+        { isRecurring: true, createdAt: { lt: endDate } }
+      ]
+    }
   });
   
   let totalIncome = Number(period.rolloverAmount) || 0;
@@ -44,8 +49,6 @@ export async function autoBalanceCurrentPeriod() {
       const subcatIds = groupCategories.flatMap(c => c.subcategories.map(s => s.id));
       
       const groupGoals = currentGoals.filter(g => subcatIds.includes(g.subcategoryId));
-      const currentGroupTotal = groupGoals.reduce((sum, g) => sum + Number(g.amount), 0);
-      
       const idealForGroup = idealAmounts[groupKey];
 
       if (groupGoals.length === 0) {
@@ -60,21 +63,44 @@ export async function autoBalanceCurrentPeriod() {
           });
         }
       } else {
-        for (const goal of groupGoals) {
-          const currentAmount = Number(goal.amount);
-          let newAmount = 0;
-          
-          if (currentGroupTotal === 0) {
-             newAmount = idealForGroup / groupGoals.length;
-          } else {
-             const proportion = currentAmount / currentGroupTotal;
-             newAmount = idealForGroup * proportion;
-          }
+        // Separate percentage-based goals from fixed/proportional goals
+        const percentageGoals = groupGoals.filter(g => g.percentage !== null);
+        const otherGoals = groupGoals.filter(g => g.percentage === null);
+        
+        let remainingIdeal = idealForGroup;
 
+        // Process percentage goals first
+        for (const goal of percentageGoals) {
+          let newAmount = totalIncome * (Number(goal.percentage) / 100);
+          if (isNaN(newAmount)) newAmount = 0;
+          remainingIdeal -= newAmount;
           await tx.budgetGoal.update({
             where: { id: goal.id },
             data: { amount: newAmount }
           });
+        }
+
+        // Process the rest proportionally
+        if (otherGoals.length > 0) {
+          const currentOtherTotal = otherGoals.reduce((sum, g) => sum + Number(g.amount), 0);
+          // If remainingIdeal is negative, it means percentages exceeded the 50/30/20 rule, so set others to 0
+          const distributeAmount = Math.max(0, remainingIdeal);
+
+          for (const goal of otherGoals) {
+            let newAmount = 0;
+            if (currentOtherTotal === 0) {
+               newAmount = distributeAmount / otherGoals.length;
+            } else {
+               const proportion = Number(goal.amount) / currentOtherTotal;
+               newAmount = distributeAmount * proportion;
+            }
+            if (isNaN(newAmount)) newAmount = 0;
+
+            await tx.budgetGoal.update({
+              where: { id: goal.id },
+              data: { amount: newAmount }
+            });
+          }
         }
       }
     }

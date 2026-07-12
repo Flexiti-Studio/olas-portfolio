@@ -393,6 +393,7 @@ model BudgetGoal {
   subcategoryId String
   subcategory   Subcategory @relation(fields: [subcategoryId], references: [id])
   amount        Decimal
+  percentage    Decimal?
   periodId      String
   period        Period      @relation(fields: [periodId], references: [id])
   createdAt     DateTime    @default(now())

@@ -14,7 +14,8 @@ import {
   Menu,
   Briefcase,
   Target,
-  Building
+  Building,
+  X
 } from "lucide-react";
 import CvTailor from "@/components/admin/CvTailor";
 import JobWebsites from "@/components/admin/JobWebsites";
@@ -342,7 +343,7 @@ export default function AdminDashboard() {
     );
   };
 
-  const sidebarWidth = isSidebarOpen ? 256 : 80; // 16rem = 256px, 5rem = 80px
+  // Sidebar width is handled via CSS classes now
 
   return (
     <div className="bg-zinc-950 text-white min-h-screen relative">
@@ -369,9 +370,9 @@ export default function AdminDashboard() {
 
       {/* Sidebar - always fixed */}
       <div 
-        className={`fixed inset-y-0 left-0 z-50 border-r border-zinc-800 bg-zinc-950 flex flex-col transition-all duration-300 ${
-          isSidebarOpen ? "w-64 p-6" : "w-20 p-4 items-center"
-        }`}
+        className={`fixed inset-y-0 left-0 z-50 border-r border-zinc-800 bg-zinc-950 flex flex-col transition-all duration-300 
+          ${isSidebarOpen ? "w-72 md:w-64 p-4 md:p-6 translate-x-0" : "w-20 p-4 items-center -translate-x-full md:translate-x-0"}
+        `}
       >
         <div className={`mb-10 flex items-center w-full ${isSidebarOpen ? "justify-between" : "justify-center flex-col gap-4"}`}>
           {isSidebarOpen && (
@@ -393,7 +394,7 @@ export default function AdminDashboard() {
             className="p-2 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors md:hidden"
             title="Close Sidebar"
           >
-            <Menu size={20} />
+            <X size={20} />
           </button>
         </div>
 
@@ -463,13 +464,11 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* Main Content - pushed right by sidebar width */}
+      {/* Main Content - pushed right by sidebar width on desktop */}
       <div
-        style={{
-          marginLeft: sidebarWidth,
-          transition: "margin-left 0.3s ease",
-        }}
-        className="min-h-screen p-4 md:p-8"
+        className={`min-h-screen p-4 md:p-8 transition-all duration-300 ease-in-out ${
+          isSidebarOpen ? "md:ml-64" : "md:ml-20"
+        }`}
       >
         <AnimatePresence mode="wait">
           <ActiveComponent />

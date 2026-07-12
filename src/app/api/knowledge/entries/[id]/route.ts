@@ -71,16 +71,46 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         }
 
         if (vector) {
-          await (index as any).upsert([{
+          await (index as any).upsert({ records: [{
             id: updated.id,
             values: vector,
-            metadata: { type: updated.type, tags: updated.tags, projectId: updated.projectId }
-          }]);
+            metadata: { 
+              type: updated.type, 
+              tags: updated.tags, 
+              projectId: updated.projectId || "none" 
+            }
+          }] });
         }
       }
     }
 
     return NextResponse.json({ success: true, data: { entry: updated } });
+  } catch (error: any) {
+    return NextResponse.json({ success: false, error: { message: error.message } }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const { id } = await params;
+    
+    // Delete versions
+    await prisma.knowledgeEntryVersion.deleteMany({ where: { entryId: id } });
+    
+    // Delete entry
+    await prisma.knowledgeEntry.delete({ where: { id } });
+
+    // Delete from Pinecone
+    const pc = process.env.PINECONE_API_KEY && process.env.PINECONE_API_KEY !== "pinecone_key_placeholder"
+      ? new Pinecone({ apiKey: process.env.PINECONE_API_KEY })
+      : null;
+    const index = pc?.index(process.env.PINECONE_INDEX || "knowledge_index");
+
+    if (index) {
+      await (index as any).deleteOne(id);
+    }
+
+    return NextResponse.json({ success: true });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: { message: error.message } }, { status: 500 });
   }

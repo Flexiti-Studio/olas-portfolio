@@ -155,8 +155,8 @@ export default function PaymentTracker() {
           Payment Settings
         </h3>
         
-        <div className="flex flex-col sm:flex-row items-end gap-4 max-w-xl">
-          <div className="flex-1">
+        <div className="flex flex-col sm:flex-row sm:items-end gap-4 max-w-xl">
+          <div className="flex-1 w-full">
             <label className="block text-sm font-medium text-zinc-400 mb-2">Cost per Link (₦)</label>
             <input
               type="number"
@@ -165,7 +165,7 @@ export default function PaymentTracker() {
               className="w-full px-4 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-white focus:outline-none focus:border-indigo-500 transition-colors"
             />
           </div>
-          <div className="flex-1">
+          <div className="flex-1 w-full">
             <label className="block text-sm font-medium text-zinc-400 mb-2">Daily Session Limit</label>
             <input
               type="number"
@@ -177,7 +177,7 @@ export default function PaymentTracker() {
           <button
             onClick={handleSaveSettings}
             disabled={isSaving || (inputCost === costPerLink.toString() && inputSessionTarget === sessionTarget.toString())}
-            className="px-6 py-2.5 bg-indigo-500 hover:bg-indigo-600 disabled:opacity-50 disabled:hover:bg-indigo-500 text-white rounded-xl font-medium transition-colors flex items-center gap-2"
+            className="w-full sm:w-auto px-6 py-2.5 bg-indigo-500 hover:bg-indigo-600 disabled:opacity-50 disabled:hover:bg-indigo-500 text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
           >
             <Save size={18} />
             {isSaving ? "Saving..." : "Save Default"}
@@ -187,12 +187,12 @@ export default function PaymentTracker() {
 
       {/* Calendar Grid Section */}
       <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl shadow-sm">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <h3 className="text-lg font-semibold text-white flex items-center gap-2">
             <CalendarIcon className="text-purple-500" />
             Activity Calendar
           </h3>
-          <div className="flex items-center gap-4 bg-zinc-950 px-3 py-1.5 rounded-lg border border-zinc-800">
+          <div className="flex items-center justify-between sm:justify-start gap-4 bg-zinc-950 px-3 py-1.5 rounded-lg border border-zinc-800 w-full sm:w-auto">
             <button 
               onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))}
               className="p-1 hover:bg-zinc-800 rounded-md transition-colors"
@@ -236,20 +236,20 @@ export default function PaymentTracker() {
                   setShowManualEntry(true);
                   window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}
-                className={`relative p-3 rounded-xl border flex flex-col items-center justify-center gap-1 transition-all group hover:border-blue-500
+                className={`relative p-1.5 sm:p-3 rounded-xl border flex flex-col items-center justify-center gap-0.5 sm:gap-1 transition-all group hover:border-blue-500
                   ${statForDay ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-300' : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:bg-zinc-900'}
                 `}
               >
-                <span className={`text-sm font-medium ${statForDay ? 'text-indigo-400' : 'text-zinc-500'}`}>
+                <span className={`text-xs sm:text-sm font-medium ${statForDay ? 'text-indigo-400' : 'text-zinc-500'}`}>
                   {dateNumber}
                 </span>
                 
                 {statForDay && (
-                  <div className="flex flex-col items-center mt-1">
-                    <span className="text-[10px] font-bold text-green-400 leading-none">
+                  <div className="flex flex-col items-center mt-0.5 w-full overflow-hidden">
+                    <span className="text-[8px] sm:text-[10px] font-bold text-green-400 leading-none truncate w-full text-center">
                       ₦{statForDay.earnings.toLocaleString()}
                     </span>
-                    <span className="text-[10px] text-zinc-500 leading-tight">
+                    <span className="text-[8px] sm:text-[10px] text-zinc-500 leading-tight hidden sm:block truncate w-full text-center mt-0.5">
                       {statForDay.totalLinks} links
                     </span>
                   </div>
@@ -265,14 +265,14 @@ export default function PaymentTracker() {
       <div className="grid md:grid-cols-2 gap-8">
         {/* Weekly Breakdown & Target */}
         <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl shadow-sm">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <h3 className="text-lg font-semibold text-white flex items-center gap-2">
               <Target className="text-indigo-500" />
               Weekly Goal Progress
             </h3>
             
             {weeklyStats.length > 0 && (
-              <div className="flex items-center gap-2 bg-zinc-950 px-2 py-1.5 rounded-lg border border-zinc-800">
+              <div className="flex items-center justify-between sm:justify-start gap-2 bg-zinc-950 px-2 py-1.5 rounded-lg border border-zinc-800 w-full sm:w-auto">
                 <button 
                   onClick={() => {
                     const nextIdx = Math.min(weeklyStats.length - 1, selectedWeekIdx + 1);
@@ -304,8 +304,8 @@ export default function PaymentTracker() {
 
           {weeklyStats.length > 0 && (
             <div className="mb-8">
-              <div className="flex gap-2 items-center mb-4 bg-zinc-950 p-2 rounded-xl border border-zinc-800 max-w-[200px] ml-auto">
-                <span className="text-xs font-medium text-zinc-400 pl-2">Target ₦</span>
+              <div className="flex gap-2 items-center mb-4 bg-zinc-950 p-2 rounded-xl border border-zinc-800 w-full sm:max-w-[200px] sm:ml-auto">
+                <span className="text-xs font-medium text-zinc-400 pl-2 whitespace-nowrap">Target ₦</span>
                 <input
                   type="number"
                   value={inputTarget}
@@ -439,8 +439,8 @@ export default function PaymentTracker() {
 
           {showManualEntry && (
             <form onSubmit={handleManualEntry} className="mb-6 p-4 bg-zinc-950 border border-zinc-800 rounded-xl space-y-4">
-              <div className="flex gap-4">
-                <div className="flex-1">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex-1 w-full">
                   <label className="block text-sm text-zinc-400 mb-1">Date</label>
                   <input 
                     type="date" 
@@ -450,7 +450,7 @@ export default function PaymentTracker() {
                     className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-white focus:outline-none focus:border-blue-500"
                   />
                 </div>
-                <div className="flex-1">
+                <div className="flex-1 w-full">
                   <label className="block text-sm text-zinc-400 mb-1">Total Links Applied</label>
                   <input 
                     type="number" 

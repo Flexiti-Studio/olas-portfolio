@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { FileText, Send, DollarSign } from "lucide-react";
+import { FileText, Send, DollarSign, Menu, X } from "lucide-react";
 import TaskApplier from "@/components/task/TaskApplier";
 import PaymentTracker from "@/components/task/PaymentTracker";
 
@@ -12,6 +12,7 @@ export default function TaskDashboard() {
   const [error, setError] = useState("");
   const [counter, setCounter] = useState<{ sessionCount: number; linkCount: number; sessionTarget: number } | null>(null);
   const [activeTab, setActiveTab] = useState<"apply" | "payments">("apply");
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -98,19 +99,44 @@ export default function TaskDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white flex print:bg-white print:text-black print:h-auto print:overflow-visible">
+    <div className="min-h-screen bg-zinc-950 text-white flex print:bg-white print:text-black print:h-auto print:overflow-visible relative">
+      
+      {/* Mobile Menu Overlay */}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsMobileMenuOpen(false)}
+            className="fixed inset-0 bg-black/60 z-40 md:hidden backdrop-blur-sm"
+          />
+        )}
+      </AnimatePresence>
+
       {/* Sidebar */}
-      <div className="w-64 border-r border-zinc-800 bg-zinc-900/50 flex flex-col hidden md:flex shrink-0 sticky top-0 h-screen print:hidden">
-        <div className="p-6 border-b border-zinc-800">
+      <div className={`
+        fixed inset-y-0 left-0 z-50 w-72 md:w-64 border-r border-zinc-800 bg-zinc-950 md:bg-zinc-900/50 flex flex-col 
+        transform transition-transform duration-300 ease-in-out
+        ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+        md:sticky md:top-0 md:h-screen shrink-0 print:hidden
+      `}>
+        <div className="p-4 md:p-6 border-b border-zinc-800 flex items-center justify-between">
           <div className="flex items-center gap-2 text-white font-bold text-xl">
             <Send className="text-indigo-500" />
             Task Runner
           </div>
+          <button 
+            onClick={() => setIsMobileMenuOpen(false)}
+            className="md:hidden p-2 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800"
+          >
+            <X size={20} />
+          </button>
         </div>
         
-        <div className="p-4 space-y-2 flex-1">
+        <div className="p-4 space-y-2 flex-1 overflow-y-auto">
           <button 
-            onClick={() => setActiveTab("apply")}
+            onClick={() => { setActiveTab("apply"); setIsMobileMenuOpen(false); }}
             className={`w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 transition-all ${activeTab === 'apply' ? 'bg-indigo-500/10 text-indigo-400' : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200'}`}
           >
             <FileText size={20} />
@@ -118,7 +144,7 @@ export default function TaskDashboard() {
           </button>
           
           <button 
-            onClick={() => setActiveTab("payments")}
+            onClick={() => { setActiveTab("payments"); setIsMobileMenuOpen(false); }}
             className={`w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 transition-all ${activeTab === 'payments' ? 'bg-green-500/10 text-green-400' : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200'}`}
           >
             <DollarSign size={20} />
@@ -154,10 +180,18 @@ export default function TaskDashboard() {
       <div className="flex-1 flex flex-col min-w-0 print:overflow-visible print:bg-white">
         <header className="border-b border-zinc-800 flex flex-col md:flex-row md:items-center justify-between px-4 md:px-8 py-3 md:h-16 bg-zinc-900/50 sticky top-0 z-10 backdrop-blur-sm print:hidden gap-3">
           <div className="flex items-center justify-between w-full md:w-auto">
-            <h2 className="font-semibold text-lg flex items-center gap-2">
-              <Send className="w-5 h-5 md:hidden text-indigo-500" />
-              {activeTab === 'apply' ? 'Job Application Task' : 'Payment Tracking'}
-            </h2>
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={() => setIsMobileMenuOpen(true)}
+                className="md:hidden p-2 -ml-2 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800"
+              >
+                <Menu size={20} />
+              </button>
+              <h2 className="font-semibold text-lg flex items-center gap-2">
+                <Send className="w-5 h-5 hidden md:block text-indigo-500" />
+                {activeTab === 'apply' ? 'Job Application Task' : 'Payment Tracking'}
+              </h2>
+            </div>
           </div>
           
           {/* Mobile Tabs */}

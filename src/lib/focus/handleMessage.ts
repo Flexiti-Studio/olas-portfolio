@@ -3,6 +3,47 @@ import openai from "@/lib/openai";
 import { switchFocus, getFocusedProject } from "@/lib/focus/focus";
 
 export async function handleFocusMessage(chatId: number, text: string, sendMessage: (chatId: number, text: string, options?: any) => Promise<void>, reqUrl: string) {
+  if (text.startsWith("__CALLBACK__")) {
+    const data = text.replace("__CALLBACK__", "");
+    if (data.startsWith("focus_done_")) {
+      const targetTaskId = data.replace("focus_done_", "");
+      const host = new URL(reqUrl).host || "localhost:3000";
+      const protocol = process.env.NODE_ENV === "development" ? "http" : "https";
+      const res = await fetch(`${protocol}://${host}/api/focus/tasks/${targetTaskId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ done: true })
+      });
+      const json = await res.json();
+      if (json.success) {
+        if (json.data.projectCompleted) {
+          await sendMessage(chatId, `🎉 Marked done! The project is now complete. Use /projects to pick your next focus.`);
+        } else {
+          await sendMessage(chatId, `✅ Marked done: ${json.data.task.title}`);
+        }
+      } else {
+        await sendMessage(chatId, "Failed to complete task.");
+      }
+    } else if (data === "focus_switch_force") {
+      const pending = await prisma.setting.findUnique({ where: { key: `focus:pending_switch_${chatId}` } });
+      if (pending) {
+        const targetId = (pending.value as any).targetId;
+        const p = await prisma.project.findUnique({ where: { id: targetId } });
+        if (p) {
+          await switchFocus(p.id, { force: true });
+          await sendMessage(chatId, `Focus forcefully switched to: ${p.name}`);
+        }
+        await prisma.setting.delete({ where: { key: `focus:pending_switch_${chatId}` } }).catch(()=>{});
+      } else {
+        await sendMessage(chatId, "Switch request expired.");
+      }
+    } else if (data === "focus_switch_cancel") {
+      await prisma.setting.delete({ where: { key: `focus:pending_switch_${chatId}` } }).catch(()=>{});
+      await sendMessage(chatId, "Focus switch cancelled.");
+    }
+    return;
+  }
+
   if (text.startsWith("/projects")) {
     const projects = await prisma.project.findMany({
       where: { status: { not: "ARCHIVED" } },
@@ -23,7 +64,8 @@ export async function handleFocusMessage(chatId: number, text: string, sendMessa
   if (text.startsWith("/status")) {
     intent = "STATUS";
   } else {
-    const prompt = `Classify this message as one of: ADD_TASK, COMPLETE_TASK, SWITCH_FOCUS, STATUS, UNCLEAR.
+    const prompt = `Classify this message as one of: CREATE_PROJECT, ADD_TASK, COMPLETE_TASK, SWITCH_FOCUS, STATUS, UNCLEAR.
+CREATE_PROJECT = wants to create a brand new project.
 ADD_TASK = wants to add a task to the current focused project.
 COMPLETE_TASK = wants to check off / mark something done.
 SWITCH_FOCUS = wants to change which project is active.
@@ -68,6 +110,28 @@ Message: "${text}"`;
     return;
   }
 
+  if (intent === "CREATE_PROJECT") {
+    const prompt = `Extract the new project name from this message. Return ONLY the name, without quotes or extra words. Message: "${text}"`;
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "system", content: prompt }]
+    });
+    const projectName = completion.choices[0].message.content?.trim();
+
+    if (!projectName || projectName.toLowerCase() === "new project") {
+      await sendMessage(chatId, "Couldn't figure out what to name the project. Please specify a name.");
+      return;
+    }
+
+    const project = await prisma.project.create({
+      data: { name: projectName, status: "NOT_STARTED" }
+    });
+
+    await switchFocus(project.id, { force: true });
+    await sendMessage(chatId, `🚀 Created new project: "${project.name}" and switched your focus to it!`);
+    return;
+  }
+
   if (intent === "ADD_TASK") {
     const current = await getFocusedProject();
     if (!current) {
@@ -91,6 +155,13 @@ Message: "${text}"`;
     const task = await prisma.task.create({
       data: { projectId: current.id, title, order }
     });
+
+    if (current.status === "DONE") {
+      await prisma.project.update({
+        where: { id: current.id },
+        data: { status: "ACTIVE", completedAt: null }
+      });
+    }
 
     await sendMessage(chatId, `Added to ${current.name}: ${task.title}`);
     return;

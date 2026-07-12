@@ -66,9 +66,9 @@ export function SummaryTable({ totalIncome, groups, strategy }: SummaryTableProp
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-lg p-6 flex flex-col lg:flex-row gap-6">
       <div className="flex-1">
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
           <h2 className="text-xl font-bold">50/30/20 Budget Tool</h2>
-          <div className="flex space-x-2">
+          <div className="flex flex-col sm:flex-row w-full md:w-auto gap-2">
             <button 
               onClick={async () => {
                 const searchParams = new URLSearchParams(window.location.search);
@@ -97,7 +97,7 @@ export function SummaryTable({ totalIncome, groups, strategy }: SummaryTableProp
                 setIsSaving(false);
               }}
               disabled={isSaving || totalPct !== 100}
-              className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white px-3 py-1.5 rounded text-sm font-medium flex items-center"
+              className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white px-3 py-1.5 rounded text-sm font-medium flex items-center justify-center w-full sm:w-auto"
             >
               {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
               Auto-Balance Goals
@@ -105,7 +105,7 @@ export function SummaryTable({ totalIncome, groups, strategy }: SummaryTableProp
             <button 
               onClick={handleSaveStrategy}
               disabled={isSaving || totalPct !== 100}
-              className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-3 py-1.5 rounded text-sm font-medium flex items-center"
+              className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-3 py-1.5 rounded text-sm font-medium flex items-center justify-center w-full sm:w-auto"
             >
               {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
               Save Strategy
@@ -113,7 +113,8 @@ export function SummaryTable({ totalIncome, groups, strategy }: SummaryTableProp
           </div>
         </div>
         
-        <table className="w-full text-left text-sm">
+        <div className="overflow-x-auto w-full pb-2">
+          <table className="w-full text-left text-sm min-w-[550px]">
           <thead>
             <tr className="text-slate-400 border-b border-slate-700">
               <th className="pb-2 font-medium">Category</th>
@@ -171,9 +172,10 @@ export function SummaryTable({ totalIncome, groups, strategy }: SummaryTableProp
             </tr>
           </tbody>
         </table>
+        </div>
 
         <div className="mt-4 pt-4 border-t border-slate-700 flex flex-col gap-3">
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
             <div className="font-semibold text-sm">
               <span className="text-slate-400 mr-2">Strategy Check:</span>
               {totalPct === 100 
@@ -183,23 +185,23 @@ export function SummaryTable({ totalIncome, groups, strategy }: SummaryTableProp
                   : <span className="text-yellow-400">Under 100% ({totalPct}%)</span>
               }
             </div>
-            <div className="text-right">
+            <div className="text-left sm:text-right">
               <span className="text-sm text-slate-400">Total Spent</span>
               <div className="text-xl font-bold text-white">₦{totalSpent.toLocaleString()}</div>
             </div>
           </div>
           
-          <div className="flex justify-between items-center pt-3 border-t border-slate-800/50">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center pt-3 border-t border-slate-800/50 gap-2">
             <div className="font-semibold text-sm">
               <span className="text-slate-400 mr-2">Allocation Status:</span>
               {absoluteRemaining === 0 
-                ? <span className="text-green-400">Great, you've allocated all of your income for the month!</span>
+                ? <span className="text-green-400 block sm:inline mt-1 sm:mt-0">Great, you've allocated all of your income for the month!</span>
                 : absoluteRemaining > 0
-                  ? <span className="text-yellow-400">You have ₦{absoluteRemaining.toLocaleString()} left to allocate to goals.</span>
-                  : <span className="text-red-400">Warning: You've allocated ₦{Math.abs(absoluteRemaining).toLocaleString()} more than your income!</span>
+                  ? <span className="text-yellow-400 block sm:inline mt-1 sm:mt-0">You have ₦{absoluteRemaining.toLocaleString()} left to allocate to goals.</span>
+                  : <span className="text-red-400 block sm:inline mt-1 sm:mt-0">Warning: You've allocated ₦{Math.abs(absoluteRemaining).toLocaleString()} more than your income!</span>
               }
             </div>
-            <div className="text-right">
+            <div className="text-left sm:text-right">
               <span className="text-sm text-slate-400">Total Goal Allocated</span>
               <div className="text-xl font-bold text-white">₦{totalAbsoluteGoal.toLocaleString()}</div>
             </div>

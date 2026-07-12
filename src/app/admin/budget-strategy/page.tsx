@@ -1,81 +1,70 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PeriodSelector } from "./components/PeriodSelector";
 import { SummaryTable } from "./components/SummaryTable";
 import { CategoryColumn } from "./components/CategoryColumn";
 import { IncomeColumn } from "./components/IncomeColumn";
 import { TransactionsTable } from "./components/TransactionsTable";
 
-export default function BudgetStrategyPage({
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: true,
+      refetchInterval: 5000,
+    },
+  },
+});
+
+export default function BudgetStrategyPageWrapper({
   searchParams,
 }: {
   searchParams?: { periodId?: string };
 }) {
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  return (
+    <QueryClientProvider client={queryClient}>
+      <BudgetStrategyPage searchParams={searchParams} />
+    </QueryClientProvider>
+  );
+}
 
-  const fetchData = async () => {
-    setLoading(true);
-    setErrorMsg(null);
-    try {
+function BudgetStrategyPage({
+  searchParams,
+}: {
+  searchParams?: { periodId?: string };
+}) {
+  const qc = useQueryClient();
+  const periodId = searchParams?.periodId;
+
+  const { data: queryData, isLoading: loading, error } = useQuery({
+    queryKey: ["budget-strategy", periodId],
+    queryFn: async () => {
       const url = new URL("/api/budgeting/strategy", window.location.origin);
-      if (searchParams?.periodId) {
-        url.searchParams.set("periodId", searchParams.periodId);
+      if (periodId) {
+        url.searchParams.set("periodId", periodId);
       }
-
       const res = await fetch(url.toString(), { cache: "no-store" });
-      if (res.ok) {
-        const json = await res.json();
-        if (json.success) {
-          setData(json.data);
-        } else {
-          setErrorMsg(json.error?.message || json.message || "Failed to load budget data.");
-        }
-      } else {
-        setErrorMsg(`HTTP Error ${res.status}`);
-      }
-    } catch (error: any) {
-      console.error("Error fetching budget strategy:", error);
-      setErrorMsg(error.message || "An unexpected error occurred.");
-    } finally {
-      setLoading(false);
+      if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error?.message || json.message || "Failed to load budget data.");
+      return json.data;
     }
-  };
+  });
 
-  useEffect(() => {
-    fetchData();
-  }, [searchParams?.periodId]);
+  const data = queryData;
+  const errorMsg = error?.message;
 
   const handleGoalUpdated = () => {
-    // We don't want to show the full-page skeleton loader when just updating a goal
-    // So we fetch silently
-    const fetchSilently = async () => {
-      try {
-        const url = new URL("/api/budgeting/strategy", window.location.origin);
-        if (searchParams?.periodId) {
-          url.searchParams.set("periodId", searchParams.periodId);
-        }
-        const res = await fetch(url.toString(), { cache: "no-store" });
-        if (res.ok) {
-          const json = await res.json();
-          if (json.success) {
-            setData(json.data);
-          }
-        }
-      } catch (e) {}
-    };
-    fetchSilently();
+    qc.invalidateQueries({ queryKey: ["budget-strategy", periodId] });
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 p-8 text-slate-200">
+      <div className="min-h-screen bg-slate-950 p-4 md:p-8 text-slate-200">
         {/* Header Skeleton */}
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
           <div className="h-8 w-48 bg-slate-800 rounded animate-pulse"></div>
-          <div className="h-10 w-48 bg-slate-800 rounded animate-pulse"></div>
+          <div className="h-10 w-full md:w-48 bg-slate-800 rounded animate-pulse"></div>
         </div>
 
         {/* Summary Table Skeleton */}
@@ -122,10 +111,12 @@ export default function BudgetStrategyPage({
 
   if (!data || !data.periodId) {
     return (
-      <div className="min-h-screen bg-slate-950 text-slate-200 p-8">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-white">Budget Strategy</h1>
-          <PeriodSelector currentPeriodId={""} />
+      <div className="min-h-screen bg-slate-950 text-slate-200 p-4 md:p-8">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+          <h1 className="text-2xl md:text-3xl font-bold text-white">Budget Strategy</h1>
+          <div className="w-full md:w-auto">
+            <PeriodSelector currentPeriodId={""} />
+          </div>
         </div>
         
         {data?.strategy && (
@@ -152,11 +143,13 @@ export default function BudgetStrategyPage({
   const isEditable = data.periodId === data.activePeriodId;
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-200 p-8">
+    <div className="min-h-screen bg-slate-950 text-slate-200 p-4 md:p-8">
       {/* Header Row */}
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-white">Budget Strategy</h1>
-        <PeriodSelector currentPeriodId={data.periodId} />
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+        <h1 className="text-2xl md:text-3xl font-bold text-white">Budget Strategy</h1>
+        <div className="w-full md:w-auto">
+          <PeriodSelector currentPeriodId={data.periodId} />
+        </div>
       </div>
 
       {/* Summary Table block */}
@@ -170,9 +163,9 @@ export default function BudgetStrategyPage({
         </div>
       )}
 
-      {/* Three/Four-column breakdown */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-        <IncomeColumn incomes={data.incomes} totalIncome={data.totalIncome} />
+      {/* Two-column layout to prevent squeezing */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <IncomeColumn incomes={data.incomes} totalIncome={data.totalIncome} onIncomeDeleted={handleGoalUpdated} />
         
         <CategoryColumn 
           title="NEEDS"

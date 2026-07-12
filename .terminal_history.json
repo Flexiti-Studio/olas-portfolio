@@ -516,7 +516,37 @@
       "command": "git pull origin",
       "timestamp": 1783748615775,
       "cwd": "c:\\Users\\HP\\Documents\\GitHub\\flexiti studio project\\olas-portfolio"
+    },
+    {
+      "command": "git add .",
+      "timestamp": 1783749824895,
+      "cwd": "c:\\Users\\HP\\Documents\\GitHub\\flexiti studio project\\olas-portfolio"
+    },
+    {
+      "command": "git commit -m \"mobile responsiveness\"",
+      "timestamp": 1783749912005,
+      "cwd": "c:\\Users\\HP\\Documents\\GitHub\\flexiti studio project\\olas-portfolio"
+    },
+    {
+      "command": "git push origin",
+      "timestamp": 1783749944211,
+      "cwd": "c:\\Users\\HP\\Documents\\GitHub\\flexiti studio project\\olas-portfolio"
+    },
+    {
+      "command": "& \"C:\\Users\\HP\\AppData\\Local\\Temp\\wshist_0p919.ps1\"; Remove-Item \"C:\\Users\\HP\\AppData\\Local\\Temp\\wshist_0p919.ps1\" -ErrorAction SilentlyContinue",
+      "timestamp": 1783810752570,
+      "cwd": "c:\\Users\\HP\\Documents\\GitHub\\flexiti studio project\\olas-portfolio"
+    },
+    {
+      "command": "& \"C:\\Users\\HP\\AppData\\Local\\Temp\\wshist_g85s3t.ps1\"; Remove-Item \"C:\\Users\\HP\\AppData\\Local\\Temp\\wshist_g85s3t.ps1\" -ErrorAction SilentlyContinue",
+      "timestamp": 1783810752867,
+      "cwd": "c:\\Users\\HP\\Documents\\GitHub\\flexiti studio project\\olas-portfolio"
+    },
+    {
+      "command": "ngrok http 3000",
+      "timestamp": 1783847258809,
+      "cwd": "c:\\Users\\HP\\Documents\\GitHub\\flexiti studio project\\olas-portfolio"
     }
   ],
-  "lastUpdated": 1783748615775
+  "lastUpdated": 1783847258809
 }

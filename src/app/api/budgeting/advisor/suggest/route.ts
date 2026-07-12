@@ -28,10 +28,10 @@ export async function POST(req: Request) {
       }
     });
 
-    if (allPeriods.length < 2) {
+    if (allPeriods.length < 1) {
       return NextResponse.json({
         success: false,
-        error: { message: "Not enough history yet to spot real patterns — once you've got a couple of full periods logged, this'll get more useful." }
+        error: { message: "You don't have any budget periods set up yet. Log some income or expenses first so I have data to analyze!" }
       }, { status: 400 });
     }
 
@@ -119,15 +119,23 @@ export async function POST(req: Request) {
     const strategySetting = await prisma.setting.findUnique({ where: { key: "budget_strategy" } });
     const globalStrategy = strategySetting ? (strategySetting.value as any) : { needs: 50, savings: 20, wants: 30 };
 
-    const prompt = `You are a budgeting advisor. Given this subcategory spending history and the user's global strategy (Needs: ${globalStrategy.needs}%, Savings/Investments: ${globalStrategy.savings}%, Wants: ${globalStrategy.wants}%), identify:
-1. Subcategories that consistently come in UNDER their goal (candidates to shift budget away from).
-2. Subcategories that consistently come in OVER their goal (need either more budget or flag as a behavior concern — say which, based on how far over and how consistent).
-3. Any subcategory with zero or near-zero recorded spend across all periods despite having a goal — likely unlogged spending hiding elsewhere (e.g. dumped into Miscellaneous), worth calling out explicitly rather than treated as "under goal."
+    let userMessage = "";
+    try {
+      const body = await req.json();
+      if (body.userMessage) userMessage = body.userMessage;
+    } catch(e) {}
 
-History: ${JSON.stringify(histories)}
+    let prompt = `You are a budgeting advisor. Given the user's subcategory allocations (goals), their spending history, and their global strategy (Needs: ${globalStrategy.needs}%, Savings/Investments: ${globalStrategy.savings}%, Wants: ${globalStrategy.wants}%), identify:
+1. Are their current allocations (goals) reasonable? Call out if a goal seems dangerously low or disproportionately high.
+2. Subcategories that consistently come in UNDER their goal (candidates to shift budget away from, BUT ONLY if it's safe to do so).
+3. Subcategories that consistently come in OVER their goal (need either more budget or flag as a behavior concern).
+4. Do NOT arbitrarily reduce essential goals (like Rent, Internet, Gas, Groceries) to zero just because their actual spend is currently zero. The user may simply not have paid that bill yet this month!
+5. If the user asks to achieve a specific financial goal (like clearing a 65k debt), FIRST check if their current goals already satisfy that amount. If they already have enough allocated, tell them they are already on track and do NOT aggressively strip money from essential categories.
+
+Data: ${JSON.stringify(histories)}
 Total periods analyzed: ${allPeriods.length}
 
-Propose a new goal amount for each subcategory that needs to change (omit ones that should stay the same). Keep the total allocation within the user's global strategy split (Needs/Wants/Savings) unless you have a clear reason to recommend shifting the global split itself (e.g., changing from 50/30/20 to 60/20/20). If you do recommend changing the overall strategy, call that out explicitly and explain why.
+Propose a new goal amount for each subcategory that needs to change (omit ones that should stay the same). Keep the total allocation within the user's global strategy split (Needs/Wants/Savings) unless you have a clear reason to recommend shifting the global split itself.
 
 Return ONLY valid JSON:
 {
@@ -135,11 +143,15 @@ Return ONLY valid JSON:
   "proposedChanges": [
     { "subcategoryId": "string", "name": "string", "currentGoal": 0, "proposedGoal": 0, "reason": "string" }
   ],
-  "proposedStrategy": { "needs": 50, "savings": 20, "wants": 30 }, // only include if suggesting a change to the global rule
+  "proposedStrategy": { "needs": 50, "savings": 20, "wants": 30 },
   "summary": "one or two sentence plain-language takeaway"
 }
 
-Keep reasoning and reason fields short and specific — cite the actual numbers ("under goal by ~30% for 4 straight periods"), not vague statements like "spending seems fine."`;
+Keep reasoning and reason fields short and specific. Do NOT propose reducing a goal to zero unless it's genuinely a non-essential 'Want'.`;
+
+    if (userMessage) {
+      prompt += `\n\nCRITICAL INSTRUCTION: The user also sent a specific message/request for you to address when reallocating: "${userMessage}". You MUST prioritize and incorporate this request into your reasoning, proposed changes, and summary.`;
+    }
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4o",

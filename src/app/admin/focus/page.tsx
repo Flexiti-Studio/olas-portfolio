@@ -1,36 +1,36 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { FocusedProjectCard } from "./components/FocusedProjectCard";
 import { ProjectQueueList } from "./components/ProjectQueueList";
 import { ProjectCompleteModal } from "./components/ProjectCompleteModal";
 import { NewProjectForm } from "./components/NewProjectForm";
 import { Loader2 } from "lucide-react";
+import { useQuery, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
-export default function FocusModePage() {
-  const [projects, setProjects] = useState<any[]>([]);
-  const [focusedProjectId, setFocusedProjectId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: true,
+      refetchInterval: 5000,
+    },
+  },
+});
+
+function FocusModePageContent() {
   const [showCompleteModal, setShowCompleteModal] = useState(false);
 
-  const fetchProjects = async () => {
-    try {
+  const { data, isLoading: loading, refetch: fetchProjects } = useQuery({
+    queryKey: ["focus-projects"],
+    queryFn: async () => {
       const res = await fetch("/api/focus/projects");
       const json = await res.json();
-      if (json.success) {
-        setProjects(json.data.projects);
-        setFocusedProjectId(json.data.focusedProjectId);
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
+      return json.data;
     }
-  };
+  });
 
-  useEffect(() => {
-    fetchProjects();
-  }, []);
+  const projects = data?.projects || [];
+  const focusedProjectId = data?.focusedProjectId || null;
 
   const handleSwitchFocus = async (projectId: string, force = false) => {
     try {
@@ -68,8 +68,8 @@ export default function FocusModePage() {
     );
   }
 
-  const focusedProject = projects.find(p => p.id === focusedProjectId);
-  const queue = projects.filter(p => p.id !== focusedProjectId);
+  const focusedProject = projects.find((p: any) => p.id === focusedProjectId);
+  const queue = projects.filter((p: any) => p.id !== focusedProjectId);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 p-8">
@@ -117,5 +117,13 @@ export default function FocusModePage() {
         />
       )}
     </div>
+  );
+}
+
+export default function FocusModePage() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <FocusModePageContent />
+    </QueryClientProvider>
   );
 }

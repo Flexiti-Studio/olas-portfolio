@@ -39,31 +39,38 @@ export async function GET(req: Request) {
 
     const endDate = nextPeriod ? nextPeriod.startDate : new Date('2100-01-01');
 
-    // Fetch Income for the period date range
+    // Fetch Income for the period date range (including past recurring incomes)
     const periodIncomes = await prisma.income.findMany({
       where: {
-        createdAt: {
-          gte: period.startDate,
-          lt: endDate
-        }
+        OR: [
+          {
+            createdAt: {
+              gte: period.startDate,
+              lt: endDate
+            }
+          },
+          {
+            isRecurring: true,
+            createdAt: {
+              lt: endDate
+            }
+          }
+        ]
       },
       include: { incomeCategory: true }
     });
     
-    const incomeCategoriesMap = new Map();
     let totalIncome = Number(period.rolloverAmount) || 0;
     
     for (const inc of periodIncomes) {
-      const catName = inc.incomeCategory.name;
       const amt = Number(inc.amount);
       totalIncome += amt;
-      
-      if (!incomeCategoriesMap.has(catName)) {
-        incomeCategoriesMap.set(catName, { id: inc.incomeCategory.id, name: catName, total: 0 });
-      }
-      incomeCategoriesMap.get(catName).total += amt;
     }
-    const incomes = Array.from(incomeCategoriesMap.values());
+    const incomes = periodIncomes.map(inc => ({
+      id: inc.id,
+      name: inc.incomeCategory.name,
+      amount: Number(inc.amount)
+    }));
 
     // 2. Fetch Goals for this period
     const goals = await prisma.budgetGoal.findMany({
@@ -103,12 +110,13 @@ export async function GET(req: Request) {
       for (const sub of cat.subcategories) {
         const goal = goals.find(g => g.subcategoryId === sub.id);
         const goalAmount = goal ? Number(goal.amount) : 0;
+        const goalPercentage = goal?.percentage ? Number(goal.percentage) : null;
         
         const txs = periodTransactions.filter(t => t.subcategoryId === sub.id);
         const actualAmount = txs.reduce((sum, t) => sum + Number(t.amount), 0);
         const remaining = goalAmount - actualAmount;
 
-        catData.subcategories.push({ id: sub.id, name: sub.name, goal: goalAmount, actual: actualAmount, remaining });
+        catData.subcategories.push({ id: sub.id, name: sub.name, goal: goalAmount, percentage: goalPercentage, actual: actualAmount, remaining });
         catData.totalGoal += goalAmount;
         catData.totalActual += actualAmount;
       }
@@ -117,6 +125,29 @@ export async function GET(req: Request) {
       groups[groupKey].totalGoal += catData.totalGoal;
       groups[groupKey].totalActual += catData.totalActual;
     }
+
+    const formattedIncomesAsTxs = periodIncomes.map(inc => ({
+      id: inc.id,
+      amount: inc.amount,
+      rawText: inc.description || "Income Added",
+      source: "income",
+      subcategory: {
+        name: inc.incomeCategory.name,
+        category: { name: "INCOME" }
+      },
+      bankAccount: (inc as any).bankAccount,
+      createdAt: inc.createdAt,
+      type: "income"
+    }));
+
+    const formattedTxs = periodTransactions.map(t => ({
+      ...t,
+      type: "expense"
+    }));
+
+    const allLedgerEntries = [...formattedIncomesAsTxs, ...formattedTxs].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
 
     return NextResponse.json({
       success: true,
@@ -128,7 +159,7 @@ export async function GET(req: Request) {
         totalIncome,
         groups,
         strategy,
-        transactions: periodTransactions
+        transactions: allLedgerEntries
       }
     });
   } catch (error: any) {

@@ -5,26 +5,49 @@ import openai from "@/lib/openai";
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BUDGET_BOT_TOKEN;
 const TELEGRAM_API_URL = `https://api.telegram.org/bot${TELEGRAM_TOKEN}`;
 
-async function sendMessage(chatId: number, text: string, replyMarkup?: any) {
-  await fetch(`${TELEGRAM_API_URL}/sendMessage`, {
+async function sendMessage(chatId: number, text: string, replyMarkup?: any, parseMode?: string) {
+  const res = await fetch(`${TELEGRAM_API_URL}/sendMessage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       chat_id: chatId,
       text: text,
-      reply_markup: replyMarkup
+      reply_markup: replyMarkup,
+      parse_mode: parseMode
     })
   });
+  
+  const json = await res.json();
+  if (!json.ok && parseMode) {
+     // If it failed because of Markdown parsing, fallback to plain text
+     console.warn("Telegram Send Error with Markdown, falling back to plain text:", json);
+     await fetch(`${TELEGRAM_API_URL}/sendMessage`, {
+       method: 'POST',
+       headers: { 'Content-Type': 'application/json' },
+       body: JSON.stringify({
+         chat_id: chatId,
+         text: text,
+         reply_markup: replyMarkup
+       })
+     });
+  } else if (!json.ok) {
+     console.error("Telegram Send Error:", json);
+  }
 }
 
 // Intent Classifier
 async function classifyIntent(text: string) {
-  const prompt = `Classify this Telegram message as one of: EXPENSE, INCOME, TRANSFER, COMMAND, ADVISOR, CONVERSATION, UNCLEAR.
+const prompt = `Classify this Telegram message as one of: EXPENSE, INCOME, TRANSFER, COMMAND, STATUS, ADVISOR, CONVERSATION, ADDSUBCAT, EDITINCOME, DELETESUBCAT, DELETEINCOME, UNCLEAR.
 EXPENSE = user is describing a purchase or money spent.
 INCOME = user got paid, received money, or added a new source of income.
 TRANSFER = user moved money from one bank/account to another.
 COMMAND = starts with "/" or is a direct instruction like "show my balance".
+STATUS = user asks for their current budget strategy, allocations, remaining balances, or how much they have left in categories.
 ADVISOR = asking for help reallocating, being more efficient, understanding spending patterns, or getting budget advice — NOT logging a purchase.
+ADDSUBCAT = user wants to add or create a new subcategory under a parent category (e.g. "add subcat Gym under Wants").
+DELETESUBCAT = user wants to delete, remove, or drop a subcategory (e.g. "delete subcat Gym", "remove Personal Care").
+EDITINCOME = user wants to change, update, or edit the amount of an existing income source (e.g. "change my salary to 500k", "update Qefas income to 30k").
+DELETEINCOME = user wants to delete, remove, or drop an income source (e.g. "delete Qefas income", "remove salary").
 CONVERSATION = general chat, greetings, "hi", "how are you".
 UNCLEAR = anything else.
 
@@ -185,7 +208,7 @@ export async function POST(req: Request) {
           if (pending) {
             const txData = pending.value as any;
             const host = req.headers.get("host");
-            const protocol = process.env.NODE_ENV === "development" ? "http" : "https";
+            const protocol = req.headers.get("x-forwarded-proto") || (process.env.NODE_ENV === "development" ? "http" : "https");
             const txRes = await fetch(`${protocol}://${host}/api/budgeting/transaction`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -238,18 +261,19 @@ export async function POST(req: Request) {
     const chatId = update.message.chat.id;
     const text = update.message.text;
 
-    const intent = await classifyIntent(text);
+    let intent = await classifyIntent(text);
 
     if (intent === "COMMAND") {
       if (text.startsWith("/balance")) {
         const balances = await prisma.bankAccount.findMany();
         const msg = balances.map(b => `${b.name}: ₦${Number(b.balance).toLocaleString()}`).join("\n") || "No accounts found.";
         await sendMessage(chatId, `Balances:\n${msg}`);
-      } else if (text.startsWith("/status")) {
-        await sendMessage(chatId, "Status command invoked (TODO: implement category rollup)");
-      } else if (text.startsWith("/reallocate")) {
+      } else if (text.replace(" ", "").startsWith("/status")) {
+        intent = "STATUS"; // Let the STATUS block handle it
+
+      } else if (text.replace(" ", "").startsWith("/reallocate")) {
         const host = req.headers.get("host");
-        const protocol = process.env.NODE_ENV === "development" ? "http" : "https";
+        const protocol = req.headers.get("x-forwarded-proto") || (process.env.NODE_ENV === "development" ? "http" : "https");
         
         let sourceGoals;
         const overridesText = text.replace("/reallocate", "").trim();
@@ -291,7 +315,7 @@ export async function POST(req: Request) {
         }
       } else if (text.startsWith("/digest")) {
         const host = req.headers.get("host") || "localhost:3000";
-        const protocol = process.env.NODE_ENV === "development" ? "http" : "https";
+        const protocol = req.headers.get("x-forwarded-proto") || (process.env.NODE_ENV === "development" ? "http" : "https");
         
         await sendMessage(chatId, "Generating digest...");
         
@@ -325,7 +349,10 @@ export async function POST(req: Request) {
       } else {
         await sendMessage(chatId, "I recognized that as a command, but I'm not sure which one. Try /balance, /status, /addbank, /reallocate, or /digest.");
       }
-      return NextResponse.json({ ok: true });
+      
+      if (intent !== "STATUS") {
+        return NextResponse.json({ ok: true });
+      }
     }
 
     if (intent === "CONVERSATION" || intent === "UNCLEAR") {
@@ -342,6 +369,83 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true });
     }
 
+    if (intent === "STATUS") {
+      const config = await prisma.appConfig.findUnique({ where: { id: "singleton" } });
+      if (!config || !config.activePeriodId) {
+        await sendMessage(chatId, "You don't have an active budget period set up.");
+        return NextResponse.json({ ok: true });
+      }
+
+      const host = req.headers.get("host");
+      const protocol = process.env.NODE_ENV === "development" ? "http" : "https";
+      const res = await fetch(`${protocol}://${host}/api/budgeting/strategy?periodId=${config.activePeriodId}`);
+      const json = await res.json();
+
+      if (!json.success) {
+         await sendMessage(chatId, "Error fetching your budget status.");
+         return NextResponse.json({ ok: true });
+      }
+
+      const data = json.data;
+      const strategyData = data.strategy || { needs: 50, savings: 20, wants: 30 };
+
+      // If they explicitly typed a command, give the full breakdown
+      if (text.trim().startsWith("/")) {
+        let reply = `📊 *Budget Strategy Status*\n\n`;
+        reply += `💰 *Total Income*: ₦${(data.totalIncome || 0).toLocaleString()}\n`;
+        reply += `🎯 *50/30/20 Target*: Needs (${strategyData.needs}%) | Savings (${strategyData.savings}%) | Wants (${strategyData.wants}%)\n\n`;
+        
+        for (const groupName of ["NEEDS", "SAVINGS", "WANTS"]) {
+           const g = data.groups[groupName];
+           reply += `*${groupName}*: ₦${g.totalActual.toLocaleString()} spent / ₦${g.totalGoal.toLocaleString()} goal\n`;
+           
+           for (const cat of g.categories) {
+              let catHeaderPrinted = false;
+              for (const sub of cat.subcategories) {
+                if (sub.goal > 0 || sub.actual > 0) {
+                   if (!catHeaderPrinted) {
+                      reply += `  _${cat.name}_\n`;
+                      catHeaderPrinted = true;
+                   }
+                   const sign = sub.remaining >= 0 ? "left" : "over";
+                   reply += `    - ${sub.name}: ₦${Math.abs(sub.remaining).toLocaleString()} ${sign}\n`;
+                }
+              }
+           }
+           reply += `\n`;
+        }
+        
+        await sendMessage(chatId, reply, undefined, "Markdown");
+      } else {
+        // Natural language query: Let GPT answer it using the budget data
+        const payloadToAI = {
+          totalIncome: data.totalIncome,
+          strategy: strategyData,
+          groups: data.groups
+        };
+
+        const systemPrompt = `You are a financial assistant. The user is asking a specific question about their budget.
+Here is their current budget data (JSON):
+${JSON.stringify(payloadToAI)}
+
+Answer the user's question concisely in 1-3 sentences. Do not dump all the data. Only tell them what they asked for. Use Naira (₦) for amounts.`;
+
+        const response = await openai.chat.completions.create({
+          model: "gpt-4o",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: text }
+          ],
+          temperature: 0.3
+        });
+        
+        const aiReply = response.choices[0].message.content || "I couldn't find the answer to that in your current budget.";
+        await sendMessage(chatId, aiReply);
+      }
+      
+      return NextResponse.json({ ok: true });
+    }
+
     if (intent === "ADVISOR") {
       const host = req.headers.get("host");
       const protocol = process.env.NODE_ENV === "development" ? "http" : "https";
@@ -349,7 +453,9 @@ export async function POST(req: Request) {
       await sendMessage(chatId, "Analyzing your recent spending patterns...");
 
       const res = await fetch(`${protocol}://${host}/api/budgeting/advisor/suggest`, {
-        method: "POST"
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userMessage: text })
       });
       const json = await res.json();
       
@@ -396,6 +502,207 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true });
     }
 
+    if (intent === "ADDSUBCAT") {
+      await sendMessage(chatId, "⏳ Creating subcategory...");
+      
+      const parsePrompt = `Extract the target Category and new Subcategory to create from this message.
+Valid base categories are usually NEEDS, SAVINGS, WANTS.
+Return ONLY valid JSON: { "categoryName": string, "subcategoryName": string }
+Message: "${text}"`;
+
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [{ role: "system", content: parsePrompt }],
+        response_format: { type: "json_object" },
+        temperature: 0.1
+      });
+
+      const parsed = JSON.parse(completion.choices[0].message.content || "{}");
+      
+      if (!parsed.categoryName || !parsed.subcategoryName) {
+         await sendMessage(chatId, "I couldn't understand the category and subcategory names. Please try again (e.g. 'Add subcategory Gym to Wants').");
+         return NextResponse.json({ ok: true });
+      }
+
+      const categories = await prisma.category.findMany();
+      // Simple case-insensitive match
+      const matchedCat = categories.find(c => c.name.toLowerCase() === parsed.categoryName.toLowerCase() || c.group.toLowerCase() === parsed.categoryName.toLowerCase());
+
+      if (!matchedCat) {
+         await sendMessage(chatId, `I couldn't find a base category matching '${parsed.categoryName}'. Known categories: ${categories.map(c=>c.name).join(", ")}`);
+         return NextResponse.json({ ok: true });
+      }
+
+      const host = req.headers.get("host");
+      const protocol = req.headers.get("x-forwarded-proto") || (process.env.NODE_ENV === "development" ? "http" : "https");
+      
+      const res = await fetch(`${protocol}://${host}/api/budgeting/subcategory`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ categoryId: matchedCat.id, name: parsed.subcategoryName })
+      });
+
+      const json = await res.json();
+      if (json.success) {
+         await sendMessage(chatId, `✅ Successfully added subcategory '${parsed.subcategoryName}' under '${matchedCat.name}'.`);
+      } else {
+         await sendMessage(chatId, `❌ Failed to add subcategory: ${json.error?.message}`);
+      }
+      return NextResponse.json({ ok: true });
+    }
+
+    if (intent === "EDITINCOME") {
+      await sendMessage(chatId, "⏳ Updating income...");
+      
+      const parsePrompt = `Extract the name of the income category and the new amount the user wants to set.
+Return ONLY valid JSON: { "incomeCategoryName": string, "newAmount": number }
+Message: "${text}"`;
+
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [{ role: "system", content: parsePrompt }],
+        response_format: { type: "json_object" },
+        temperature: 0.1
+      });
+
+      const parsed = JSON.parse(completion.choices[0].message.content || "{}");
+      
+      if (!parsed.incomeCategoryName || !parsed.newAmount) {
+         await sendMessage(chatId, "I couldn't understand which income to update or the new amount. Please try again (e.g. 'Change Qefas pallative to 30000').");
+         return NextResponse.json({ ok: true });
+      }
+
+      // Find the most recent income matching this category name
+      const incomes = await prisma.income.findMany({
+        include: { incomeCategory: true },
+        orderBy: { createdAt: 'desc' }
+      });
+      
+      const matchedIncome = incomes.find(inc => 
+        inc.incomeCategory.name.toLowerCase().includes(parsed.incomeCategoryName.toLowerCase()) || 
+        parsed.incomeCategoryName.toLowerCase().includes(inc.incomeCategory.name.toLowerCase())
+      );
+
+      if (!matchedIncome) {
+         await sendMessage(chatId, `I couldn't find an existing income matching '${parsed.incomeCategoryName}'.`);
+         return NextResponse.json({ ok: true });
+      }
+
+      try {
+        const diff = parsed.newAmount - Number(matchedIncome.amount);
+        
+        await prisma.$transaction(async (tx) => {
+          await tx.income.update({
+            where: { id: matchedIncome.id },
+            data: { amount: parsed.newAmount }
+          });
+          
+          if (matchedIncome.bankAccountId) {
+            await tx.bankAccount.update({
+              where: { id: matchedIncome.bankAccountId },
+              data: { balance: { increment: diff } }
+            });
+          }
+        });
+
+        // Rebalance
+        const { autoBalanceCurrentPeriod } = await import("@/lib/autoBalance");
+        await autoBalanceCurrentPeriod();
+
+        await sendMessage(chatId, `✅ Successfully updated '${matchedIncome.incomeCategory.name}' income to ₦${parsed.newAmount.toLocaleString()}. Balances and budget goals have been recalculated!`);
+      } catch (e: any) {
+        await sendMessage(chatId, `❌ Failed to update income: ${e.message}`);
+      }
+
+      return NextResponse.json({ ok: true });
+    }
+
+    if (intent === "DELETEINCOME") {
+      await sendMessage(chatId, "⏳ Deleting income...");
+      const parsePrompt = `Extract the name of the income category the user wants to delete.
+Return ONLY valid JSON: { "incomeCategoryName": string }
+Message: "${text}"`;
+
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [{ role: "system", content: parsePrompt }],
+        response_format: { type: "json_object" },
+        temperature: 0.1
+      });
+
+      const parsed = JSON.parse(completion.choices[0].message.content || "{}");
+      
+      if (!parsed.incomeCategoryName) {
+         await sendMessage(chatId, "I couldn't understand which income to delete. Please try again.");
+         return NextResponse.json({ ok: true });
+      }
+
+      const incomes = await prisma.income.findMany({ include: { incomeCategory: true }, orderBy: { createdAt: 'desc' } });
+      const matchedIncome = incomes.find(inc => 
+        inc.incomeCategory.name.toLowerCase().includes(parsed.incomeCategoryName.toLowerCase()) || 
+        parsed.incomeCategoryName.toLowerCase().includes(inc.incomeCategory.name.toLowerCase())
+      );
+
+      if (!matchedIncome) {
+         await sendMessage(chatId, `I couldn't find an existing income matching '${parsed.incomeCategoryName}'.`);
+         return NextResponse.json({ ok: true });
+      }
+
+      const host = req.headers.get("host");
+      const protocol = process.env.NODE_ENV === "development" ? "http" : "https";
+      const res = await fetch(`${protocol}://${host}/api/budgeting/income?id=${matchedIncome.id}`, { method: "DELETE" });
+      
+      if (res.ok) {
+         await sendMessage(chatId, `✅ Successfully deleted '${matchedIncome.incomeCategory.name}' income. Balances and budget goals have been recalculated!`);
+      } else {
+         await sendMessage(chatId, `❌ Failed to delete income.`);
+      }
+      return NextResponse.json({ ok: true });
+    }
+
+    if (intent === "DELETESUBCAT") {
+      await sendMessage(chatId, "⏳ Deleting subcategory...");
+      const parsePrompt = `Extract the name of the subcategory the user wants to delete.
+Return ONLY valid JSON: { "subcategoryName": string }
+Message: "${text}"`;
+
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [{ role: "system", content: parsePrompt }],
+        response_format: { type: "json_object" },
+        temperature: 0.1
+      });
+
+      const parsed = JSON.parse(completion.choices[0].message.content || "{}");
+      
+      if (!parsed.subcategoryName) {
+         await sendMessage(chatId, "I couldn't understand which subcategory to delete.");
+         return NextResponse.json({ ok: true });
+      }
+
+      const subcats = await prisma.subcategory.findMany();
+      const matchedSubcat = subcats.find(s => 
+        s.name.toLowerCase() === parsed.subcategoryName.toLowerCase() || 
+        s.name.toLowerCase().includes(parsed.subcategoryName.toLowerCase())
+      );
+
+      if (!matchedSubcat) {
+         await sendMessage(chatId, `I couldn't find a subcategory matching '${parsed.subcategoryName}'.`);
+         return NextResponse.json({ ok: true });
+      }
+
+      const host = req.headers.get("host");
+      const protocol = process.env.NODE_ENV === "development" ? "http" : "https";
+      const res = await fetch(`${protocol}://${host}/api/budgeting/subcategory?id=${matchedSubcat.id}`, { method: "DELETE" });
+      
+      if (res.ok) {
+         await sendMessage(chatId, `✅ Successfully deleted subcategory '${matchedSubcat.name}'.`);
+      } else {
+         await sendMessage(chatId, `❌ Failed to delete subcategory.`);
+      }
+      return NextResponse.json({ ok: true });
+    }
+
     if (intent === "EXPENSE") {
       await sendMessage(chatId, "⏳ Logging transaction...");
       
@@ -419,7 +726,7 @@ export async function POST(req: Request) {
 
         // Hit transaction API internally
         const host = req.headers.get("host");
-        const protocol = process.env.NODE_ENV === "development" ? "http" : "https";
+        const protocol = req.headers.get("x-forwarded-proto") || (process.env.NODE_ENV === "development" ? "http" : "https");
         const txRes = await fetch(`${protocol}://${host}/api/budgeting/transaction`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -482,33 +789,37 @@ export async function POST(req: Request) {
       }
 
       const host = req.headers.get("host");
-      const protocol = process.env.NODE_ENV === "development" ? "http" : "https";
+      const protocol = req.headers.get("x-forwarded-proto") || (process.env.NODE_ENV === "development" ? "http" : "https");
       
-      const res = await fetch(`${protocol}://${host}/api/budgeting/income`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-           amount: parsed.amount,
-           bankAccountName: parsed.bankName || "Unallocated/Cash",
-           incomeCategoryName: parsed.incomeCategory || "General",
-           description: parsed.description
-        })
-      });
+      try {
+        const res = await fetch(`${protocol}://${host}/api/budgeting/income`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+             amount: parsed.amount,
+             bankAccountName: parsed.bankName || "Unallocated/Cash",
+             incomeCategoryName: parsed.incomeCategory || "General",
+             description: parsed.description
+          })
+        });
 
-      const json = await res.json();
-      if (json.success) {
-         const incomeId = json.data.income.id;
-         const inlineKeyboard = [
-           [
-             { text: "One-Time", callback_data: `income_onetime_${incomeId}` },
-             { text: "Recurring", callback_data: `income_recurring_${incomeId}` }
-           ]
-         ];
-         await sendMessage(chatId, `Added ₦${parsed.amount.toLocaleString()} from ${parsed.incomeCategory || "General"}. Is this recurring every month?`, {
-           inline_keyboard: inlineKeyboard
-         });
-      } else {
-         await sendMessage(chatId, `Failed to add income: ${json.error?.message}`);
+        const json = await res.json();
+        if (json.success) {
+           const incomeId = json.data.income.id;
+           const inlineKeyboard = [
+             [
+               { text: "One-Time", callback_data: `income_onetime_${incomeId}` },
+               { text: "Recurring", callback_data: `income_recurring_${incomeId}` }
+             ]
+           ];
+           await sendMessage(chatId, `Added ₦${parsed.amount.toLocaleString()} from ${parsed.incomeCategory || "General"}. Is this recurring every month?`, {
+             inline_keyboard: inlineKeyboard
+           });
+        } else {
+           await sendMessage(chatId, `Failed to add income: ${json.error?.message}`);
+        }
+      } catch (err: any) {
+        await sendMessage(chatId, `Network error adding income: ${err.message}`);
       }
       return NextResponse.json({ ok: true });
     }
