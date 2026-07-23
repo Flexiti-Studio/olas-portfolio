@@ -39,8 +39,11 @@ export default function CourseCreator() {
   const [focusAreas, setFocusAreas] = useState<string[]>([]);
   const [depth, setDepth] = useState("standard");
   const [isGenerating, setIsGenerating] = useState(false);
-  const [currentStep, setCurrentStep] = useState(0);
-  const [completedSteps, setCompletedSteps] = useState<number[]>([]);
+  const [syllabusStatus, setSyllabusStatus] = useState<"pending" | "generating" | "completed">("pending");
+  const [syllabusStep, setSyllabusStep] = useState(1); // 1: analysing, 2: structuring
+  const [modulesList, setModulesList] = useState<{ id: string; title: string; status: "pending" | "generating" | "completed" }[]>([]);
+  const [currentGeneratingModuleIndex, setCurrentGeneratingModuleIndex] = useState<number | null>(null);
+
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [toast, setToast] = useState<{message: string, type: "error" | "success" | "info"} | null>(null);
@@ -79,8 +82,10 @@ export default function CourseCreator() {
 
     const linkedApp = applications.find(a => a.id === applicationId);
     setIsGenerating(true);
-    setCurrentStep(0);
-    setCompletedSteps([]);
+    setSyllabusStatus("generating");
+    setSyllabusStep(1);
+    setModulesList([]);
+    setCurrentGeneratingModuleIndex(null);
 
     try {
       const res = await fetch("/api/interview-prep/generate", {
@@ -109,17 +114,21 @@ export default function CourseCreator() {
           try {
             const data = JSON.parse(line.slice(6));
             if (data.step) {
-              setCurrentStep(data.step);
-              setCompletedSteps(prev => [...prev, data.step - 1].filter(n => n > 0));
+              setSyllabusStep(data.step);
             }
             if (data.result) generatedCourse = data.result;
           } catch {}
         }
       }
 
-      if (!generatedCourse?.modules?.length) { showToast("Generation failed. Try again.", "error"); setIsGenerating(false); return; }
+      if (!generatedCourse?.modules?.length) { 
+        showToast("Syllabus generation failed. Try again.", "error"); 
+        setIsGenerating(false); 
+        return; 
+      }
 
-      setCompletedSteps([1,2,3,4,5,6]);
+      setSyllabusStatus("completed");
+
       const saveRes = await fetch("/api/interview-prep", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -138,11 +147,38 @@ export default function CourseCreator() {
 
       if (saveRes.ok) {
         const saved = await saveRes.json();
+        const initialModules = saved.modules.map((m: any) => ({
+          id: m.id,
+          title: m.title,
+          status: "pending" as const
+        }));
+        setModulesList(initialModules);
+
+        // Sequentially generate content for each module
+        for (let i = 0; i < initialModules.length; i++) {
+          setCurrentGeneratingModuleIndex(i);
+          setModulesList(prev => prev.map((m, idx) => idx === i ? { ...m, status: "generating" } : m));
+
+          const modGenRes = await fetch("/api/interview-prep/generate-module", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              courseId: saved.id,
+              moduleId: initialModules[i].id
+            })
+          });
+
+          if (!modGenRes.ok) {
+            showToast(`Warning: Failed to generate content for "${initialModules[i].title}".`, "error");
+          }
+          setModulesList(prev => prev.map((m, idx) => idx === i ? { ...m, status: "completed" } : m));
+        }
+
         showToast("Course created successfully!", "success");
         router.push(`/admin/interview-prep/${saved.id}`);
       } else {
         const err = await saveRes.json();
-        showToast(`Failed to save course: ${err.error || "Unknown error"}`, "error"); 
+        showToast(`Failed to save course syllabus: ${err.error || "Unknown error"}`, "error"); 
         setIsGenerating(false);
       }
     } catch (err) {
@@ -150,40 +186,71 @@ export default function CourseCreator() {
     }
   };
 
-  if (isGenerating) return (
-    <div className="min-h-screen bg-zinc-950 text-white flex items-center justify-center p-8">
-      <div className="max-w-md w-full">
-        <div className="text-center mb-10">
-          <BookOpen size={40} className="mx-auto mb-4 text-indigo-400" />
-          <h2 className="text-2xl font-semibold mb-2">Building Your Course</h2>
-          <p className="text-zinc-500 text-sm">This takes about 30-60 seconds</p>
-        </div>
-        <div className="space-y-3">
-          {STEPS.map((label, i) => {
-            const stepNum = i + 1;
-            const isDone = completedSteps.includes(stepNum);
-            const isActive = currentStep === stepNum;
-            return (
-              <motion.div key={i} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.1 }}
-                className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${
-                  isDone ? "border-emerald-800 bg-emerald-950/30" :
-                  isActive ? "border-indigo-700 bg-indigo-950/30" :
-                  "border-zinc-800 bg-zinc-900/30"
+  if (isGenerating) {
+    const totalSteps = 1 + modulesList.length;
+    const completedCount = (syllabusStatus === "completed" ? 1 : 0) + modulesList.filter(m => m.status === "completed").length;
+    const progressPercent = totalSteps > 1 ? Math.round((completedCount / totalSteps) * 100) : 0;
+
+    return (
+      <div className="min-h-screen bg-zinc-950 text-white flex items-center justify-center p-8">
+        <div className="max-w-lg w-full bg-zinc-900/50 border border-zinc-800 rounded-3xl p-8 shadow-2xl">
+          <div className="text-center mb-8">
+            <BookOpen size={40} className="mx-auto mb-4 text-indigo-400 animate-pulse" />
+            <h2 className="text-2xl font-bold mb-2">Building Your Course</h2>
+            <p className="text-zinc-500 text-sm">Syllabus structured! Generating detailed lessons, flashcards, and tests sequentially.</p>
+          </div>
+
+          <div className="space-y-3 max-h-[350px] overflow-y-auto pr-2 scrollbar-thin">
+            {/* Syllabus step */}
+            <div className={`flex items-center gap-3 p-3.5 rounded-xl border transition-colors ${
+              syllabusStatus === "completed" ? "border-emerald-800/40 bg-emerald-950/10 text-emerald-400" :
+              syllabusStatus === "generating" ? "border-indigo-800 bg-indigo-950/20 text-white" :
+              "border-zinc-800 bg-zinc-900/30 text-zinc-500"
+            }`}>
+              {syllabusStatus === "completed" ? <CheckCircle2 size={18} className="text-emerald-400 shrink-0" /> :
+                syllabusStatus === "generating" ? <Loader2 size={18} className="animate-spin text-indigo-400 shrink-0" /> :
+                <div className="w-[18px] h-[18px] rounded-full border border-zinc-800 shrink-0" />}
+              <div className="flex-1 text-sm font-semibold">
+                {syllabusStatus === "completed" ? "Syllabus outline structured" :
+                  syllabusStep === 1 ? "Analysing study material..." : "Structuring course syllabus..."}
+              </div>
+            </div>
+
+            {/* Modules steps */}
+            {modulesList.map((m, idx) => {
+              const isGeneratingMod = m.status === "generating";
+              const isDone = m.status === "completed";
+
+              return (
+                <div key={m.id} className={`flex items-center gap-3 p-3.5 rounded-xl border transition-colors ${
+                  isDone ? "border-emerald-800/40 bg-emerald-950/10 text-emerald-400" :
+                  isGeneratingMod ? "border-indigo-800 bg-indigo-950/20 text-white font-medium" :
+                  "border-zinc-800 bg-zinc-900/30 text-zinc-600"
                 }`}>
-                {isDone ? <CheckCircle2 size={18} className="text-emerald-400 shrink-0" /> :
-                  isActive ? <Loader2 size={18} className="animate-spin text-indigo-400 shrink-0" /> :
-                  <div className="w-[18px] h-[18px] rounded-full border border-zinc-700 shrink-0" />}
-                <span className={`text-sm ${isDone ? "text-emerald-400" : isActive ? "text-white" : "text-zinc-600"}`}>{label}</span>
-              </motion.div>
-            );
-          })}
-        </div>
-        <div className="mt-8 w-full bg-zinc-800 rounded-full h-1.5">
-          <div className="bg-indigo-500 h-1.5 rounded-full transition-all duration-700" style={{ width: `${(currentStep / 6) * 100}%` }} />
+                  {isDone ? <CheckCircle2 size={18} className="text-emerald-400 shrink-0" /> :
+                    isGeneratingMod ? <Loader2 size={18} className="animate-spin text-indigo-400 shrink-0" /> :
+                    <div className="w-[18px] h-[18px] rounded-full border border-zinc-800 shrink-0" />}
+                  <span className="text-sm">
+                    {isGeneratingMod ? "Generating " : ""}Module {idx + 1}: {m.title}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="mt-8">
+            <div className="flex justify-between text-xs text-zinc-500 mb-2">
+              <span>Overall Progress</span>
+              <span>{progressPercent}%</span>
+            </div>
+            <div className="w-full bg-zinc-800 rounded-full h-2 overflow-hidden border border-zinc-800">
+              <div className="bg-indigo-500 h-2 rounded-full transition-all duration-500" style={{ width: `${progressPercent}%` }} />
+            </div>
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  }
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white">

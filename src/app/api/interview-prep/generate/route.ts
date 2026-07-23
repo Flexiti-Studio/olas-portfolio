@@ -3,13 +3,17 @@ import OpenAI from 'openai';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-const DEPTH_MODULES: Record<string, number> = { quick: 3, standard: 5, comprehensive: 8 };
+const DEPTH_CONFIG: Record<string, { modules: number; lessonsPerModule: number; flashcardsPerModule: number; quizPerModule: number }> = {
+  quick:         { modules: 3,  lessonsPerModule: 2, flashcardsPerModule: 5,  quizPerModule: 4  },
+  standard:      { modules: 5,  lessonsPerModule: 3, flashcardsPerModule: 7,  quizPerModule: 6  },
+  comprehensive: { modules: 8,  lessonsPerModule: 4, flashcardsPerModule: 10, quizPerModule: 8  },
+};
 
 export async function POST(req: NextRequest) {
   const { text, title, focusAreas, depth, applicationId, applicationRole, applicationCompany } = await req.json();
   if (!text?.trim()) return NextResponse.json({ error: 'No content provided' }, { status: 400 });
 
-  const moduleCount = DEPTH_MODULES[depth] || 5;
+  const config = DEPTH_CONFIG[depth] || DEPTH_CONFIG.standard;
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
@@ -19,58 +23,45 @@ export async function POST(req: NextRequest) {
       try {
         send({ step: 1, label: 'Analysing your material...' });
 
-        const systemPrompt = `You are an expert instructional designer and interview coach. Transform raw study material into a structured, engaging course that prepares someone for a job interview. Every lesson must connect back to how it will be tested in a real interview. Return ONLY valid JSON — no markdown, no backticks, no explanation outside the JSON.`;
+        const systemPrompt = `You are a world-class instructional designer and interview coaching expert. Your job is to transform raw study material into a beautifully structured course syllabus shell.
 
-        const userPrompt = `MATERIAL:
-${text.slice(0, 12000)}
+CRITICAL RULES:
+1. Return ONLY valid JSON — absolutely no markdown, no backticks, no explanation text outside the JSON object.
+2. Design a structured syllabus containing course title, overall description, estimated duration, and a clear list of modules.
+3. Each module must contain order, title, module description, and a list of specific lessons with their estimated reading time.
+4. Do NOT generate the detailed content, quizzes, or flashcards for the lessons yet. Only generate the structural syllabus outline.`;
 
-COURSE TITLE (if provided): ${title || 'generate a concise, descriptive title'}
-FOCUS AREAS: ${focusAreas?.length ? focusAreas.join(', ') : 'General Interview Prep'}
-DEPTH: ${depth} — generate exactly ${moduleCount} modules
-${applicationRole ? `LINKED ROLE: ${applicationRole}` : ''}
-${applicationCompany ? `LINKED COMPANY: ${applicationCompany}` : ''}
+        const focusAreasStr = focusAreas?.length ? focusAreas.join(', ') : 'Technical Skills, Behavioural Questions, System Design';
+        const roleContext = applicationRole ? `\nTARGET ROLE: ${applicationRole}` : '';
+        const companyContext = applicationCompany ? `\nTARGET COMPANY: ${applicationCompany}` : '';
 
-Rules:
-- STRICT RULE: If the MATERIAL is sufficient and detailed, focus strictly on it to generate the course. DO NOT invent outside concepts.
-- If the MATERIAL is very short or insufficient, expand on it by adding industry-standard knowledge relevant to the ROLE or TOPIC.
-- Every module: at least 2 lessons, 1 quiz (min 5 questions), 5+ flashcards
-- Lesson content sections: vary types (paragraph/callout/code/steps/bullets/definition)
-- whyThisMatters: reference specific interview scenarios directly
-- Quiz types: multiple_choice (4 options) and true_false ONLY. Do not generate fill-in-the-blanks or short_answer.
+        const userPrompt = `STUDY MATERIAL:
+---
+${text.slice(0, 14000)}
+---
 
-Return this exact JSON:
+COURSE SETTINGS:
+- Title (if provided): ${title || 'generate a precise, professional title'}
+- Focus Areas: ${focusAreasStr}
+- Depth: ${depth} — generate EXACTLY ${config.modules} modules
+- Each module: EXACTLY ${config.lessonsPerModule} lessons outlined${roleContext}${companyContext}
+
+Return this EXACT JSON structure:
 {
-  "title": "",
-  "description": "",
-  "estimatedDuration": "",
+  "title": "Professional descriptive course title",
+  "description": "2-3 sentences describing what this course covers and what the learner will achieve",
+  "estimatedDuration": "X hours Y minutes",
   "modules": [
     {
-      "id": "module-1",
-      "title": "",
-      "description": "",
+      "title": "Module title covering a clear topic",
+      "description": "2-3 sentences about what this module covers and its interview relevance",
       "order": 1,
       "lessons": [
         {
-          "id": "lesson-1-1",
-          "title": "",
+          "title": "Specific lesson title covering a clear subtopic",
           "order": 1,
-          "estimatedMinutes": 5,
-          "content": {
-            "introduction": "",
-            "sections": [
-              { "type": "paragraph", "heading": "", "body": "", "items": [], "language": "" }
-            ],
-            "whyThisMatters": ""
-          }
+          "estimatedMinutes": 10
         }
-      ],
-      "quiz": {
-        "questions": [
-          { "id": "q-1", "type": "multiple_choice", "question": "", "options": ["","","",""], "correctAnswer": "", "explanation": "" }
-        ]
-      },
-      "flashcards": [
-        { "id": "fc-1", "front": "", "back": "" }
       ]
     }
   ]
@@ -84,8 +75,9 @@ Return this exact JSON:
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userPrompt }
           ],
-          max_tokens: 8000,
+          max_tokens: 4000,
           response_format: { type: 'json_object' },
+          temperature: 0.7,
         });
 
         send({ step: 3, label: 'Writing lesson content...' });

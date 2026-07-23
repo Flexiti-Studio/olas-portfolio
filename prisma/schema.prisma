@@ -414,12 +414,14 @@ model Transaction {
 model Goal {
   id             String    @id @default(cuid())
   title          String    // e.g. "Save ₦500,000 for new laptop"
-  targetAmount   Decimal
-  currentAmount  Decimal   @default(0)
+  targetAmount   Decimal?
+  currentAmount  Decimal?  @default(0)
   deadline       DateTime?
   aiGenerated    Boolean   @default(false)
   status         String    @default("active") // active | achieved | abandoned
   subcategoryId  String?
+  timeline       Json?     @default("[]") // [{ id: string, text: string, completed: boolean }]
+  order          Int       @default(0)
   createdAt      DateTime  @default(now())
 }
 
@@ -492,4 +494,57 @@ model KnowledgeEntryVersion {
   entry     KnowledgeEntry @relation(fields: [entryId], references: [id])
   content   String         // snapshot of content before this version's edit
   createdAt DateTime       @default(now())
+}
+
+// -----------------------------------------------------------------------------
+// CREATORS MANAGER
+// -----------------------------------------------------------------------------
+
+model CreatorProject {
+  id        String   @id @default(cuid())
+  name      String
+  client    String?
+  creator   String
+  status    String   @default("Planning") // Planning, In Progress, Review, Completed
+  budget    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  timeline  Json?    @default("[]")
+  titles    Json?    @default("[]")
+  contents  Json?    @default("[]")
+  videos    Json?    @default("[]")
+}
+
+// -----------------------------------------------------------------------------
+// CAREER
+// -----------------------------------------------------------------------------
+
+model Career {
+  id          String   @id @default(cuid())
+  title       String
+  category    String   // e.g., "Goal", "Milestone", "Achievement", "Skill"
+  status      String   @default("Planned") // e.g., "Planned", "In Progress", "Achieved"
+  date        String?
+  description String?
+  skills      Json?    @default("[]") // [{ name: "React", status: "have" | "need" | "progress" }]
+  timeline    Json?    @default("[]") // [{ title: "Started learning", date: "2023", status: "completed" }]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("careers")
+}
+
+model SocialTemplate {
+  id          String   @id @default(cuid())
+  platform    String   // "youtube" | "tiktok" | "instagram" | "twitter" | "linkedin"
+  name        String
+  description String?
+  body        String
+  placeholders Json?    @default("[]")
+  is_primary  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("social_templates")
 }

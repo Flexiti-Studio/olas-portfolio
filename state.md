@@ -1,0 +1,16 @@
+# Project State
+
+## Completed Actions
+- Synchronized the Postgres database schema with `prisma/schema.prisma` using `npx prisma db push`. This added the missing `videos` column to the `CreatorProject` table.
+- Verified that `prisma.creatorProject.findMany()` now queries the database successfully (returned 2 records).
+- Implemented direct video file upload to Cloudflare R2 on the Creator Details page and enabled HTTP Range partial request headers in the uploads API for seekable streaming.
+- Moved the Content Calendar component outside the tab wrappers to display persistently across all tabs, rendering scheduled content pills that deep-link directly to their detail pages.
+- Expanded the "Create Content" popup into a gorgeous two-column modal displaying fields for Title, Format (Video/Short/Text), Status, Video (with R2 file upload integration), Text/Script, Shorts Script, and Content Idea/Details, and successfully updated the schema serialization logic.
+- Implemented a knowledge entry creation form on the right-hand details column of the Knowledge Hub, triggered by a new "+ Add" button, supporting type (Knowledge vs Idea) selection, tags parsing, and saving database records via the `POST /api/knowledge/entries` API.
+- Added a "Current Goal" card from the Goals Tracker to the main overview dashboard, loading active goal details, mapping current/target financial progress metrics or checklist timeline status, displaying deadline dates, and deep-linking back to the tracker.
+- Added "Instagram Image Post" and "YouTube Main Video" platforms to the content socials grid, sequential AI Content Generation pipelines, templates mapping, and built custom square photo and landscape video mockups respectively.
+- Removed all hardcoded dummy content from the Project Contents page (`creators/[id]/contents`) and bound it to load real campaign entries directly from the database, incorporating an empty state placeholder ("No content found") that routes back to the project detail page with `?addContent=true` parameters to automatically trigger the creator modal, and designed a custom shimmer skeleton loader mapping to the toolbar and grid structures.
+- Configured the "home" tab to be the default tab wrapper on the content details screen and relocated the "Sync to Socials" button from the tab's container to the same line as the global tabs menu block, aligning it on the right side.
+- Redesigned the "Research & Notes" tab inside the content details view, adding full CRUD capabilities for research points (competitor benchmarks, hooks, visual references), post brief information (topic, target audience, core message), and editable general research notes, persisting all changes to the database via `PUT /api/creators/${id}`.
+- Removed the duplicate old static Research & Notes tab block and updated the state initialization to automatically populate the research points (MrBeast pacing analysis & MKBHD b-roll study), post brief (topic & core message), and general research notes whenever a post item has no custom research data saved yet.
+- Streamlined the "Research & Notes" tab layout into a clean, spacious single-page strategy view where users can directly review, drop, and edit the Post Topic, Target Audience, Core Message, and Research/Competitor Notes with a single "Save Changes" action.

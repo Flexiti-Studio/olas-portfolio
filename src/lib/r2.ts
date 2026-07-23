@@ -21,8 +21,7 @@ export const getBucketName = () => {
 };
 
 export const getPublicUrl = (key: string) => {
-  const baseUrl = process.env.R2_PUBLIC_BASE_URL;
-  return `${baseUrl}/${key}`;
+  return `/api/uploads?key=${encodeURIComponent(key)}`;
 };
 
 export { PutObjectCommand, GetObjectCommand, DeleteObjectCommand };
