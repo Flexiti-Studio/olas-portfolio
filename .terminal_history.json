@@ -711,7 +711,22 @@
       "command": "& \"C:\\Users\\HP\\AppData\\Local\\Temp\\wshist_dgxq7d.ps1\"; Remove-Item \"C:\\Users\\HP\\AppData\\Local\\Temp\\wshist_dgxq7d.ps1\" -ErrorAction SilentlyContinue",
       "timestamp": 1784815347177,
       "cwd": "c:\\Users\\HP\\Documents\\GitHub\\flexiti studio project\\olas-portfolio"
+    },
+    {
+      "command": "git add .",
+      "timestamp": 1784816348500,
+      "cwd": "c:\\Users\\HP\\Documents\\GitHub\\flexiti studio project\\olas-portfolio"
+    },
+    {
+      "command": "git commit -m \"added the windows widget \"",
+      "timestamp": 1784816378691,
+      "cwd": "c:\\Users\\HP\\Documents\\GitHub\\flexiti studio project\\olas-portfolio"
+    },
+    {
+      "command": "git push origin",
+      "timestamp": 1784816401697,
+      "cwd": "c:\\Users\\HP\\Documents\\GitHub\\flexiti studio project\\olas-portfolio"
     }
   ],
-  "lastUpdated": 1784815347178
+  "lastUpdated": 1784816401697
 }

@@ -548,3 +548,22 @@ model SocialTemplate {
 
   @@map("social_templates")
 }
+
+// -----------------------------------------------------------------------------
+// DESKTOP WIDGET RELEASES
+// -----------------------------------------------------------------------------
+
+model WidgetRelease {
+  id          String   @id @default(cuid())
+  version     String   @unique
+  notes       String?
+  pubDate     DateTime @default(now())
+  signature   String?
+  downloadUrl String
+  isActive    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("widget_releases")
+}
+

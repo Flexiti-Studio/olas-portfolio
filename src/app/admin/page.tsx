@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   FileText, 
@@ -28,7 +29,8 @@ import {
   Clock,
   Sparkles,
   Loader2,
-  GraduationCap
+  GraduationCap,
+  Download
 } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell, LineChart, Line } from 'recharts';
 import CvTailor from "@/components/admin/CvTailor";
@@ -49,6 +51,7 @@ import SpeedApplier from "@/components/task/SpeedApplier";
 
 const SIDEBAR_ITEMS = [
   { id: "overview", label: "Overview", icon: LayoutDashboard, desc: "Main statistics" },
+  { id: "widget-updates", label: "Widget Updates", icon: Download, desc: "Desktop auto-updater" },
   { id: "speed-dashboard", label: "Speed Apply", icon: Zap, desc: "Personal Auto Applier" },
   { id: "career", label: "Career", icon: Compass, desc: "Career goals & profile" },
   { id: "job-tracker", label: "Application Tracker", icon: Briefcase, desc: "Kanban pipeline" },
@@ -734,20 +737,36 @@ export default function AdminDashboard() {
       );
     }
 
-    if (activeTab === "speed-dashboard") {
+    if (activeTab === "widget-updates") {
       return (
         <motion.div 
-          key="speed-dashboard"
+          key="widget-updates"
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: -20 }}
-          className="flex flex-col"
+          className="flex flex-col space-y-6"
         >
-          <SpeedApplier />
+          <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-lg">
+            <div>
+              <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                <Download className="text-blue-400" size={22} /> Desktop Widget Auto-Updater
+              </h2>
+              <p className="text-xs text-zinc-400 mt-1">
+                Manage desktop software releases, update manifests, notes, and MSI/EXE download URLs.
+              </p>
+            </div>
+            <Link
+              href="/admin/widget-updates"
+              className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs rounded-xl transition-all shadow-lg shadow-blue-500/20 inline-flex items-center gap-2 self-start sm:self-auto"
+            >
+              <span>Manage Releases Dashboard</span>
+              <ArrowUpRight size={15} />
+            </Link>
+          </div>
         </motion.div>
       );
     }
-    
+
     if (activeTab === "cv-tailor") {
       return (
         <motion.div 
