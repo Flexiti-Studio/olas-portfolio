@@ -90,33 +90,57 @@ export default function WidgetUpdatesAdminPage() {
     setMessage(null);
 
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const res = await fetch("/api/widget/upload", {
+      // 1. Get presigned URL from API
+      const presignRes = await fetch("/api/widget/upload", {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename: file.name, contentType: file.type || "application/octet-stream" }),
       });
 
-      const json = await res.json();
-
-      if (json.success && json.data) {
-        const { downloadUrl: newUrl, detectedVersion, uploadSource } = json.data;
-        setDownloadUrl(newUrl);
-        if (detectedVersion) {
-          setVersion(detectedVersion);
+      if (!presignRes.ok) {
+        const errText = await presignRes.text();
+        let errMsg = `Failed to get upload URL (HTTP ${presignRes.status})`;
+        try {
+          const parsed = JSON.parse(errText);
+          if (parsed.error?.message) errMsg = parsed.error.message;
+        } catch {
+          if (errText) errMsg = errText.slice(0, 150);
         }
-        const sourceLabel = uploadSource === "R2_S3" ? "Cloudflare R2 S3 CDN" : "Server Storage";
-        setMessage({
-          type: "success",
-          text: `Uploaded "${file.name}" to ${sourceLabel}! Download URL ${detectedVersion ? `& Version v${detectedVersion}` : ""} auto-filled.`,
-        });
-      } else {
-        setMessage({
-          type: "error",
-          text: json.error?.message || "Failed to upload installer file.",
-        });
+        throw new Error(errMsg);
       }
+
+      const presignJson = await presignRes.json();
+
+      if (!presignJson.success || !presignJson.data) {
+        throw new Error(presignJson.error?.message || "Failed to get secure upload URL");
+      }
+
+      const { presignedUrl, downloadUrl: newUrl, detectedVersion, uploadSource } = presignJson.data;
+
+      setMessage({ type: "success", text: "Secure link acquired, uploading directly to S3..." });
+
+      // 2. Upload file directly to S3
+      const uploadRes = await fetch(presignedUrl, {
+        method: "PUT",
+        headers: { "Content-Type": file.type || "application/octet-stream" },
+        body: file,
+      });
+
+      if (!uploadRes.ok) {
+        const uploadErrText = await uploadRes.text().catch(() => "");
+        throw new Error(`S3 Upload failed (HTTP ${uploadRes.status}): ${uploadErrText.slice(0, 150) || uploadRes.statusText}`);
+      }
+
+      // 3. Update UI
+      setDownloadUrl(newUrl);
+      if (detectedVersion) {
+        setVersion(detectedVersion);
+      }
+      const sourceLabel = uploadSource === "R2_S3_PRESIGNED" ? "Cloudflare R2 S3 CDN (Direct)" : "Server Storage";
+      setMessage({
+        type: "success",
+        text: `Successfully uploaded "${file.name}" to ${sourceLabel}! Download URL ${detectedVersion ? `& Version v${detectedVersion}` : ""} auto-filled.`,
+      });
     } catch (err: any) {
       setMessage({ type: "error", text: err.message || "File upload failed." });
     } finally {

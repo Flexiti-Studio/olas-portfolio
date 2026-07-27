@@ -528,6 +528,8 @@ model Career {
   date        String?
   description String?
   skills      Json?    @default("[]") // [{ name: "React", status: "have" | "need" | "progress" }]
+  education   Json?    @default("[]") // [{ name: "BSc Computer Science", status: "have" | "need" | "progress" }]
+  certifications Json? @default("[]") // [{ name: "AWS Certified Developer", status: "have" | "need" | "progress" }]
   timeline    Json?    @default("[]") // [{ title: "Started learning", date: "2023", status: "completed" }]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

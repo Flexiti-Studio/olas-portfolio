@@ -84,15 +84,22 @@ export async function GET(req: NextRequest) {
     const activeRelease = await getActiveReleaseFromDb();
 
     if (activeRelease) {
+      const cleanVer = (activeRelease.version || "1.2.0").trim().replace(/^v/i, "");
+      const sig = (activeRelease.signature || "").trim();
+      const downloadLink = (activeRelease.downloadUrl || "").trim();
+
+      const platformPayload = { signature: sig, url: downloadLink };
+
       return NextResponse.json({
-        version: activeRelease.version,
+        version: cleanVer,
         notes: activeRelease.notes || "",
         pub_date: activeRelease.pubDate ? new Date(activeRelease.pubDate).toISOString() : new Date().toISOString(),
         platforms: {
-          "windows-x86_64": {
-            signature: activeRelease.signature || "",
-            url: activeRelease.downloadUrl,
-          },
+          "windows-x86_64": platformPayload,
+          "x86_64-pc-windows-msvc": platformPayload,
+          "windows-x86_64-nsis": platformPayload,
+          "windows-x86_64-msi": platformPayload,
+          "win64": platformPayload,
         },
       });
     }
@@ -105,15 +112,22 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ message: "No active updates available" }, { status: 204 });
     }
 
+    const cleanVer = (data.version || "1.2.0").trim().replace(/^v/i, "");
+    const sig = (data.signature || "").trim();
+    const downloadLink = (data.downloadUrl || DEFAULT_UPDATE_PAYLOAD.downloadUrl).trim();
+
+    const platformPayload = { signature: sig, url: downloadLink };
+
     return NextResponse.json({
-      version: data.version || "1.2.0",
+      version: cleanVer,
       notes: data.notes || "Bug fixes and performance improvements.",
       pub_date: data.pubDate || new Date().toISOString(),
       platforms: {
-        "windows-x86_64": {
-          signature: data.signature || "",
-          url: data.downloadUrl || DEFAULT_UPDATE_PAYLOAD.downloadUrl,
-        },
+        "windows-x86_64": platformPayload,
+        "x86_64-pc-windows-msvc": platformPayload,
+        "windows-x86_64-nsis": platformPayload,
+        "windows-x86_64-msi": platformPayload,
+        "win64": platformPayload,
       },
     });
   } catch (error: any) {
@@ -134,10 +148,10 @@ export async function POST(req: NextRequest) {
     }
 
     const setAsActive = isActive !== undefined ? Boolean(isActive) : true;
-    const cleanVersion = version.trim();
+    const cleanVersion = version.trim().replace(/^v/i, "");
     const cleanUrl = downloadUrl.trim();
-    const cleanNotes = notes || "";
-    const cleanSig = signature || "";
+    const cleanNotes = (notes || "").trim();
+    const cleanSig = (signature || "").trim();
     const now = new Date();
 
     try {

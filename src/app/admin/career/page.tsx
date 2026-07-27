@@ -391,7 +391,7 @@ function CareerPageContent() {
               
               <div className="mb-auto">
                 {career.description ? (
-                  <p className="text-zinc-400 text-sm leading-relaxed line-clamp-4">
+                  <p className="text-zinc-400 text-sm leading-relaxed line-clamp-4 whitespace-pre-wrap">
                     {career.description}
                   </p>
                 ) : (

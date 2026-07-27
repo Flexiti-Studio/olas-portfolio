@@ -1,7 +1,6 @@
 import { NextResponse, NextRequest } from "next/server";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
-import fs from "fs";
-import path from "path";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 export const dynamic = "force-dynamic";
 
@@ -13,87 +12,61 @@ const r2PublicBaseUrl = process.env.R2_PUBLIC_BASE_URL || "https://pub-611c6bf06
 
 export async function POST(req: NextRequest) {
   try {
-    const formData = await req.formData();
-    const file = formData.get("file") as File | null;
+    const body = await req.json();
+    const { filename, contentType } = body;
 
-    if (!file) {
+    if (!filename) {
       return NextResponse.json(
-        { success: false, error: { message: "No file provided in form data" } },
+        { success: false, error: { message: "No filename provided" } },
         { status: 400 }
       );
     }
 
-    const filename = file.name;
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
+    if (!r2AccountId || !r2AccessKeyId || !r2SecretAccessKey) {
+      return NextResponse.json(
+        { success: false, error: { message: "R2 S3 credentials not configured" } },
+        { status: 500 }
+      );
+    }
 
     // Auto-detect version number from filename (e.g. olas-todo-widget_1.2.0_x64-setup.exe => 1.2.0)
     const versionMatch = filename.match(/(\d+\.\d+\.\d+)/);
     const detectedVersion = versionMatch ? versionMatch[1] : null;
 
-    let finalPublicUrl = "";
-    let uploadSource = "R2_S3";
+    const s3Client = new S3Client({
+      region: "auto",
+      endpoint: `https://${r2AccountId}.r2.cloudflarestorage.com`,
+      credentials: {
+        accessKeyId: r2AccessKeyId,
+        secretAccessKey: r2SecretAccessKey,
+      },
+    });
 
-    // Attempt upload to Cloudflare R2 / S3 bucket if credentials configured
-    if (r2AccountId && r2AccessKeyId && r2SecretAccessKey) {
-      try {
-        const s3Client = new S3Client({
-          region: "auto",
-          endpoint: `https://${r2AccountId}.r2.cloudflarestorage.com`,
-          credentials: {
-            accessKeyId: r2AccessKeyId,
-            secretAccessKey: r2SecretAccessKey,
-          },
-        });
+    const objectKey = `downloads/${filename}`;
+    
+    const command = new PutObjectCommand({
+      Bucket: r2BucketName,
+      Key: objectKey,
+      ContentType: contentType || "application/octet-stream",
+    });
 
-        const objectKey = `downloads/${filename}`;
-        
-        await s3Client.send(
-          new PutObjectCommand({
-            Bucket: r2BucketName,
-            Key: objectKey,
-            Body: buffer,
-            ContentType: file.type || "application/octet-stream",
-          })
-        );
-
-        finalPublicUrl = `${r2PublicBaseUrl.replace(/\/$/, "")}/${objectKey}`;
-      } catch (s3Error) {
-        console.warn("R2 S3 Upload failed, falling back to local storage:", s3Error);
-        uploadSource = "LOCAL_FALLBACK";
-      }
-    } else {
-      uploadSource = "LOCAL_STATIC";
-    }
-
-    // Fallback to static public downloads directory if R2 is unconfigured or failed
-    if (!finalPublicUrl) {
-      const publicDownloadsDir = path.join(process.cwd(), "public", "downloads");
-      if (!fs.existsSync(publicDownloadsDir)) {
-        fs.mkdirSync(publicDownloadsDir, { recursive: true });
-      }
-
-      const filePath = path.join(publicDownloadsDir, filename);
-      fs.writeFileSync(filePath, buffer);
-
-      const domain = req.headers.get("host") || "ola.flexitistudio.com";
-      const protocol = req.headers.get("x-forwarded-proto") || "https";
-      finalPublicUrl = `${protocol}://${domain}/downloads/${filename}`;
-    }
+    // Generate a pre-signed URL that expires in 1 hour
+    const presignedUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
+    const encodedObjectKey = `downloads/${encodeURIComponent(filename)}`;
+    const finalPublicUrl = `${r2PublicBaseUrl.replace(/\/$/, "")}/${encodedObjectKey}`;
 
     return NextResponse.json({
       success: true,
       data: {
-        filename,
+        presignedUrl,
         downloadUrl: finalPublicUrl,
         detectedVersion,
-        uploadSource,
-        sizeBytes: buffer.length,
+        uploadSource: "R2_S3_PRESIGNED",
       },
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: { message: error.message || "File upload failed" } },
+      { success: false, error: { message: error.message || "Failed to generate presigned URL" } },
       { status: 500 }
     );
   }

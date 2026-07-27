@@ -62,6 +62,8 @@ export async function PUT(
         date: data.date,
         description: data.description,
         ...(data.skills && { skills: data.skills }),
+        ...(data.education && { education: data.education }),
+        ...(data.certifications && { certifications: data.certifications }),
         ...(data.timeline && { timeline: data.timeline }),
       },
     });

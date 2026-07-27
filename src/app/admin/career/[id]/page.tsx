@@ -1,14 +1,28 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Loader2, Target, Trophy, Milestone, Code, Calendar, CheckCircle2, CircleDashed, Clock, Sparkles, Edit2, X, Plus, Trash2, Save, Copy, Check } from "lucide-react";
+import { ArrowLeft, Loader2, Target, Trophy, Milestone, Code, Calendar, CheckCircle2, CircleDashed, Clock, Sparkles, Edit2, X, Plus, Trash2, Save, Copy, Check, GraduationCap, Award, GripVertical } from "lucide-react";
 import { useQuery, useMutation, useQueryClient, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useRouter, useParams } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { DragDropContext, Droppable, Draggable, DropResult, DroppableProps } from "@hello-pangea/dnd";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 const queryClient = new QueryClient();
+
+export const StrictModeDroppable = ({ children, ...props }: DroppableProps) => {
+  const [enabled, setEnabled] = useState(false);
+  useEffect(() => {
+    const animation = requestAnimationFrame(() => setEnabled(true));
+    return () => {
+      cancelAnimationFrame(animation);
+      setEnabled(false);
+    };
+  }, []);
+  if (!enabled) return null;
+  return <Droppable {...props}>{children}</Droppable>;
+};
 
 function DataEditorModal({ 
   isOpen, 
@@ -22,7 +36,7 @@ function DataEditorModal({
   isOpen: boolean, 
   onClose: () => void, 
   title: string, 
-  type: "skills" | "timeline", 
+  type: "skills" | "timeline" | "education" | "certification", 
   initialData: any[], 
   onSave: (data: any[]) => void,
   isPending: boolean
@@ -36,7 +50,7 @@ function DataEditorModal({
   if (!isOpen) return null;
 
   const handleCopyFormat = () => {
-    const format = type === "skills" 
+    const format = type !== "timeline" 
       ? '[\n  {\n    "name": "React",\n    "status": "have",\n    "desc": "3 years experience"\n  }\n]' 
       : '[\n  {\n    "title": "Phase 1",\n    "date": "Jan 2024",\n    "status": "completed",\n    "desc": "Did stuff"\n  }\n]';
     navigator.clipboard.writeText(format);
@@ -73,7 +87,7 @@ function DataEditorModal({
   };
 
   const addItem = () => {
-    const newItem = type === "skills" 
+    const newItem = type !== "timeline" 
       ? { name: "", status: "need" } 
       : { title: "", date: "", status: "upcoming", desc: "" };
     const newItems = [...items, newItem];
@@ -142,14 +156,14 @@ function DataEditorModal({
                     exit={{ opacity: 0, height: 0 }}
                     className="bg-zinc-900 border border-zinc-800 p-4 rounded-xl flex flex-col gap-3 relative group"
                   >
-                    {type === "skills" ? (
+                    {type !== "timeline" ? (
                       <div className="flex flex-col gap-3">
                         <div className="flex flex-col md:flex-row gap-3 items-center">
                           <input 
                             type="text"
                             value={item.name || ""}
                             onChange={(e) => handleManualChange(index, "name", e.target.value)}
-                            placeholder="Skill Name (e.g. React.js)"
+                            placeholder={type === "education" ? "Degree/Course (e.g. BSc CS)" : type === "certification" ? "Certification (e.g. AWS)" : "Skill Name (e.g. React.js)"}
                             className="flex-1 w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-zinc-700"
                           />
                           <select 
@@ -164,7 +178,7 @@ function DataEditorModal({
                           <button 
                             onClick={() => removeItem(index)}
                             className="p-2 bg-red-500/10 text-red-500 rounded-lg hover:bg-red-500/20 flex items-center justify-center shrink-0"
-                            title="Remove Skill"
+                            title={`Remove ${type === "education" ? "Education" : type === "certification" ? "Certification" : "Skill"}`}
                           >
                             <Trash2 size={16} />
                           </button>
@@ -173,7 +187,7 @@ function DataEditorModal({
                           type="text"
                           value={item.desc || ""}
                           onChange={(e) => handleManualChange(index, "desc", e.target.value)}
-                          placeholder="Skill details/notes (optional)"
+                          placeholder={`${type === "education" ? "Education" : type === "certification" ? "Certification" : "Skill"} details/notes (optional)`}
                           className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-400 focus:outline-none focus:border-zinc-700"
                         />
                       </div>
@@ -228,7 +242,7 @@ function DataEditorModal({
                 onClick={addItem}
                 className="w-full py-3 border border-dashed border-zinc-700 rounded-xl text-zinc-400 hover:text-white hover:border-zinc-500 hover:bg-zinc-800/30 transition-colors flex items-center justify-center gap-2 text-sm font-medium"
               >
-                <Plus size={16} /> Add New {type === "skills" ? "Skill" : "Stage"}
+                <Plus size={16} /> Add New {type === "skills" ? "Skill" : type === "education" ? "Education" : type === "certification" ? "Certification" : "Stage"}
               </button>
             </div>
           )}
@@ -271,7 +285,7 @@ function SkillDetailsModal({ skill, onClose }: { skill: any, onClose: () => void
           </button>
         </div>
         <p className="text-sm text-zinc-400 mb-6 whitespace-pre-wrap leading-relaxed">
-          {skill.desc || "No additional details or notes provided for this skill yet."}
+          {skill.desc || "No additional details or notes provided yet."}
         </p>
         <div className="flex justify-end pt-4 border-t border-zinc-800">
           <button onClick={onClose} className="px-4 py-2 rounded-xl bg-white text-black hover:bg-zinc-200 transition-colors font-semibold text-sm">
@@ -389,6 +403,8 @@ function CareerDetailsContent() {
   const queryClient = useQueryClient();
 
   const [isEditingSkills, setIsEditingSkills] = useState(false);
+  const [isEditingEducation, setIsEditingEducation] = useState(false);
+  const [isEditingCertifications, setIsEditingCertifications] = useState(false);
   const [isEditingTimeline, setIsEditingTimeline] = useState(false);
   const [isEditingDetails, setIsEditingDetails] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
@@ -397,6 +413,15 @@ function CareerDetailsContent() {
   const [pageHave, setPageHave] = useState(1);
   const [pageProgress, setPageProgress] = useState(1);
   const [pageNeed, setPageNeed] = useState(1);
+
+  const [eduPageHave, setEduPageHave] = useState(1);
+  const [eduPageProgress, setEduPageProgress] = useState(1);
+  const [eduPageNeed, setEduPageNeed] = useState(1);
+
+  const [certPageHave, setCertPageHave] = useState(1);
+  const [certPageProgress, setCertPageProgress] = useState(1);
+  const [certPageNeed, setCertPageNeed] = useState(1);
+
   const ITEMS_PER_PAGE = 5;
 
   const { data: career, isLoading } = useQuery({
@@ -420,23 +445,23 @@ function CareerDetailsContent() {
       if (!res.ok) throw new Error("Failed to update career");
       return res.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["career", id] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["career", id] });
     },
   });
 
   if (isLoading) {
     return (
       <div className="bg-zinc-950 min-h-screen p-4 md:p-8 animate-pulse">
-        <div className="flex flex-col max-w-4xl mx-auto">
+        <div className="flex flex-col w-full max-w-[1400px] mx-auto">
           {/* Header Skeleton */}
           <div className="mb-8 border-b border-zinc-800 pb-6">
-            <div className="w-48 h-5 bg-zinc-900 rounded mb-6" />
+            <div className="w-48 h-5 bg-zinc-800 rounded mb-6" />
             <div className="flex items-center gap-4">
-              <div className="w-16 h-16 bg-zinc-900 rounded-2xl" />
+              <div className="w-16 h-16 bg-zinc-800 rounded-2xl" />
               <div className="space-y-3">
-                <div className="w-32 h-5 bg-zinc-900 rounded" />
-                <div className="w-64 h-10 bg-zinc-900 rounded" />
+                <div className="w-32 h-5 bg-zinc-800 rounded" />
+                <div className="w-64 h-10 bg-zinc-800 rounded" />
               </div>
             </div>
           </div>
@@ -445,16 +470,16 @@ function CareerDetailsContent() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 space-y-8">
               {/* Details Block */}
-              <div className="bg-zinc-900/50 border border-zinc-800 rounded-3xl p-8 h-64" />
+              <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 h-64" />
               {/* Skills Block */}
-              <div className="bg-zinc-900/50 border border-zinc-800 rounded-3xl p-8 h-96" />
+              <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 h-96" />
             </div>
             
             <div className="lg:col-span-1 space-y-6">
               {/* Timeline Info Block */}
-              <div className="bg-zinc-900/50 border border-zinc-800 rounded-3xl p-6 h-32" />
+              <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 h-32" />
               {/* Timeline Stages Block */}
-              <div className="bg-zinc-900/50 border border-zinc-800 rounded-3xl p-6 h-96" />
+              <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 h-96" />
             </div>
           </div>
         </div>
@@ -499,27 +524,58 @@ function CareerDetailsContent() {
 
   const skills = Array.isArray(career.skills) && career.skills.length > 0 
     ? career.skills 
-    : [
-        { name: "Advanced React Patterns", status: "have" },
-        { name: "Next.js App Router", status: "have" },
-        { name: "System Architecture", status: "progress" },
-        { name: "GraphQL APIs", status: "need" },
-        { name: "Docker & CI/CD", status: "need" },
-      ];
+    : [];
+
+  const education = Array.isArray(career.education) && career.education.length > 0 
+    ? career.education 
+    : [];
+
+  const certifications = Array.isArray(career.certifications) && career.certifications.length > 0 
+    ? career.certifications 
+    : [];
 
   const timeline = Array.isArray(career.timeline) && career.timeline.length > 0
     ? career.timeline
-    : [
-        { title: "Initial Planning", date: "Jan 2024", status: "completed", desc: "Defined the core requirements and scope." },
-        { title: "Foundation Building", date: "Mar 2024", status: "completed", desc: "Set up the repository and core tools." },
-        { title: "Active Development", date: "Current", status: "current", desc: "Building out the main features." },
-        { title: "Final Review", date: "TBD", status: "upcoming", desc: "QA and final polish before launch." },
-      ];
+    : [];
 
   const handleSaveSkills = (newSkills: any[]) => {
     mutation.mutate({ skills: newSkills }, {
       onSuccess: () => setIsEditingSkills(false)
     });
+  };
+
+  const handleSaveEducation = (newEducation: any[]) => {
+    mutation.mutate({ education: newEducation }, {
+      onSuccess: () => setIsEditingEducation(false)
+    });
+  };
+
+  const handleSaveCertifications = (newCertifications: any[]) => {
+    mutation.mutate({ certifications: newCertifications }, {
+      onSuccess: () => setIsEditingCertifications(false)
+    });
+  };
+
+  const onDragEnd = (result: DropResult) => {
+    const { destination, source, draggableId } = result;
+    if (!destination) return;
+    if (destination.droppableId === source.droppableId) return;
+
+    const [type, indexStr] = draggableId.split("-");
+    const originalIndex = parseInt(indexStr, 10);
+    const destStatus = destination.droppableId.split("-")[1];
+
+    let currentArray: any[] = [];
+    if (type === "skills") currentArray = [...skills];
+    else if (type === "education") currentArray = [...education];
+    else if (type === "certification") currentArray = [...certifications];
+
+    if (currentArray[originalIndex]) {
+      currentArray[originalIndex].status = destStatus;
+      if (type === "skills") handleSaveSkills(currentArray);
+      else if (type === "education") handleSaveEducation(currentArray);
+      else if (type === "certification") handleSaveCertifications(currentArray);
+    }
   };
 
   const handleSaveTimeline = (newTimeline: any[]) => {
@@ -534,9 +590,28 @@ function CareerDetailsContent() {
     });
   };
 
-  const haveSkills = skills.filter((s: any) => s.status === "have");
-  const progressSkills = skills.filter((s: any) => s.status === "progress");
-  const needSkills = skills.filter((s: any) => s.status === "need");
+  const normalizeStatus = (status: any) => {
+    if (!status || typeof status !== 'string') return "need";
+    const s = status.toLowerCase().trim();
+    if (s === "have" || s === "acquired" || s === "completed" || s === "done") return "have";
+    if (s === "progress" || s === "in progress" || s === "current") return "progress";
+    return "need";
+  };
+
+  const skillsWithIndex = skills.map((s: any, idx: number) => ({ ...s, _originalIndex: idx }));
+  const haveSkills = skillsWithIndex.filter((s: any) => normalizeStatus(s.status) === "have");
+  const progressSkills = skillsWithIndex.filter((s: any) => normalizeStatus(s.status) === "progress");
+  const needSkills = skillsWithIndex.filter((s: any) => normalizeStatus(s.status) === "need");
+
+  const educationWithIndex = education.map((s: any, idx: number) => ({ ...s, _originalIndex: idx }));
+  const haveEducation = educationWithIndex.filter((s: any) => normalizeStatus(s.status) === "have");
+  const progressEducation = educationWithIndex.filter((s: any) => normalizeStatus(s.status) === "progress");
+  const needEducation = educationWithIndex.filter((s: any) => normalizeStatus(s.status) === "need");
+
+  const certificationsWithIndex = certifications.map((s: any, idx: number) => ({ ...s, _originalIndex: idx }));
+  const haveCertifications = certificationsWithIndex.filter((s: any) => normalizeStatus(s.status) === "have");
+  const progressCertifications = certificationsWithIndex.filter((s: any) => normalizeStatus(s.status) === "progress");
+  const needCertifications = certificationsWithIndex.filter((s: any) => normalizeStatus(s.status) === "need");
 
   const renderSkillList = (
     list: any[], 
@@ -544,31 +619,55 @@ function CareerDetailsContent() {
     setPage: (p: number) => void, 
     colorClass: string, 
     bgClass: string,
-    emptyMessage: string
+    emptyMessage: string,
+    droppableId: string,
+    type: string
   ) => {
     const totalPages = Math.ceil(list.length / ITEMS_PER_PAGE);
     const paginatedList = list.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
 
     return (
       <div className="flex flex-col h-full">
-        <ul className="space-y-2 flex-1">
-          {paginatedList.map((s: any, i: number) => {
-             const actualIndex = (page - 1) * ITEMS_PER_PAGE + i + 1;
-             return (
-               <button 
-                 key={i} 
-                 onClick={() => setSelectedSkillForDetails(s)}
-                 className={`w-full text-left px-3 py-2 rounded-lg text-sm flex items-center justify-between gap-2 border hover:opacity-80 transition-opacity ${bgClass}`}
-               >
-                 <div className="flex items-center gap-2 overflow-hidden">
-                   <span className={`font-bold opacity-70 shrink-0 ${colorClass}`}>{actualIndex}.</span>
-                   <span className={`font-medium truncate ${colorClass}`}>{s.name}</span>
-                 </div>
-               </button>
-             );
-          })}
-          {list.length === 0 && <p className="text-xs text-zinc-500 italic mt-2">{emptyMessage}</p>}
-        </ul>
+        <StrictModeDroppable droppableId={droppableId}>
+          {(provided) => (
+            <ul 
+              className="space-y-2 flex-1 min-h-[100px]"
+              {...provided.droppableProps}
+              ref={provided.innerRef}
+            >
+              {paginatedList.map((s: any, i: number) => {
+                 const actualIndex = (page - 1) * ITEMS_PER_PAGE + i + 1;
+                 const draggableId = `${type}-${s._originalIndex}`;
+                 return (
+                   <Draggable key={draggableId} draggableId={draggableId} index={i}>
+                     {(provided, snapshot) => (
+                       <li
+                         ref={provided.innerRef}
+                         {...provided.draggableProps}
+                         {...provided.dragHandleProps}
+                         className={`rounded-lg mb-2 ${snapshot.isDragging ? "opacity-90 shadow-2xl scale-[1.02] z-50 relative ring-2 ring-white/20 bg-zinc-900" : ""}`}
+                         style={provided.draggableProps.style}
+                       >
+                         <button 
+                           onClick={() => setSelectedSkillForDetails(s)}
+                           className={`w-full text-left px-3 py-2 rounded-lg text-sm flex items-center justify-between gap-2 border hover:opacity-80 transition-opacity ${bgClass}`}
+                         >
+                           <div className="flex items-center gap-2 overflow-hidden">
+                             <GripVertical size={14} className="text-zinc-500 shrink-0 mr-1 opacity-50 cursor-grab" />
+                             <span className={`font-bold opacity-70 shrink-0 ${colorClass}`}>{actualIndex}.</span>
+                             <span className={`font-medium truncate ${colorClass}`}>{s.name}</span>
+                           </div>
+                         </button>
+                       </li>
+                     )}
+                   </Draggable>
+                 );
+              })}
+              {provided.placeholder}
+              {list.length === 0 && <p className="text-xs text-zinc-500 italic mt-2 text-center pointer-events-none">{emptyMessage}</p>}
+            </ul>
+          )}
+        </StrictModeDroppable>
         
         {totalPages > 1 && (
           <div className="flex items-center justify-between mt-4 pt-3 border-t border-zinc-800/50">
@@ -598,7 +697,7 @@ function CareerDetailsContent() {
       <motion.div 
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col max-w-4xl mx-auto"
+        className="flex flex-col w-full max-w-[1400px] mx-auto"
       >
         <div className="mb-8 border-b border-zinc-800 pb-6">
           <button
@@ -631,7 +730,8 @@ function CareerDetailsContent() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <DragDropContext onDragEnd={onDragEnd}>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-8">
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 shadow-sm relative group">
               <button 
@@ -644,7 +744,7 @@ function CareerDetailsContent() {
               <h2 className="text-xl font-bold text-white mb-6 border-b border-zinc-800 pb-4 pr-10">Details & Notes</h2>
               {career.description ? (
                 <div className="relative">
-                  <div className={`prose prose-invert prose-zinc max-w-none text-zinc-300 leading-relaxed transition-all duration-300 ${!isDescriptionExpanded ? "max-h-[300px] overflow-hidden" : ""}`}>
+                  <div className={`prose prose-invert prose-zinc max-w-none text-zinc-300 leading-relaxed transition-all duration-300 whitespace-pre-wrap ${!isDescriptionExpanded ? "max-h-[300px] overflow-hidden" : ""}`}>
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>
                       {career.description}
                     </ReactMarkdown>
@@ -684,7 +784,7 @@ function CareerDetailsContent() {
                   <h3 className="text-sm font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
                     <CheckCircle2 size={16} /> Acquired
                   </h3>
-                  {renderSkillList(haveSkills, pageHave, setPageHave, "text-emerald-400", "bg-emerald-500/10 border-emerald-500/20", "None yet.")}
+                  {renderSkillList(haveSkills, pageHave, setPageHave, "text-emerald-400", "bg-emerald-500/10 border-emerald-500/20", "None yet.", "skills-have", "skills")}
                 </div>
 
                 {/* In Progress */}
@@ -692,7 +792,7 @@ function CareerDetailsContent() {
                   <h3 className="text-sm font-bold text-blue-400 uppercase tracking-wider flex items-center gap-2">
                     <CircleDashed size={16} /> In Progress
                   </h3>
-                  {renderSkillList(progressSkills, pageProgress, setPageProgress, "text-blue-400", "bg-blue-500/10 border-blue-500/20", "None currently.")}
+                  {renderSkillList(progressSkills, pageProgress, setPageProgress, "text-blue-400", "bg-blue-500/10 border-blue-500/20", "None currently.", "skills-progress", "skills")}
                 </div>
 
                 {/* Need */}
@@ -700,7 +800,79 @@ function CareerDetailsContent() {
                   <h3 className="text-sm font-bold text-yellow-400 uppercase tracking-wider flex items-center gap-2">
                     <Target size={16} /> Target
                   </h3>
-                  {renderSkillList(needSkills, pageNeed, setPageNeed, "text-yellow-400", "bg-yellow-500/10 border-yellow-500/20 border-dashed", "No targets set.")}
+                  {renderSkillList(needSkills, pageNeed, setPageNeed, "text-yellow-400", "bg-yellow-500/10 border-yellow-500/20 border-dashed", "No targets set.", "skills-need", "skills")}
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 shadow-sm relative group">
+              <button 
+                onClick={() => setIsEditingEducation(true)}
+                className="absolute top-6 right-6 p-2 bg-zinc-800 text-zinc-400 hover:text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                title="Edit Education"
+              >
+                <Edit2 size={16} />
+              </button>
+
+              <div className="flex items-center gap-2 mb-6 border-b border-zinc-800 pb-4 pr-10">
+                <GraduationCap size={20} className="text-blue-400" />
+                <h2 className="text-xl font-bold text-white">Education Tracker</h2>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="space-y-4 flex flex-col">
+                  <h3 className="text-sm font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
+                    <CheckCircle2 size={16} /> Acquired
+                  </h3>
+                  {renderSkillList(haveEducation, eduPageHave, setEduPageHave, "text-emerald-400", "bg-emerald-500/10 border-emerald-500/20", "None yet.", "education-have", "education")}
+                </div>
+                <div className="space-y-4 flex flex-col">
+                  <h3 className="text-sm font-bold text-blue-400 uppercase tracking-wider flex items-center gap-2">
+                    <CircleDashed size={16} /> In Progress
+                  </h3>
+                  {renderSkillList(progressEducation, eduPageProgress, setEduPageProgress, "text-blue-400", "bg-blue-500/10 border-blue-500/20", "None currently.", "education-progress", "education")}
+                </div>
+                <div className="space-y-4 flex flex-col">
+                  <h3 className="text-sm font-bold text-yellow-400 uppercase tracking-wider flex items-center gap-2">
+                    <Target size={16} /> Target
+                  </h3>
+                  {renderSkillList(needEducation, eduPageNeed, setEduPageNeed, "text-yellow-400", "bg-yellow-500/10 border-yellow-500/20 border-dashed", "No targets set.", "education-need", "education")}
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 shadow-sm relative group">
+              <button 
+                onClick={() => setIsEditingCertifications(true)}
+                className="absolute top-6 right-6 p-2 bg-zinc-800 text-zinc-400 hover:text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                title="Edit Certifications"
+              >
+                <Edit2 size={16} />
+              </button>
+
+              <div className="flex items-center gap-2 mb-6 border-b border-zinc-800 pb-4 pr-10">
+                <Award size={20} className="text-yellow-400" />
+                <h2 className="text-xl font-bold text-white">Certifications Tracker</h2>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="space-y-4 flex flex-col">
+                  <h3 className="text-sm font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
+                    <CheckCircle2 size={16} /> Acquired
+                  </h3>
+                  {renderSkillList(haveCertifications, certPageHave, setCertPageHave, "text-emerald-400", "bg-emerald-500/10 border-emerald-500/20", "None yet.", "certification-have", "certification")}
+                </div>
+                <div className="space-y-4 flex flex-col">
+                  <h3 className="text-sm font-bold text-blue-400 uppercase tracking-wider flex items-center gap-2">
+                    <CircleDashed size={16} /> In Progress
+                  </h3>
+                  {renderSkillList(progressCertifications, certPageProgress, setCertPageProgress, "text-blue-400", "bg-blue-500/10 border-blue-500/20", "None currently.", "certification-progress", "certification")}
+                </div>
+                <div className="space-y-4 flex flex-col">
+                  <h3 className="text-sm font-bold text-yellow-400 uppercase tracking-wider flex items-center gap-2">
+                    <Target size={16} /> Target
+                  </h3>
+                  {renderSkillList(needCertifications, certPageNeed, setCertPageNeed, "text-yellow-400", "bg-yellow-500/10 border-yellow-500/20 border-dashed", "No targets set.", "certification-need", "certification")}
                 </div>
               </div>
             </div>
@@ -750,32 +922,42 @@ function CareerDetailsContent() {
               </h3>
               
               <div className="relative border-l-2 border-zinc-800 ml-3 space-y-8 pb-4">
-                {timeline.map((stage: any, i: number) => (
-                  <div key={i} className="relative pl-6">
-                    {/* Timeline Dot */}
-                    <div className={`absolute -left-[9px] top-1 w-4 h-4 rounded-full border-4 border-zinc-900 ${
-                      stage.status === 'completed' ? 'bg-emerald-500' :
-                      stage.status === 'current' ? 'bg-blue-500 ring-2 ring-blue-500/30' :
-                      'bg-zinc-600'
-                    }`} />
-                    
-                    <div className="flex flex-col">
-                      <span className="text-xs font-bold text-zinc-500 mb-1">{stage.date}</span>
-                      <h4 className={`text-base font-semibold ${
-                        stage.status === 'completed' ? 'text-zinc-200' :
-                        stage.status === 'current' ? 'text-blue-400' :
-                        'text-zinc-500'
-                      }`}>
-                        {stage.title}
-                      </h4>
-                      {stage.desc && (
-                        <p className="text-sm text-zinc-400 mt-1 leading-snug">
-                          {stage.desc}
-                        </p>
+                {timeline.map((stage: any, i: number) => {
+                  const isCompleted = stage.status?.toLowerCase() === 'completed';
+                  const isCurrent = stage.status?.toLowerCase() === 'current';
+                  
+                  return (
+                    <div key={i} className="relative pl-6">
+                      {/* Timeline Dot */}
+                      <div className={`absolute -left-[9px] top-1 w-4 h-4 rounded-full border-4 border-zinc-900 ${
+                        isCompleted ? 'bg-emerald-500' :
+                        isCurrent ? 'bg-blue-500 ring-2 ring-blue-500/30' :
+                        'bg-zinc-600'
+                      }`} />
+                      
+                      {/* Optional Connecting Line (shows green track for completed stages) */}
+                      {isCompleted && i < timeline.length - 1 && (
+                        <div className="absolute -left-[2px] top-5 w-[2px] h-[calc(100%+16px)] bg-emerald-500" />
                       )}
+                      
+                      <div className="flex flex-col">
+                        <span className="text-xs font-bold text-zinc-500 mb-1">{stage.date}</span>
+                        <h4 className={`text-base font-semibold ${
+                          isCompleted ? 'text-zinc-200' :
+                          isCurrent ? 'text-blue-400' :
+                          'text-zinc-500'
+                        }`}>
+                          {stage.title}
+                        </h4>
+                        {stage.desc && (
+                          <p className="text-sm text-zinc-400 mt-1 leading-snug">
+                            {stage.desc}
+                          </p>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
                 {timeline.length === 0 && (
                   <div className="relative pl-6">
                      <div className="absolute -left-[9px] top-1 w-4 h-4 rounded-full border-4 border-zinc-900 bg-zinc-600" />
@@ -786,6 +968,7 @@ function CareerDetailsContent() {
             </div>
           </div>
         </div>
+        </DragDropContext>
       </motion.div>
 
       {isEditingSkills && (
@@ -796,6 +979,30 @@ function CareerDetailsContent() {
           type="skills"
           initialData={Array.isArray(career?.skills) && career.skills.length > 0 ? career.skills : []}
           onSave={handleSaveSkills}
+          isPending={mutation.isPending}
+        />
+      )}
+
+      {isEditingEducation && (
+        <DataEditorModal
+          isOpen={isEditingEducation}
+          onClose={() => setIsEditingEducation(false)}
+          title="Education Tracker"
+          type="education"
+          initialData={Array.isArray(career?.education) && career.education.length > 0 ? career.education : []}
+          onSave={handleSaveEducation}
+          isPending={mutation.isPending}
+        />
+      )}
+
+      {isEditingCertifications && (
+        <DataEditorModal
+          isOpen={isEditingCertifications}
+          onClose={() => setIsEditingCertifications(false)}
+          title="Certifications Tracker"
+          type="certification"
+          initialData={Array.isArray(career?.certifications) && career.certifications.length > 0 ? career.certifications : []}
+          onSave={handleSaveCertifications}
           isPending={mutation.isPending}
         />
       )}
