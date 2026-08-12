@@ -949,6 +949,20 @@ export default function AdminDashboard() {
       );
     }
 
+    if (activeTab === "speed-dashboard") {
+      return (
+        <motion.div
+          key="speed-dashboard"
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -20 }}
+          className="flex flex-col"
+        >
+          <SpeedApplier />
+        </motion.div>
+      );
+    }
+
     return (
       <motion.div 
         key={activeTab}
