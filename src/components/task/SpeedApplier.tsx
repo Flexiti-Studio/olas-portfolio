@@ -939,15 +939,21 @@ export default function SpeedApplier() {
                             <span className="text-[11px] font-semibold text-zinc-300 flex items-center gap-1">
                               📄 Tailored CV Preview
                             </span>
-                            {(uploadedCvUrl || modalCvUrl) && (
+                            {(uploadedCvUrl || modalCvUrl || generatedCv) && (
                               <button
                                 onClick={() => {
-                                  const cvLink = uploadedCvUrl || modalCvUrl || '';
-                                  navigator.clipboard.writeText(cvLink);
-                                  sonnerToast.success("Copied CV link!");
+                                  let cvText = "";
+                                  if (generatedCv?.personal_info?.name) {
+                                    cvText += `${generatedCv.personal_info.name} — ${generatedCv.personal_info.title || jobTitle}\n\n`;
+                                  }
+                                  if (generatedCv?.summary_bullets) {
+                                    cvText += generatedCv.summary_bullets.map((b: string) => `• ${b.replace(/<[^>]+>/g, '')}`).join("\n\n");
+                                  }
+                                  navigator.clipboard.writeText(cvText || "No CV text available.");
+                                  sonnerToast.success("Copied CV text!");
                                 }}
                                 className="text-zinc-400 hover:text-white transition-colors"
-                                title="Copy CV Link"
+                                title="Copy CV Text"
                               >
                                 <Copy size={14} />
                               </button>
@@ -972,15 +978,16 @@ export default function SpeedApplier() {
                             <span className="text-[11px] font-semibold text-zinc-300 flex items-center gap-1">
                               ✉️ Cover Letter Preview
                             </span>
-                            {(uploadedClUrl || modalClUrl) && (
+                            {(uploadedClUrl || modalClUrl || generatedCoverLetter) && (
                               <button
                                 onClick={() => {
-                                  const clLink = uploadedClUrl || modalClUrl || '';
-                                  navigator.clipboard.writeText(clLink);
-                                  sonnerToast.success("Copied Cover Letter link!");
+                                  let clText = generatedCoverLetter || "No cover letter available.";
+                                  clText = clText.replace(/<br\s*\/?>/gi, "\n").replace(/<p>/gi, "").replace(/<\/p>/gi, "\n\n").replace(/<[^>]+>/g, '').trim();
+                                  navigator.clipboard.writeText(clText);
+                                  sonnerToast.success("Copied Cover Letter text!");
                                 }}
                                 className="text-zinc-400 hover:text-white transition-colors"
-                                title="Copy Cover Letter Link"
+                                title="Copy Cover Letter Text"
                               >
                                 <Copy size={14} />
                               </button>

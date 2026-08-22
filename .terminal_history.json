@@ -856,7 +856,22 @@
       "command": "npm run dev",
       "timestamp": 1787391806864,
       "cwd": "c:\\Users\\HP\\Documents\\GitHub\\flexiti studio project\\olas-portfolio"
+    },
+    {
+      "command": "git add .",
+      "timestamp": 1787410807652,
+      "cwd": "c:\\Users\\HP\\Documents\\GitHub\\flexiti studio project\\olas-portfolio"
+    },
+    {
+      "command": "git commit -m \"updaeted and fixed budget , gisgs speed apply \"",
+      "timestamp": 1787410832174,
+      "cwd": "c:\\Users\\HP\\Documents\\GitHub\\flexiti studio project\\olas-portfolio"
+    },
+    {
+      "command": "git push origin",
+      "timestamp": 1787410929734,
+      "cwd": "c:\\Users\\HP\\Documents\\GitHub\\flexiti studio project\\olas-portfolio"
     }
   ],
-  "lastUpdated": 1787391806864
+  "lastUpdated": 1787410929734
 }
