@@ -34,6 +34,8 @@ export default function CourseCreator() {
   const [pdfPages, setPdfPages] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [courseTitle, setCourseTitle] = useState("");
+  const [courseType, setCourseType] = useState<"interview" | "learning">("interview");
+  const [learningLevel, setLearningLevel] = useState<"basic" | "beginners" | "advanced">("basic");
   const [applicationId, setApplicationId] = useState("");
   const [applications, setApplications] = useState<any[]>([]);
   const [focusAreas, setFocusAreas] = useState<string[]>([]);
@@ -94,6 +96,7 @@ export default function CourseCreator() {
         body: JSON.stringify({
           text, title: courseTitle, focusAreas, depth, applicationId: applicationId || null,
           applicationRole: linkedApp?.job_title, applicationCompany: linkedApp?.company,
+          courseType, learningLevel
         }),
       });
 
@@ -164,7 +167,9 @@ export default function CourseCreator() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               courseId: saved.id,
-              moduleId: initialModules[i].id
+              moduleId: initialModules[i].id,
+              courseType,
+              learningLevel
             })
           });
 
@@ -320,6 +325,34 @@ export default function CourseCreator() {
               placeholder="e.g. Senior Frontend Engineer Interview Prep"
               className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-sm text-white focus:border-indigo-500 outline-none" />
           </div>
+
+          <div>
+            <label className="text-sm text-zinc-400 mb-2 block">Course Type</label>
+            <div className="flex gap-2">
+              <button onClick={() => setCourseType("interview")}
+                className={`px-4 py-2 rounded-xl text-sm font-medium border transition-colors ${
+                  courseType === "interview" ? "bg-indigo-600 border-indigo-500 text-white" : "bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-500"
+                }`}>Interview Prep</button>
+              <button onClick={() => setCourseType("learning")}
+                className={`px-4 py-2 rounded-xl text-sm font-medium border transition-colors ${
+                  courseType === "learning" ? "bg-indigo-600 border-indigo-500 text-white" : "bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-500"
+                }`}>Learning</button>
+            </div>
+          </div>
+
+          {courseType === "learning" && (
+            <div>
+              <label className="text-sm text-zinc-400 mb-2 block">Learning Level</label>
+              <div className="flex gap-2">
+                {(["basic", "beginners", "advanced"] as const).map(level => (
+                  <button key={level} onClick={() => setLearningLevel(level)}
+                    className={`px-4 py-2 rounded-xl text-sm font-medium border transition-colors capitalize ${
+                      learningLevel === level ? "bg-indigo-600 border-indigo-500 text-white" : "bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-500"
+                    }`}>{level}</button>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div>
             <label className="text-sm text-zinc-400 mb-1.5 block">Link to Application <span className="text-zinc-600">(optional)</span></label>

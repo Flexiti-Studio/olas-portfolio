@@ -6,6 +6,8 @@ import { SummaryTable } from "./components/SummaryTable";
 import { CategoryColumn } from "./components/CategoryColumn";
 import { IncomeColumn } from "./components/IncomeColumn";
 import { TransactionsTable } from "./components/TransactionsTable";
+import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -16,25 +18,20 @@ const queryClient = new QueryClient({
   },
 });
 
-export default function BudgetStrategyPageWrapper({
-  searchParams,
-}: {
-  searchParams?: { periodId?: string };
-}) {
+export default function BudgetStrategyPageWrapper() {
   return (
     <QueryClientProvider client={queryClient}>
-      <BudgetStrategyPage searchParams={searchParams} />
+      <Suspense fallback={<div className="animate-pulse h-screen w-full bg-slate-900"></div>}>
+        <BudgetStrategyPage />
+      </Suspense>
     </QueryClientProvider>
   );
 }
 
-function BudgetStrategyPage({
-  searchParams,
-}: {
-  searchParams?: { periodId?: string };
-}) {
+function BudgetStrategyPage() {
   const qc = useQueryClient();
-  const periodId = searchParams?.periodId;
+  const searchParams = useSearchParams();
+  const periodId = searchParams?.get("periodId") || undefined;
 
   const { data: queryData, isLoading: loading, error } = useQuery({
     queryKey: ["budget-strategy", periodId],
@@ -129,6 +126,7 @@ function BudgetStrategyPage({
                 WANTS: { totalActual: 0, totalGoal: 0 }
               }} 
               strategy={data.strategy} 
+              periodId={data.periodId}
             />
           </div>
         )}
@@ -154,7 +152,7 @@ function BudgetStrategyPage({
 
       {/* Summary Table block */}
       <div className="mb-8">
-        <SummaryTable totalIncome={data.totalIncome} groups={data.groups} strategy={data.strategy} />
+        <SummaryTable totalIncome={data.totalIncome} groups={data.groups} strategy={data.strategy} periodId={data.periodId} />
       </div>
 
       {!isEditable && (

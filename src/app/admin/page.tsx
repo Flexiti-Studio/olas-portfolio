@@ -36,6 +36,7 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGri
 import CvTailor from "@/components/admin/CvTailor";
 import JobWebsites from "@/components/admin/JobWebsites";
 import ApplicationTracker from "@/components/admin/ApplicationTracker";
+import GigsTracker from "@/components/admin/GigsTracker";
 import CoverLetterGenerator from "@/components/admin/CoverLetterGenerator";
 import CompanyResearch from "@/components/admin/CompanyResearch";
 import InterviewPrepList from "@/app/admin/interview-prep/page";
@@ -48,6 +49,8 @@ import BankAccounts from "@/components/admin/BankAccounts";
 import SocialTemplates from "@/components/admin/SocialTemplates";
 import { Brain, Focus, PiggyBank, Landmark } from "lucide-react";
 import SpeedApplier from "@/components/task/SpeedApplier";
+import PurchaseAffordabilityCalculator from "@/components/admin/PurchaseAffordabilityCalculator";
+import SalaryBenchmarker from "@/components/admin/SalaryBenchmarker";
 
 const SIDEBAR_ITEMS = [
   { id: "overview", label: "Overview", icon: LayoutDashboard, desc: "Main statistics" },
@@ -55,6 +58,7 @@ const SIDEBAR_ITEMS = [
   { id: "speed-dashboard", label: "Speed Apply", icon: Zap, desc: "Personal Auto Applier" },
   { id: "career", label: "Career", icon: Compass, desc: "Career goals & profile" },
   { id: "job-tracker", label: "Application Tracker", icon: Briefcase, desc: "Kanban pipeline" },
+  { id: "gigs-tracker", label: "Gigs Tracker", icon: Briefcase, desc: "Freelance & gigs pipeline" },
   { id: "job-websites", label: "Job Websites", icon: Building, desc: "Saved career pages" },
   { id: "company-research", label: "Company Research", icon: Search, desc: "Deep dive companies" },
   { id: "interview-prep", label: "Interview Prep", icon: MessageSquare, desc: "Notes & questions" },
@@ -593,6 +597,11 @@ export default function AdminDashboard() {
 
               </div>
 
+              {/* Purchase Affordability Planner */}
+              <div className="mt-6">
+                <PurchaseAffordabilityCalculator />
+              </div>
+
               {/* Side-by-side Pipeline status & Recent Activities */}
               <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
                 
@@ -809,6 +818,20 @@ export default function AdminDashboard() {
       );
     }
 
+    if (activeTab === "gigs-tracker") {
+      return (
+        <motion.div 
+          key="gigs-tracker"
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -20 }}
+          className="flex flex-col"
+        >
+          <GigsTracker />
+        </motion.div>
+      );
+    }
+
     if (activeTab === "cover-letters") {
       return (
         <motion.div 
@@ -860,7 +883,7 @@ export default function AdminDashboard() {
           exit={{ opacity: 0, x: -20 }}
           className="flex flex-col -m-4 md:-m-8"
         >
-          <BudgetStrategy searchParams={{}} />
+          <BudgetStrategy />
         </motion.div>
       );
     }
@@ -959,6 +982,20 @@ export default function AdminDashboard() {
           className="flex flex-col"
         >
           <SpeedApplier />
+        </motion.div>
+      );
+    }
+
+    if (activeTab === "salary-benchmarker") {
+      return (
+        <motion.div
+          key="salary-benchmarker"
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -20 }}
+          className="flex flex-col"
+        >
+          <SalaryBenchmarker />
         </motion.div>
       );
     }

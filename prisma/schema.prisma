@@ -38,6 +38,7 @@ model Application {
   CoverLetter        CoverLetter[]
   companyResearch    CompanyResearch[]
   courses            Course[]
+  goals              Goal[]
   
   @@map("applications")
 }
@@ -423,6 +424,9 @@ model Goal {
   timeline       Json?     @default("[]") // [{ id: string, text: string, completed: boolean }]
   order          Int       @default(0)
   createdAt      DateTime  @default(now())
+  
+  application_id String?      @db.Uuid
+  application    Application? @relation(fields: [application_id], references: [id], onDelete: Cascade)
 }
 
 model Period {
@@ -569,3 +573,11 @@ model WidgetRelease {
   @@map("widget_releases")
 }
 
+model FinancialHistory {
+  id             String    @id @default(cuid())
+  date           DateTime  @default(now())
+  netWorth       Decimal
+  monthlyIncome  Decimal
+
+  @@map("financial_history")
+}

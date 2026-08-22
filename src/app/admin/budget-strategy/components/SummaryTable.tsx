@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { AllocationBar } from "./AllocationBar";
 import { Loader2, Save } from "lucide-react";
+import { toast } from "sonner";
 
 interface SummaryTableProps {
   totalIncome: number;
@@ -12,14 +13,16 @@ interface SummaryTableProps {
     WANTS: { totalActual: number; totalGoal: number };
   };
   strategy: { needs: number; savings: number; wants: number };
+  periodId?: string;
 }
 
-export function SummaryTable({ totalIncome, groups, strategy }: SummaryTableProps) {
+export function SummaryTable({ totalIncome, groups, strategy, periodId }: SummaryTableProps) {
   // Local state for ideal percentages.
   const [pctNeeds, setPctNeeds] = useState(strategy?.needs || 50);
   const [pctSavings, setPctSavings] = useState(strategy?.savings || 20);
   const [pctWants, setPctWants] = useState(strategy?.wants || 30);
-  const [isSaving, setIsSaving] = useState(false);
+  const [isSavingStrategy, setIsSavingStrategy] = useState(false);
+  const [isAutoBalancing, setIsAutoBalancing] = useState(false);
 
   useEffect(() => {
     if (strategy) {
@@ -40,27 +43,37 @@ export function SummaryTable({ totalIncome, groups, strategy }: SummaryTableProp
 
   const handleSaveStrategy = async () => {
     if (totalPct !== 100) {
-      alert("Percentages must add up to exactly 100%.");
+      toast.error("Percentages must add up to exactly 100%.");
       return;
     }
     
-    setIsSaving(true);
+    setIsSavingStrategy(true);
     try {
+      const searchParams = new URLSearchParams(window.location.search);
+      const urlPeriodId = searchParams.get("periodId");
+      let activePeriodId = periodId || urlPeriodId;
+      
+      if (!activePeriodId) {
+         const res = await fetch("/api/budgeting/strategy/period?list=true");
+         const json = await res.json();
+         activePeriodId = json.data.activePeriodId;
+      }
+
       const res = await fetch("/api/budgeting/strategy/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ needs: pctNeeds, savings: pctSavings, wants: pctWants })
+        body: JSON.stringify({ periodId: activePeriodId, needs: pctNeeds, savings: pctSavings, wants: pctWants })
       });
       const data = await res.json();
       if (data.success) {
-        alert("Strategy saved successfully!");
+        toast.success("Strategy saved successfully for this period!");
       } else {
-        alert("Failed to save strategy.");
+        toast.error("Failed to save strategy.");
       }
     } catch (e) {
-      alert("Error saving strategy.");
+      toast.error("Error saving strategy.");
     }
-    setIsSaving(false);
+    setIsSavingStrategy(false);
   };
 
   return (
@@ -81,7 +94,7 @@ export function SummaryTable({ totalIncome, groups, strategy }: SummaryTableProp
                    activePeriodId = json.data.activePeriodId;
                 }
                 
-                setIsSaving(true);
+                setIsAutoBalancing(true);
                 try {
                   await fetch("/api/budgeting/strategy/auto-balance", {
                     method: "POST",
@@ -94,20 +107,20 @@ export function SummaryTable({ totalIncome, groups, strategy }: SummaryTableProp
                   });
                   window.location.reload();
                 } catch (e) {}
-                setIsSaving(false);
+                setIsAutoBalancing(false);
               }}
-              disabled={isSaving || totalPct !== 100}
+              disabled={isAutoBalancing || isSavingStrategy || totalPct !== 100}
               className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white px-3 py-1.5 rounded text-sm font-medium flex items-center justify-center w-full sm:w-auto"
             >
-              {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+              {isAutoBalancing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
               Auto-Balance Goals
             </button>
             <button 
               onClick={handleSaveStrategy}
-              disabled={isSaving || totalPct !== 100}
+              disabled={isAutoBalancing || isSavingStrategy || totalPct !== 100}
               className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-3 py-1.5 rounded text-sm font-medium flex items-center justify-center w-full sm:w-auto"
             >
-              {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+              {isSavingStrategy ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
               Save Strategy
             </button>
           </div>

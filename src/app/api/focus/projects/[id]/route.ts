@@ -24,3 +24,34 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ success: false, error: { message: error.message } }, { status: 500 });
   }
 }
+
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const { id } = await params;
+
+    // First delete all tasks associated with this project 
+    // (Subtasks will be cascade deleted because of onDelete: Cascade on the Subtask model)
+    await prisma.task.deleteMany({
+      where: { projectId: id }
+    });
+
+    // Then delete the project itself
+    await prisma.project.delete({
+      where: { id }
+    });
+
+    // If this was the focused project, unset it
+    const focusState = await prisma.focusState.findUnique({ where: { id: "singleton" } });
+    if (focusState?.focusedProjectId === id) {
+      await prisma.focusState.update({
+        where: { id: "singleton" },
+        data: { focusedProjectId: null }
+      });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    return NextResponse.json({ success: false, error: { message: error.message } }, { status: 500 });
+  }
+}
+

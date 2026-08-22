@@ -35,6 +35,15 @@ export async function POST(req: NextRequest) {
       create: { key, value }
     });
 
+    if (key === 'salary_benchmark') {
+      await prisma.financialHistory.create({
+        data: {
+          netWorth: value.netWorth || 0,
+          monthlyIncome: value.monthlyIncome || 0,
+        }
+      });
+    }
+
     return NextResponse.json(data);
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });

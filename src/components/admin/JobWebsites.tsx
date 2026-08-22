@@ -7,6 +7,7 @@ interface JobWebsite {
   url: string;
   logo: string; // Base64 or URL
   category: string;
+  rating?: number;
 }
 
 export default function JobWebsites() {
@@ -17,7 +18,7 @@ export default function JobWebsites() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   
-  const [formData, setFormData] = useState({ name: "", url: "", logo: "", category: "" });
+  const [formData, setFormData] = useState({ name: "", url: "", logo: "", category: "", rating: 0 });
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -83,7 +84,7 @@ export default function JobWebsites() {
     syncToDatabase(updated);
     
     setIsModalOpen(false);
-    setFormData({ name: "", url: "", logo: "", category: "" });
+    setFormData({ name: "", url: "", logo: "", category: "", rating: 0 });
     setEditingId(null);
   };
 
@@ -96,7 +97,7 @@ export default function JobWebsites() {
   };
 
   const handleEdit = (site: JobWebsite) => {
-    setFormData({ name: site.name, url: site.url, logo: site.logo, category: site.category });
+    setFormData({ name: site.name, url: site.url, logo: site.logo, category: site.category, rating: site.rating || 0 });
     setEditingId(site.id);
     setIsModalOpen(true);
     setActiveDropdown(null);
@@ -128,7 +129,7 @@ export default function JobWebsites() {
         </div>
         <button 
           onClick={() => {
-            setFormData({ name: "", url: "", logo: "", category: "" });
+            setFormData({ name: "", url: "", logo: "", category: "", rating: 0 });
             setEditingId(null);
             setIsModalOpen(true);
           }}
@@ -199,6 +200,18 @@ export default function JobWebsites() {
                 )}
               </div>
               <h3 className="font-semibold text-white truncate w-full px-2 text-lg">{site.name}</h3>
+              
+              {/* Star Rating Display */}
+              {site.rating !== undefined && site.rating > 0 && (
+                <div className="flex items-center mt-2 gap-0.5">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <span key={star} className={`text-sm ${star <= site.rating! ? 'text-amber-400' : 'text-zinc-700'}`}>
+                      ★
+                    </span>
+                  ))}
+                </div>
+              )}
+
               <span className="text-xs bg-zinc-800 text-zinc-300 px-2 py-0.5 rounded-full mt-2 inline-block truncate max-w-full">
                 {site.category || "Uncategorized"}
               </span>
@@ -273,6 +286,24 @@ export default function JobWebsites() {
                 <datalist id="categoryList">
                   {categories.filter(c => c !== "All").map(c => <option key={c} value={c} />)}
                 </datalist>
+              </div>
+
+              <div>
+                <label className="text-xs text-zinc-400 block mb-1">Rating</label>
+                <div className="flex items-center gap-2">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, rating: star })}
+                      className={`text-2xl transition-colors ${
+                        star <= formData.rating ? "text-amber-400" : "text-zinc-700 hover:text-amber-400/50"
+                      }`}
+                    >
+                      ★
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div>

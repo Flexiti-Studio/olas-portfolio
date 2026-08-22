@@ -10,11 +10,14 @@ const DEPTH_CONFIG: Record<string, { modules: number; lessonsPerModule: number; 
 };
 
 export async function POST(req: NextRequest) {
-  const { text, title, focusAreas, depth, applicationId, applicationRole, applicationCompany } = await req.json();
+  const { text, title, focusAreas, depth, applicationId, applicationRole, applicationCompany, courseType, learningLevel } = await req.json();
   if (!text?.trim()) return NextResponse.json({ error: 'No content provided' }, { status: 400 });
 
   const config = DEPTH_CONFIG[depth] || DEPTH_CONFIG.standard;
   const encoder = new TextEncoder();
+
+  const isLearning = courseType === 'learning';
+  const expertRole = isLearning ? 'expert instructional designer and course creator' : 'expert instructional designer and interview coaching expert';
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -23,7 +26,7 @@ export async function POST(req: NextRequest) {
       try {
         send({ step: 1, label: 'Analysing your material...' });
 
-        const systemPrompt = `You are a world-class instructional designer and interview coaching expert. Your job is to transform raw study material into a beautifully structured course syllabus shell.
+        const systemPrompt = `You are a world-class ${expertRole}. Your job is to transform raw study material into a beautifully structured course syllabus shell.
 
 CRITICAL RULES:
 1. Return ONLY valid JSON — absolutely no markdown, no backticks, no explanation text outside the JSON object.
@@ -31,9 +34,10 @@ CRITICAL RULES:
 3. Each module must contain order, title, module description, and a list of specific lessons with their estimated reading time.
 4. Do NOT generate the detailed content, quizzes, or flashcards for the lessons yet. Only generate the structural syllabus outline.`;
 
-        const focusAreasStr = focusAreas?.length ? focusAreas.join(', ') : 'Technical Skills, Behavioural Questions, System Design';
+        const focusAreasStr = focusAreas?.length ? focusAreas.join(', ') : (isLearning ? 'Core Concepts, Practical Application, Advanced Topics' : 'Technical Skills, Behavioural Questions, System Design');
         const roleContext = applicationRole ? `\nTARGET ROLE: ${applicationRole}` : '';
         const companyContext = applicationCompany ? `\nTARGET COMPANY: ${applicationCompany}` : '';
+        const typeContext = isLearning ? `\nCOURSE TYPE: Learning\nLEARNING LEVEL: ${learningLevel}` : '\nCOURSE TYPE: Interview Preparation';
 
         const userPrompt = `STUDY MATERIAL:
 ---
@@ -41,7 +45,7 @@ ${text.slice(0, 14000)}
 ---
 
 COURSE SETTINGS:
-- Title (if provided): ${title || 'generate a precise, professional title'}
+- Title (if provided): ${title || 'generate a precise, professional title'}${typeContext}
 - Focus Areas: ${focusAreasStr}
 - Depth: ${depth} — generate EXACTLY ${config.modules} modules
 - Each module: EXACTLY ${config.lessonsPerModule} lessons outlined${roleContext}${companyContext}

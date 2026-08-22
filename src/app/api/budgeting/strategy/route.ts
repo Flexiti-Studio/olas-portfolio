@@ -18,8 +18,14 @@ export async function GET(req: Request) {
       periodId = activePeriodId;
     }
 
-    const strategySetting = await prisma.setting.findUnique({ where: { key: "budget_strategy" } });
-    const strategy = strategySetting ? strategySetting.value : { needs: 50, savings: 20, wants: 30 };
+    const strategySetting = await prisma.setting.findUnique({ where: { key: `budget_strategy_${periodId}` } });
+    let strategy = strategySetting ? strategySetting.value : null;
+
+    // Fallback to global strategy if period strategy doesn't exist
+    if (!strategy) {
+      const globalStrategySetting = await prisma.setting.findUnique({ where: { key: "budget_strategy" } });
+      strategy = globalStrategySetting ? globalStrategySetting.value : { needs: 50, savings: 20, wants: 30 };
+    }
 
     if (!periodId) {
       return NextResponse.json({ success: true, data: { strategy }, message: "No active period" });
@@ -37,7 +43,14 @@ export async function GET(req: Request) {
       orderBy: { startDate: 'asc' }
     });
 
-    const endDate = nextPeriod ? nextPeriod.startDate : new Date('2100-01-01');
+    let endDate;
+    if (nextPeriod) {
+      endDate = nextPeriod.startDate;
+    } else {
+      const d = new Date(period.startDate);
+      d.setMonth(d.getMonth() + 1);
+      endDate = d;
+    }
 
     // Fetch Income for the period date range (including past recurring incomes)
     const periodIncomes = await prisma.income.findMany({
@@ -60,7 +73,7 @@ export async function GET(req: Request) {
       include: { incomeCategory: true }
     });
     
-    let totalIncome = Number(period.rolloverAmount) || 0;
+    let totalIncome = 0;
     
     for (const inc of periodIncomes) {
       const amt = Number(inc.amount);

@@ -3,6 +3,7 @@ import Script from "next/script";
 import { Space_Grotesk, Noto_Sans } from "next/font/google";
 import "./globals.css";
 import { SmoothScroll } from "@/components/layout/SmoothScroll";
+import { Toaster } from "sonner";
 
 const spaceGrotesk = Space_Grotesk({
   variable: "--font-space-grotesk",
@@ -58,6 +59,7 @@ export default function RootLayout({
       <body suppressHydrationWarning className="min-h-screen flex flex-col overflow-x-hidden">
         <SmoothScroll />
         {children}
+        <Toaster theme="dark" position="bottom-right" richColors />
       </body>
     </html>
   );

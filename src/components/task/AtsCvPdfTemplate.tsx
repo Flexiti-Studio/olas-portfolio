@@ -176,11 +176,7 @@ export default function AtsCvPdfTemplate({ data }: { data: any }) {
           </SectionBlock>
         )}
 
-        {/* ── WORK AUTHORIZATION ── */}
-        <Text style={{ fontSize: 9, marginTop: 4 }}>
-          <Text style={styles.bold}>Work Authorization: </Text>
-          {data.work_authorization || "Authorized to work in the United States (no sponsorship required)"}
-        </Text>
+
 
       </Page>
     </Document>

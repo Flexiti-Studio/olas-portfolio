@@ -4,9 +4,11 @@ import { useState } from "react";
 import { FocusedProjectCard } from "./components/FocusedProjectCard";
 import { ProjectQueueList } from "./components/ProjectQueueList";
 import { ProjectCompleteModal } from "./components/ProjectCompleteModal";
+import { SwitchConfirmModal } from "./components/SwitchConfirmModal";
 import { NewProjectForm } from "./components/NewProjectForm";
 import { Loader2 } from "lucide-react";
 import { useQuery, QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Toaster } from "sonner";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -19,6 +21,7 @@ const queryClient = new QueryClient({
 
 function FocusModePageContent() {
   const [showCompleteModal, setShowCompleteModal] = useState(false);
+  const [switchConfirmData, setSwitchConfirmData] = useState<{ projectId: string, incompleteCount: number } | null>(null);
 
   const { data, isLoading: loading, refetch: fetchProjects } = useQuery({
     queryKey: ["focus-projects"],
@@ -43,9 +46,7 @@ function FocusModePageContent() {
       
       if (json.success) {
         if (json.data.requiresConfirmation) {
-          if (confirm(`Current project has ${json.data.incompleteCount} incomplete tasks. Switch anyway?`)) {
-            await handleSwitchFocus(projectId, true);
-          }
+          setSwitchConfirmData({ projectId, incompleteCount: json.data.incompleteCount });
         } else {
           await fetchProjects();
         }
@@ -101,6 +102,7 @@ function FocusModePageContent() {
               projects={queue} 
               onSwitchFocus={(id) => handleSwitchFocus(id)}
               isFocusedEmpty={!focusedProject}
+              onProjectUpdate={fetchProjects}
             />
           </div>
         </div>
@@ -116,6 +118,20 @@ function FocusModePageContent() {
           queue={queue}
         />
       )}
+
+      <SwitchConfirmModal
+        isOpen={!!switchConfirmData}
+        incompleteCount={switchConfirmData?.incompleteCount || 0}
+        onCancel={() => setSwitchConfirmData(null)}
+        onConfirm={() => {
+          if (switchConfirmData) {
+            handleSwitchFocus(switchConfirmData.projectId, true);
+            setSwitchConfirmData(null);
+          }
+        }}
+      />
+      
+      <Toaster theme="dark" position="bottom-right" />
     </div>
   );
 }

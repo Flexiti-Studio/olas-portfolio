@@ -3,6 +3,7 @@ import { X, Building, Target, Link as LinkIcon, FileText, Calendar, Edit3, Save,
 import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
 import { Application, Stage, STAGES } from "./ApplicationTracker";
+import GigGoalsTracker from "./GigGoalsTracker";
 
 interface ApplicationModalProps {
   appId: string;
@@ -10,9 +11,10 @@ interface ApplicationModalProps {
   onUpdate: (updated: Application) => void;
   cvs?: any[];
   coverLetters?: any[];
+  isPageMode?: boolean;
 }
 
-export default function ApplicationModal({ appId, onClose, onUpdate, cvs = [], coverLetters = [] }: ApplicationModalProps) {
+export default function ApplicationModal({ appId, onClose, onUpdate, cvs = [], coverLetters = [], isPageMode = false }: ApplicationModalProps) {
   const [app, setApp] = useState<Application | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
@@ -77,21 +79,27 @@ export default function ApplicationModal({ appId, onClose, onUpdate, cvs = [], c
 
   return (
     <AnimatePresence>
+      {!isPageMode && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
+          onClick={onClose}
+        />
+      )}
       <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
-        onClick={onClose}
-      />
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={isPageMode ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 20 }}
+        exit={isPageMode ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
         transition={{ type: "spring", damping: 25, stiffness: 200 }}
-        className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-start justify-center p-6"
+        className={
+          isPageMode
+            ? "w-full max-w-7xl mx-auto flex flex-col"
+            : "fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-start justify-center p-6"
+        }
       >
-        <div className="bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl w-full max-w-5xl h-[90vh] overflow-auto">
+        <div className={`bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl w-full ${isPageMode ? "min-h-[80vh]" : "max-w-5xl h-[90vh]"} overflow-auto`}>
           {isLoading ? (
             <div className="flex-1 flex items-center justify-center h-full">
               <div className="text-zinc-500 flex items-center gap-2">
@@ -570,6 +578,9 @@ export default function ApplicationModal({ appId, onClose, onUpdate, cvs = [], c
                     )}
                   </div>
                 </div>
+                
+                {/* Gig Goals Tracker */}
+                <GigGoalsTracker appId={app.id} />
               </div>
             )}
           </div>

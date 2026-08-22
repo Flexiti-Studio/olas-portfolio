@@ -1,9 +1,12 @@
 import { useState, useEffect, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { Plus, MoreVertical, Building, Clock, Target, Calendar as CalendarIcon, ChevronLeft, ChevronRight, LayoutGrid, Search, Filter, X, GraduationCap } from "lucide-react";
 import { formatDistanceToNow, format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, isSameMonth, isSameDay, addMonths, subMonths } from "date-fns";
 import ApplicationModal from "./ApplicationModal";
 import { motion, AnimatePresence } from "framer-motion";
+import GigWebsitesPopup from "./GigWebsitesPopup";
+import { Globe } from "lucide-react";
 
 // Types
 export type Stage = 'Wishlist' | 'Applied' | 'Interview' | 'Offer' | 'Rejected' | 'Archived';
@@ -38,14 +41,17 @@ export const getAppJobType = (app: Application): 'remote' | 'hybrid' | 'in-perso
   return null;
 };
 
-export default function ApplicationTracker() {
+export default function GigsTracker() {
+  const router = useRouter();
   const [applications, setApplications] = useState<Application[]>([]);
   const [cvs, setCvs] = useState<any[]>([]);
   const [coverLetters, setCoverLetters] = useState<any[]>([]);
+  const [gigWebsites, setGigWebsites] = useState<any[]>([]);
+  const [showGigWebsites, setShowGigWebsites] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [newApp, setNewApp] = useState({ jobTitle: '', company: '', source: 'LinkedIn', job_description: '', cover_letter_url: '', linked_cv_id: '', linked_cv_slug: '', created_at: new Date().toISOString() });
+  const [newApp, setNewApp] = useState({ jobTitle: '', company: '', source: 'Upwork', job_type: 'gig', job_description: '', cover_letter_url: '', linked_cv_id: '', linked_cv_slug: '', created_at: new Date().toISOString() });
   const [isCreating, setIsCreating] = useState(false);
 
   const [selectedAppId, setSelectedAppId] = useState<string | null>(null);
@@ -82,7 +88,36 @@ export default function ApplicationTracker() {
     fetchApplications();
     fetchCVs();
     fetchCoverLetters();
+    fetchGigWebsites();
   }, []);
+
+  const fetchGigWebsites = async () => {
+    try {
+      const stored = localStorage.getItem("gig_websites");
+      if (stored) {
+        setGigWebsites(JSON.parse(stored));
+      }
+      
+      const res = await fetch("/api/gig-websites", { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        // Only overwrite if API actually returned data or if local storage is empty
+        if (data && data.length > 0 || !stored) {
+          setGigWebsites(data);
+          localStorage.setItem("gig_websites", JSON.stringify(data));
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch gig websites:", err);
+    }
+  };
+
+  const refreshGigWebsitesFromLocal = () => {
+    const stored = localStorage.getItem("gig_websites");
+    if (stored) {
+      setGigWebsites(JSON.parse(stored));
+    }
+  };
 
   const fetchCoverLetters = async () => {
     try {
@@ -98,10 +133,12 @@ export default function ApplicationTracker() {
 
   const fetchApplications = async () => {
     try {
-      const res = await fetch("/api/applications");
+      const res = await fetch('/api/applications?tag=gig', { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
-        setApplications(data);
+        // Fallback filter just in case the API doesn't filter perfectly
+        const gigsOnly = data.filter((app: any) => app.tags?.includes('gig'));
+        setApplications(gigsOnly);
       }
     } catch (err) {
       console.error("Failed to fetch applications:", err);
@@ -124,9 +161,6 @@ export default function ApplicationTracker() {
 
   const filteredApps = useMemo(() => {
     return applications.filter(app => {
-      // Exclude gig applications from the main job tracker
-      if ((app.tags || []).includes('gig')) return false;
-
       if (tagFilter && !(app.tags || []).includes(tagFilter)) return false;
       if (stageFilter && app.stage !== stageFilter) return false;
       if (searchQuery) {
@@ -176,29 +210,18 @@ export default function ApplicationTracker() {
   const handleCreate = async () => {
     if (!newApp.jobTitle || !newApp.company) return;
     setIsCreating(true);
-
-    let slug = '';
-    if (newApp.linked_cv_id) {
-      const cv = cvs.find(c => c.id === newApp.linked_cv_id);
-      if (cv) slug = cv.slug;
-    }
-
-    const payload = {
-      ...newApp,
-      linked_cv_slug: slug
-    };
-
     try {
-      const res = await fetch("/api/applications", {
+      const payload = { ...newApp, tags: ['gig'], job_type: 'gig' };
+      const res = await fetch('/api/applications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
       if (res.ok) {
-        const created = await res.json();
-        setApplications([created, ...applications]);
+        const data = await res.json();
+        setApplications(prev => [data, ...prev]);
         setIsAddModalOpen(false);
-        setNewApp({ jobTitle: '', company: '', source: 'LinkedIn', job_description: '', cover_letter_url: '', linked_cv_id: '', linked_cv_slug: '', created_at: new Date().toISOString() });
+        setNewApp({ jobTitle: '', company: '', source: 'Upwork', job_type: 'gig', job_description: '', cover_letter_url: '', linked_cv_id: '', linked_cv_slug: '', created_at: new Date().toISOString() });
       } else {
         const errData = await res.json();
         alert(`Failed to create: ${errData.error || 'Unknown error'}`);
@@ -238,20 +261,76 @@ export default function ApplicationTracker() {
   };
 
   const openAppPreview = (appId: string) => {
-    setSelectedAppId(appId);
+    router.push('/admin/applications/' + appId);
     setSelectedDay(null);
   };
 
+  const filteredByStage = applications.filter(app => {
+    const matchesSearch = app.job_title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          app.company.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesTag = tagFilter === '' || app.tags?.includes(tagFilter);
+    const matchesStage = stageFilter === '' || app.stage === stageFilter;
+    return matchesSearch && matchesTag && matchesStage;
+  });
+
   return (
-    <div className="flex flex-col h-full bg-zinc-950 text-white rounded-2xl border border-zinc-800 p-6 overflow-hidden relative">
-
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-        <div>
-          <h2 className="text-2xl font-bold">Application Tracker</h2>
-          <p className="text-zinc-400 text-sm mt-1">Track your job applications and pipeline.</p>
+    <div className="flex flex-col h-full bg-zinc-950 text-white rounded-2xl border border-zinc-800 p-6 relative overflow-hidden">
+      
+      {/* Gig Websites Top Section */}
+      <div className="mb-8 border-b border-zinc-800 pb-6">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-lg font-bold text-zinc-300">Gig Websites</h2>
+          <div className="flex gap-4 items-center">
+            <button 
+              onClick={() => {
+                setShowGigWebsites(true);
+                // We'll let the popup handle the actual adding
+              }}
+              className="text-sm bg-white text-black px-3 py-1.5 rounded-lg hover:bg-zinc-200 font-medium flex items-center gap-1.5"
+            >
+              <Plus size={14} /> Add Website
+            </button>
+            <button 
+              onClick={() => setShowGigWebsites(true)}
+              className="text-sm text-emerald-400 hover:text-emerald-300 font-medium"
+            >
+              See all
+            </button>
+          </div>
         </div>
+        
+        <div className="flex gap-4 overflow-x-auto hide-scrollbar pb-2">
+          {gigWebsites.length > 0 ? gigWebsites.map((site: any) => (
+            <div 
+              key={site.id} 
+              onClick={() => window.open(site.url.startsWith('http') ? site.url : `https://${site.url}`, '_blank')}
+              className="flex items-center gap-3 bg-zinc-900 border border-zinc-800 rounded-xl p-3 shrink-0 cursor-pointer hover:border-zinc-700 transition-colors w-[220px]"
+            >
+              <div className="w-10 h-10 bg-zinc-950 rounded-lg flex items-center justify-center overflow-hidden shrink-0 border border-zinc-800/50">
+                {site.logo ? (
+                  <img src={site.logo} alt={site.name} className="w-full h-full object-cover" />
+                ) : (
+                  <Globe className="text-zinc-600" size={20} />
+                )}
+              </div>
+              <div className="overflow-hidden">
+                <h4 className="text-sm font-semibold text-white truncate">{site.name}</h4>
+                <p className="text-xs text-zinc-500 truncate">{site.category || 'Uncategorized'}</p>
+              </div>
+            </div>
+          )) : (
+            <div className="text-zinc-500 text-sm italic py-2">
+              No gig websites added yet. Click "See all" to add your first website.
+            </div>
+          )}
+        </div>
+      </div>
 
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+        <div>
+          <h2 className="text-2xl font-bold">Gigs Tracker</h2>
+          <p className="text-zinc-400 text-sm mt-1">Manage your freelance pipeline</p>
+        </div>
         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
           <div className="relative flex-1 md:w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={16} />
@@ -422,7 +501,7 @@ export default function ApplicationTracker() {
                                   <div className="flex justify-between items-start mb-2 relative">
                                     <h4
                                       className="font-semibold text-sm leading-tight text-white cursor-pointer hover:text-blue-400 transition-colors"
-                                      onClick={() => setSelectedAppId(app.id)}
+                                      onClick={() => router.push('/admin/applications/' + app.id)}
                                     >
                                       {app.job_title}
                                     </h4>
@@ -446,7 +525,7 @@ export default function ApplicationTracker() {
                                           >
                                             <button
                                               className="w-full text-left px-4 py-2 text-xs hover:bg-zinc-800 text-zinc-300 hover:text-white transition-colors"
-                                              onClick={(e) => { e.stopPropagation(); setSelectedAppId(app.id); setMenuOpenAppId(null); }}
+                                              onClick={(e) => { e.stopPropagation(); router.push('/admin/applications/' + app.id); setMenuOpenAppId(null); }}
                                             >
                                               View Details
                                             </button>
@@ -788,6 +867,16 @@ export default function ApplicationTracker() {
           }}
           cvs={cvs}
           coverLetters={coverLetters}
+        />
+      )}
+
+      {/* Gig Websites Modal */}
+      {showGigWebsites && (
+        <GigWebsitesPopup 
+          onClose={() => {
+            setShowGigWebsites(false);
+            refreshGigWebsitesFromLocal(); // refresh instantly without hitting the API race condition
+          }} 
         />
       )}
     </div>

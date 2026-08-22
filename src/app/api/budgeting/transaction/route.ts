@@ -46,8 +46,14 @@ export async function POST(req: Request) {
       where: { startDate: { gt: activePeriod.startDate } },
       orderBy: { startDate: 'asc' }
     });
-    // If no next period, bound it far in the future so newly created transactions are included
-    const endDate = nextPeriod ? nextPeriod.startDate : new Date('2100-01-01');
+    let endDate;
+    if (nextPeriod) {
+      endDate = nextPeriod.startDate;
+    } else {
+      const d = new Date(activePeriod.startDate);
+      d.setMonth(d.getMonth() + 1);
+      endDate = d;
+    }
 
     // Start transaction
     const txResult = await prisma.$transaction(async (tx) => {

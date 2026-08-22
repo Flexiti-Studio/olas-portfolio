@@ -3,9 +3,13 @@ import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const applicationId = searchParams.get('applicationId');
+
     const goals = await prisma.goal.findMany({
+      where: applicationId ? { application_id: applicationId } : { application_id: null },
       orderBy: [
         { order: "asc" },
         { createdAt: "desc" }
@@ -24,9 +28,12 @@ export async function POST(request: Request) {
     const goal = await prisma.goal.create({
       data: {
         title: data.title,
-        status: "active",
+        status: data.status || "active",
         deadline: data.deadline ? new Date(data.deadline) : null,
-        timeline: [],
+        targetAmount: data.targetAmount || null,
+        currentAmount: data.currentAmount || 0,
+        timeline: data.timeline || [],
+        application_id: data.application_id || null,
       },
     });
     return NextResponse.json({ success: true, data: goal });

@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Loader2, Check, Trash2 } from "lucide-react";
-
+import { Loader2, Check, Trash2, ArrowLeftRight } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 interface SubcategoryRowProps {
   index?: number;
@@ -37,6 +37,11 @@ export function SubcategoryRow({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  const [expenseModalOpen, setExpenseModalOpen] = useState(false);
+  const [expenseDescription, setExpenseDescription] = useState("");
+  const [isRecordingExpense, setIsRecordingExpense] = useState(false);
+  const [showPulse, setShowPulse] = useState(false);
+
   useEffect(() => {
     if (status !== "saving") {
       setInputValue(mode === "percentage" ? (percentage?.toString() || "0") : goal.toString());
@@ -64,16 +69,18 @@ export function SubcategoryRow({
         body: JSON.stringify(payload)
       });
       if (res.ok) {
-        setStatus("saved");
+        setStatus("idle");
         const json = await res.json();
         if (onGoalUpdated) onGoalUpdated(id, json.data.amount);
+        toast.success("Goal updated successfully");
         router.refresh(); // Refresh page to recalculate all totals
-        setTimeout(() => setStatus("idle"), 2000);
       } else {
         setStatus("error");
+        toast.error("Failed to update goal");
       }
     } catch (e) {
       setStatus("error");
+      toast.error("An error occurred");
     }
   }, [goal, id, periodLabel, onGoalUpdated, router]);
 
@@ -96,22 +103,51 @@ export function SubcategoryRow({
     }
   };
 
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      const numValue = Number(inputValue);
-      if (!isNaN(numValue)) {
-        if (mode === "amount" && numValue !== goal) {
-           saveChange(numValue, mode);
-        } else if (mode === "percentage" && numValue !== percentage) {
-           saveChange(numValue, mode);
-        }
-      }
-    }, 800);
+  const handleRecordExpense = async () => {
+    if (!expenseDescription.trim()) {
+      toast.error("Description is required");
+      return;
+    }
+    const numValue = Number(inputValue);
+    if (isNaN(numValue) || numValue <= 0) {
+      toast.error("Amount must be greater than 0");
+      return;
+    }
 
-    return () => clearTimeout(handler);
-  }, [inputValue, goal, percentage, mode, saveChange]);
+    setIsRecordingExpense(true);
+    try {
+      const res = await fetch("/api/budgeting/transaction", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          subcategoryId: id,
+          amount: numValue,
+          rawText: expenseDescription,
+          source: "dashboard"
+        })
+      });
+      if (res.ok) {
+        toast.success("Expense recorded successfully");
+        setShowPulse(true);
+        setTimeout(() => setShowPulse(false), 5000); // clear after 5s
+        setExpenseModalOpen(false);
+        setExpenseDescription("");
+        router.refresh();
+      } else {
+        toast.error("Failed to record expense");
+      }
+    } catch (e) {
+      toast.error("An error occurred");
+    } finally {
+      setIsRecordingExpense(false);
+    }
+  };
 
   const isOverspent = remaining < 0;
+  
+  const isChanged = mode === "amount" 
+    ? Number(inputValue) !== goal 
+    : Number(inputValue) !== (percentage || 0);
 
   return (
     <div className="flex items-center justify-between py-2 border-b border-gray-100/10">
@@ -129,8 +165,22 @@ export function SubcategoryRow({
         <button
           onClick={() => setMode(mode === "amount" ? "percentage" : "amount")}
           disabled={!isEditable}
-          className="px-1.5 py-1 text-xs font-bold bg-slate-700 hover:bg-slate-600 rounded text-slate-300 disabled:opacity-50"
+          className="px-1 py-1 text-[10px] text-slate-400 hover:text-slate-200 disabled:opacity-50"
           title={`Toggle to ${mode === "amount" ? "percentage" : "amount"}`}
+        >
+          <ArrowLeftRight className="w-3 h-3" />
+        </button>
+        <button
+          onClick={() => {
+            if (mode === "amount") {
+              setExpenseModalOpen(true);
+            } else {
+              setMode("amount");
+            }
+          }}
+          disabled={!isEditable}
+          className="px-1.5 py-1 text-xs font-bold bg-slate-700 hover:bg-slate-600 rounded text-slate-300 disabled:opacity-50"
+          title={mode === "amount" ? "Record Expense" : "Switch to Amount"}
         >
           {mode === "amount" ? "₦" : "%"}
         </button>
@@ -139,12 +189,24 @@ export function SubcategoryRow({
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           disabled={!isEditable}
-          className="w-full bg-slate-800/50 border border-slate-700 rounded px-2 py-1 text-sm text-right disabled:opacity-50"
+          className={`w-full bg-slate-800/50 border border-slate-700 rounded px-2 py-1 text-sm text-right disabled:opacity-50 transition-all duration-300 ${showPulse ? 'ring-2 ring-red-500 animate-pulse bg-red-500/10' : ''}`}
           step={mode === "percentage" ? "0.1" : "1"}
         />
-        <div className="absolute -right-4 top-2">
-          {status === "saving" && <Loader2 className="w-3 h-3 animate-spin text-slate-400" />}
-          {status === "saved" && <Check className="w-3 h-3 text-green-500" />}
+        <div className="absolute -right-7 top-1.5 flex items-center">
+          {status === "saving" ? (
+            <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
+          ) : isChanged ? (
+            <button
+              onClick={() => {
+                const numValue = Number(inputValue);
+                if (!isNaN(numValue)) saveChange(numValue, mode);
+              }}
+              className="text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/20 p-1 rounded transition-colors"
+              title="Save"
+            >
+              <Check className="w-4 h-4" />
+            </button>
+          ) : null}
         </div>
       </div>
       <div className="w-1/3 flex items-center justify-end gap-2">
@@ -182,6 +244,46 @@ export function SubcategoryRow({
           </>
         )}
       </div>
+
+      {/* Expense Modal */}
+      {expenseModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+            <h3 className="text-lg font-bold text-white mb-2">Record Expense</h3>
+            <p className="text-sm text-slate-400 mb-6">
+              What did you use ₦{Number(inputValue).toLocaleString()} for?
+            </p>
+            <input
+              type="text"
+              autoFocus
+              value={expenseDescription}
+              onChange={e => setExpenseDescription(e.target.value)}
+              placeholder="e.g. Lunch, Uber, Groceries..."
+              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 mb-6 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+              onKeyDown={e => {
+                if (e.key === "Enter") handleRecordExpense();
+                if (e.key === "Escape") setExpenseModalOpen(false);
+              }}
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => setExpenseModalOpen(false)}
+                disabled={isRecordingExpense}
+                className="flex-1 px-4 py-2.5 rounded-xl text-slate-300 bg-slate-800 hover:bg-slate-700 font-medium transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRecordExpense}
+                disabled={isRecordingExpense}
+                className="flex-1 px-4 py-2.5 rounded-xl text-white bg-emerald-600 hover:bg-emerald-500 font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isRecordingExpense ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

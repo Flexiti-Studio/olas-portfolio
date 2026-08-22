@@ -452,16 +452,16 @@ function CareerDetailsContent() {
 
   if (isLoading) {
     return (
-      <div className="bg-zinc-950 min-h-screen p-4 md:p-8 animate-pulse">
-        <div className="flex flex-col w-full max-w-[1400px] mx-auto">
+      <div className="bg-zinc-950 min-h-screen p-4 md:p-8">
+        <div className="flex flex-col w-full max-w-[1400px] mx-auto animate-pulse">
           {/* Header Skeleton */}
           <div className="mb-8 border-b border-zinc-800 pb-6">
-            <div className="w-48 h-5 bg-zinc-800 rounded mb-6" />
+            <div className="w-48 h-5 bg-zinc-700/60 rounded mb-6" />
             <div className="flex items-center gap-4">
-              <div className="w-16 h-16 bg-zinc-800 rounded-2xl" />
+              <div className="w-16 h-16 bg-zinc-700/60 rounded-2xl" />
               <div className="space-y-3">
-                <div className="w-32 h-5 bg-zinc-800 rounded" />
-                <div className="w-64 h-10 bg-zinc-800 rounded" />
+                <div className="w-32 h-5 bg-zinc-700/60 rounded" />
+                <div className="w-64 h-10 bg-zinc-700/60 rounded" />
               </div>
             </div>
           </div>

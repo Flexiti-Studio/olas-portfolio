@@ -79,6 +79,28 @@ export async function POST(req: Request) {
       sourceGoals = [];
     }
 
+    // Fetch incomes from the active period to copy over
+    let sourceIncomes: any[] = [];
+    if (triggeredBy === "manual") {
+      const config = await prisma.appConfig.findUnique({ where: { id: "singleton" } });
+      if (config?.activePeriodId) {
+        const activePeriod = await prisma.period.findUnique({ where: { id: config.activePeriodId } });
+        if (activePeriod) {
+          const nextPeriod = await prisma.period.findFirst({
+            where: { startDate: { gt: activePeriod.startDate } },
+            orderBy: { startDate: 'asc' }
+          });
+          const endDate = nextPeriod ? nextPeriod.startDate : new Date(new Date(activePeriod.startDate).setMonth(activePeriod.startDate.getMonth() + 1));
+          
+          sourceIncomes = await prisma.income.findMany({
+            where: {
+              createdAt: { gte: activePeriod.startDate, lt: endDate }
+            }
+          });
+        }
+      }
+    }
+
     // Filter out deleted subcategories
     const allSubcats = await prisma.subcategory.findMany({ select: { id: true } });
     const subcatIds = new Set(allSubcats.map(s => s.id));
@@ -103,6 +125,20 @@ export async function POST(req: Request) {
             subcategoryId: g.subcategoryId,
             amount: g.amount,
             periodId: period.id,
+          })),
+        });
+      }
+      
+      if (sourceIncomes.length > 0) {
+        // Create new incomes with bankAccountId null so it doesn't double-count in bank balance
+        await tx.income.createMany({
+          data: sourceIncomes.map((inc) => ({
+            amount: inc.amount,
+            description: inc.description,
+            incomeCategoryId: inc.incomeCategoryId,
+            bankAccountId: null,
+            createdAt: period.startDate, // explicitly attach to new period start date
+            isRecurring: inc.isRecurring
           })),
         });
       }

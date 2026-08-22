@@ -141,13 +141,7 @@ export default function AtsCvTemplate({ data }: { data: any }) {
         </>
       )}
 
-      {/* ── WORK AUTHORIZATION ── */}
-      <div className="mt-4 text-[11.5px]">
-        <span className="font-bold">Work Authorization: </span>
-        <span className="text-zinc-700">
-          {data.work_authorization || "Authorized to work in the United States (no sponsorship required)"}
-        </span>
-      </div>
+
     </div>
   );
 }

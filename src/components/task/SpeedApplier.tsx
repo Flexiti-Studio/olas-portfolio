@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, CheckCircle2, Upload, Loader2, Send, ExternalLink, Image as ImageIcon, FileText, Copy, UploadCloud, Download, X, AlertCircle } from "lucide-react";
+import { toast as sonnerToast } from "sonner";
 import AtsCvTemplate from "./AtsCvTemplate";
 import CoverLetterPreview from "./CoverLetterPreview";
 
@@ -93,6 +94,7 @@ export default function SpeedApplier() {
   const [selectedCareerId, setSelectedCareerId] = useState<string | null>(null);
   const [selectedSkills, setSelectedSkills] = useState<Record<string, boolean>>({});
   const [jobType, setJobType] = useState<'remote' | 'hybrid' | 'in-person'>('remote');
+  const [trackerTarget, setTrackerTarget] = useState<'job' | 'gig'>('job');
   const [careerSkills, setCareerSkills] = useState<any[]>([]);
   const [isLoadingCareerSkills, setIsLoadingCareerSkills] = useState(false);
 
@@ -141,7 +143,7 @@ export default function SpeedApplier() {
         // extract skills if present
         try {
           const skills = (data.cv && data.cv.skills) || [];
-          const flat: string[] = skills.flatMap((s: any) => s.items || []);
+          const flat: string[] = skills.flatMap((s: any) => s.items || []).map((s: string) => s.replace(/<[^>]*>?/gm, '').trim());
           const uniqueSkills = Array.from(new Set(flat));
           setExtractedSkills(uniqueSkills);
           const sel: Record<string, boolean> = {};
@@ -314,7 +316,8 @@ export default function SpeedApplier() {
       // 2. Save Application to Application Tracker
       const existingSkillNames = careerSkills.map(cs => (typeof cs === 'string' ? cs : cs.name || ''));
       const selectedSkillNames = extractedSkills.filter(s => selectedSkills[s]);
-      const allSkillsForApp = Array.from(new Set([...existingSkillNames, ...selectedSkillNames]));
+      const baseSkillsForApp = Array.from(new Set([...existingSkillNames, ...selectedSkillNames]));
+      const allSkillsForApp = trackerTarget === 'gig' ? [...baseSkillsForApp, 'gig'] : baseSkillsForApp;
 
       const trackerRes = await fetch("/api/applications", {
         method: "POST",
@@ -363,6 +366,9 @@ export default function SpeedApplier() {
     setIsAccepting(true);
     try {
       // Save directly to global application tracker
+      const baseTags = Object.keys(selectedSkills).filter(k => selectedSkills[k]);
+      const tagsToSave = trackerTarget === 'gig' ? [...baseTags, 'gig'] : baseTags;
+
       const trackerRes = await fetch("/api/applications", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -372,7 +378,7 @@ export default function SpeedApplier() {
           stage: "Applied",
           source: "Speed Apply",
           job_description: jobDescription,
-          tags: Object.keys(selectedSkills).filter(k => selectedSkills[k]),
+          tags: tagsToSave,
           job_type: jobType,
           job_url: jobUrl || undefined,
           screenshot_url: screenshotUrl || undefined,
@@ -588,6 +594,35 @@ export default function SpeedApplier() {
                     ))}
                   </div>
                 </div>
+
+                <div className="bg-zinc-950/70 border border-zinc-800 rounded-xl p-3 flex items-center justify-between gap-3">
+                  <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Tracker Destination:</span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setTrackerTarget('job')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+                        trackerTarget === 'job'
+                          ? 'bg-blue-600 border-blue-500 text-white font-bold shadow-md shadow-blue-950/40'
+                          : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white'
+                      }`}
+                    >
+                      👔 Jobs
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTrackerTarget('gig')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+                        trackerTarget === 'gig'
+                          ? 'bg-emerald-600 border-emerald-500 text-white font-bold shadow-md shadow-emerald-950/40'
+                          : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white'
+                      }`}
+                    >
+                      🚀 Gigs
+                    </button>
+                  </div>
+                </div>
+
                 {isAlreadyApplied && (
                   <div className="mb-1 text-red-500 text-sm font-medium text-center bg-red-500/10 py-2 rounded-lg border border-red-500/20">
                     You have already applied to {companyName}. Application blocked.
@@ -803,11 +838,31 @@ export default function SpeedApplier() {
                   </div>
                 ) : (
                   <>
+                    {/* Skills Match Percentage */}
+                    <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 flex flex-col items-center justify-center gap-2 mb-2">
+                      <div className="text-sm font-semibold text-zinc-300">Skill Match</div>
+                      <div className="text-3xl font-bold text-white">
+                        {extractedSkills.length > 0 ? Math.round((extractedSkills.filter(s => careerSkills.some(cs => (typeof cs === 'string' ? cs : cs.name || '').toLowerCase() === s.toLowerCase())).length / extractedSkills.length) * 100) : 0}%
+                      </div>
+                      <div className="text-xs text-zinc-500">
+                        {extractedSkills.filter(s => careerSkills.some(cs => (typeof cs === 'string' ? cs : cs.name || '').toLowerCase() === s.toLowerCase())).length} of {extractedSkills.length} required skills found in profile
+                      </div>
+                    </div>
+
                     {/* Existing Career Skills */}
                     <div>
-                      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-emerald-400 mb-2.5">
-                        <CheckCircle2 size={14} />
-                        Existing Career Skills You Already Have ({extractedSkills.filter(s => careerSkills.some(cs => (typeof cs === 'string' ? cs : cs.name || '').toLowerCase() === s.toLowerCase())).length})
+                      <div className="flex items-center justify-between mb-2.5">
+                        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-emerald-400">
+                          <CheckCircle2 size={14} />
+                          Existing Career Skills You Already Have ({extractedSkills.filter(s => careerSkills.some(cs => (typeof cs === 'string' ? cs : cs.name || '').toLowerCase() === s.toLowerCase())).length})
+                        </div>
+                        <button
+                          onClick={() => handleCopy(extractedSkills.filter(s => careerSkills.some(cs => (typeof cs === 'string' ? cs : cs.name || '').toLowerCase() === s.toLowerCase())).join(", "))}
+                          className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider bg-zinc-800 hover:bg-zinc-700 text-white rounded flex items-center gap-1 transition-colors"
+                          title="Copy existing skills"
+                        >
+                          <Copy size={12} /> Copy Existing
+                        </button>
                       </div>
                       <div className="flex flex-wrap gap-2">
                         {extractedSkills
@@ -826,9 +881,18 @@ export default function SpeedApplier() {
 
                     {/* New / Missing Skills */}
                     <div>
-                      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-amber-400 mb-2.5">
-                        <Sparkles size={14} />
-                        New / Missing Skills Required for Job ({extractedSkills.filter(s => !careerSkills.some(cs => (typeof cs === 'string' ? cs : cs.name || '').toLowerCase() === s.toLowerCase())).length})
+                      <div className="flex items-center justify-between mb-2.5">
+                        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-amber-400">
+                          <Sparkles size={14} />
+                          New / Missing Skills Required for Job ({extractedSkills.filter(s => !careerSkills.some(cs => (typeof cs === 'string' ? cs : cs.name || '').toLowerCase() === s.toLowerCase())).length})
+                        </div>
+                        <button
+                          onClick={() => handleCopy(extractedSkills.filter(s => !careerSkills.some(cs => (typeof cs === 'string' ? cs : cs.name || '').toLowerCase() === s.toLowerCase())).join(", "))}
+                          className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider bg-zinc-800 hover:bg-zinc-700 text-white rounded flex items-center gap-1 transition-colors"
+                          title="Copy missing skills"
+                        >
+                          <Copy size={12} /> Copy Missing
+                        </button>
                       </div>
                       <p className="text-xs text-zinc-400 mb-3">
                         Checked skills will automatically be added to your Software Career profile under missing skills when you click <strong className="text-emerald-400">Applied</strong>.
@@ -867,36 +931,6 @@ export default function SpeedApplier() {
 
                     {/* Generated Documents Preview & PDF Links Section */}
                     <div className="pt-4 border-t border-zinc-800 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
-                          <FileText size={14} className="text-indigo-400" /> Generated Document Previews
-                        </span>
-                        <div className="flex items-center gap-2">
-                          {(uploadedCvUrl || modalCvUrl) && (
-                            <a
-                              href={uploadedCvUrl || modalCvUrl || '#'}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-xs px-2.5 py-1 rounded-lg bg-blue-950/50 border border-blue-800/60 text-blue-300 hover:text-white hover:bg-blue-900/60 flex items-center gap-1 transition-colors font-medium"
-                            >
-                              <span>View CV PDF</span>
-                              <ExternalLink size={12} />
-                            </a>
-                          )}
-                          {(uploadedClUrl || modalClUrl) && (
-                            <a
-                              href={uploadedClUrl || modalClUrl || '#'}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-xs px-2.5 py-1 rounded-lg bg-purple-950/50 border border-purple-800/60 text-purple-300 hover:text-white hover:bg-purple-900/60 flex items-center gap-1 transition-colors font-medium"
-                            >
-                              <span>View Cover Letter PDF</span>
-                              <ExternalLink size={12} />
-                            </a>
-                          )}
-                        </div>
-                      </div>
-
                       {/* Quick Document Text Previews */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {/* Tailored CV Snippet Preview */}
@@ -905,6 +939,19 @@ export default function SpeedApplier() {
                             <span className="text-[11px] font-semibold text-zinc-300 flex items-center gap-1">
                               📄 Tailored CV Preview
                             </span>
+                            {(uploadedCvUrl || modalCvUrl) && (
+                              <button
+                                onClick={() => {
+                                  const cvLink = uploadedCvUrl || modalCvUrl || '';
+                                  navigator.clipboard.writeText(cvLink);
+                                  sonnerToast.success("Copied CV link!");
+                                }}
+                                className="text-zinc-400 hover:text-white transition-colors"
+                                title="Copy CV Link"
+                              >
+                                <Copy size={14} />
+                              </button>
+                            )}
                           </div>
                           <div className="text-xs text-zinc-400 whitespace-pre-wrap max-h-32 overflow-y-auto hide-scrollbar bg-zinc-950 p-2.5 rounded-lg border border-zinc-800/60">
                             {generatedCv?.personal_info?.name && (
@@ -925,6 +972,19 @@ export default function SpeedApplier() {
                             <span className="text-[11px] font-semibold text-zinc-300 flex items-center gap-1">
                               ✉️ Cover Letter Preview
                             </span>
+                            {(uploadedClUrl || modalClUrl) && (
+                              <button
+                                onClick={() => {
+                                  const clLink = uploadedClUrl || modalClUrl || '';
+                                  navigator.clipboard.writeText(clLink);
+                                  sonnerToast.success("Copied Cover Letter link!");
+                                }}
+                                className="text-zinc-400 hover:text-white transition-colors"
+                                title="Copy Cover Letter Link"
+                              >
+                                <Copy size={14} />
+                              </button>
+                            )}
                           </div>
                           <div className="text-xs text-zinc-400 whitespace-pre-wrap max-h-32 overflow-y-auto hide-scrollbar bg-zinc-950 p-2.5 rounded-lg border border-zinc-800/60 font-serif leading-relaxed">
                             {generatedCoverLetter ? (
@@ -997,6 +1057,19 @@ export default function SpeedApplier() {
               </button>
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, x: "-50%" }}
+            animate={{ opacity: 1, y: 0, x: "-50%" }}
+            exit={{ opacity: 0, y: 50, x: "-50%" }}
+            className="fixed bottom-6 left-1/2 z-[100] bg-emerald-600 text-white px-4 py-2 rounded-lg shadow-xl shadow-emerald-900/50 flex items-center gap-2 font-medium text-sm"
+          >
+            <CheckCircle2 size={16} />
+            {toast}
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

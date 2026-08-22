@@ -6,7 +6,7 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export async function POST(req: NextRequest) {
   try {
-    const { courseId, moduleId } = await req.json();
+    const { courseId, moduleId, courseType, learningLevel } = await req.json();
     if (!courseId || !moduleId) {
       return NextResponse.json({ error: 'Missing courseId or moduleId' }, { status: 400 });
     }
@@ -30,30 +30,50 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Course or Module not found' }, { status: 404 });
     }
 
-    const systemPrompt = `You are a world-class instructional designer and interview coaching expert. Your job is to generate extremely detailed, high-quality interview preparation materials for a specific course module.
+    const isLearning = courseType === 'learning';
+    const expertRole = isLearning ? 'expert instructional designer and course creator' : 'expert instructional designer and interview coaching expert';
+    const focusTarget = isLearning 
+      ? (learningLevel === 'basic' || learningLevel === 'beginners' 
+          ? 'Make content directly relevant to someone learning this for the first time. EXPLAIN EVERYTHING IN LAYMAN TERMS, use simple analogies, provide step-by-step breakdowns, and be EXHAUSTIVE and VERY explanatory. Do not assume prior knowledge. Break down complex topics into digestible pieces.'
+          : 'Make content directly relevant to someone learning this topic at an advanced level. Provide deep insights, edge cases, and exhaustive technical explanations.')
+      : 'Make content directly relevant to passing real technical interviews at top companies. Be thorough and provide exhaustive technical details.';
+
+    const isBeginnerLearning = isLearning && (learningLevel === 'basic' || learningLevel === 'beginners');
+    const calloutLabel = isBeginnerLearning ? '💡 Beginner Tip' : '⚠️ Common Mistake';
+    const calloutInstruction = isBeginnerLearning
+      ? 'A real-world analogy or mnemonic that makes the concept stick for a beginner. Use everyday comparisons, avoid jargon.'
+      : 'A common pitfall, interview trap, or misconception to avoid.';
+
+    const systemPrompt = `You are a world-class ${expertRole}. Your job is to generate extremely detailed, high-quality ${isLearning ? 'learning' : 'interview preparation'} materials for a specific course module.
 
 CRITICAL RULES:
 1. Return ONLY valid JSON — absolutely no markdown, no backticks, no explanation text outside the JSON object.
-2. Every lesson must have RICH content — at least 5-6 content sections with varied types.
-3. Every section must have detailed, substantive body text (3-5 sentences minimum per section).
-4. Make content directly relevant to passing real technical interviews at top companies.
-5. Only include a 'code' section in a lesson if the topic genuinely requires code to be understood (e.g. algorithms, data structures, specific API usage, framework patterns, SQL queries, etc.). Do NOT add code sections to behavioural, communication, or conceptual-only lessons. When code IS included, it must be real, runnable, well-commented, and directly relevant to what an interviewer would test.
-6. Flashcard backs must be detailed explanations, not just one-word answers.
-7. Quiz questions must test deep understanding, not just surface recall.
+2. Every lesson must cover EVERY SINGLE sub-topic named in the lesson title INDIVIDUALLY. If a lesson is titled "Variables, Data Types, and Operators", you must have a dedicated explanation paragraph for Variables, another for Data Types, and another for Operators — each with its own code block. Do NOT lump them together.
+3. Each sub-topic gets its own "paragraph" section (heading = exact sub-topic name) with 6-10 deeply detailed sentences. This is the core explanation — do NOT skimp.
+4. IMMEDIATELY after each sub-topic "paragraph" that involves code or syntax, insert a "code" section showing a complete, runnable example for JUST that sub-topic.
+5. ${focusTarget}
+6. The "introduction" must be a proper 4-6 sentence paragraph orienting the learner: what the lesson covers, why each part matters, and what they will be able to do after.
+7. After all sub-topic paragraphs, add a "bullets" cheat-sheet listing ALL concepts covered — one item per concept formatted as "ConceptName — one-line explanation".
+8. Add a "table" whenever there are 2+ things to compare (e.g. different data types, operators, methods, approaches).
+9. Add a "callout" with a ${calloutLabel}: ${calloutInstruction}
+10. Add a "steps" section whenever there is an actual process or setup to follow.
+11. Flashcard backs must be full 3-5 sentence explanations, not one-word answers.
+12. Quiz questions must test SPECIFIC understanding of each named sub-topic.
+13. "whyThisMatters" must be 4-6 sentences referencing the specific sub-topics covered.
 
 CONTENT QUALITY STANDARDS:
-- paragraph: 3-5 detailed sentences explaining the concept.
-- callout: Important interview tips or common mistakes to avoid.
-- code: Real, runnable code with inline comments. Use the 'language' field (e.g. "javascript", "python", "java", "typescript", "sql", "bash") and 'description' field to explain what the snippet demonstrates. The 'body' field contains ONLY the raw code string.
-- bullets: 4-8 comprehensive bullet points.
-- steps: Clear numbered process with detailed explanations.
-- definition: Complete definitions with context and examples.
-- table: Comparative or reference tables with clear headers and rows to summarize trade-offs or specs.
-- The "whyThisMatters" field must contain 3-4 sentences explaining exactly how this topic appears in real interviews, what competencies are being assessed, common mistakes candidates make, and what a standout answer looks like.`;
+- paragraph: 6-10 detailed sentences about ONE specific sub-topic. Use analogies, examples, context. This is the heart of the lesson.
+- code: Real, runnable code with a comment on EVERY significant line. 'language' field required. 'description' explains WHY this example matters. 'body' is raw code only.
+- bullets: Full cheat-sheet list. Format each item as "Term — brief explanation". At least 6-10 items.
+- steps: Numbered sequential process. Each step is 2-3 sentences.
+- definition: "Term: full definition, why it exists, real-world analogy."
+- table: 3+ rows of meaningful comparisons with clear column headers.
+- callout: Focused tip, warning, or analogy. Memorable and concise.`;
 
-    const focusAreasStr = course.focus_areas?.length ? course.focus_areas.join(', ') : 'Technical Skills, Behavioural Questions, System Design';
+    const focusAreasStr = course.focus_areas?.length ? course.focus_areas.join(', ') : (isLearning ? 'Core Concepts, Practical Application, Advanced Topics' : 'Technical Skills, Behavioural Questions, System Design');
     const roleContext = course.application?.job_title ? `\nTARGET ROLE: ${course.application.job_title}` : '';
     const companyContext = course.application?.company ? `\nTARGET COMPANY: ${course.application.company}` : '';
+    const typeContext = isLearning ? `\n- Course Type: Learning\n- Learning Level: ${learningLevel}` : '\n- Course Type: Interview Preparation';
 
     const lessonsList = module.lessons.map(l => `- "${l.title}" (ID: ${l.id})`).join('\n');
 
@@ -63,74 +83,89 @@ ${course.source_text ? course.source_text.slice(0, 14000) : 'No study material p
 ---
 
 COURSE SETTINGS:
-- Course Title: ${course.title}
+- Course Title: ${course.title}${typeContext}
 - Focus Areas: ${focusAreasStr}
 ${roleContext}${companyContext}
 
 MODULE TO GENERATE:
 - Title: "${module.title}"
 - Description: "${module.description || ''}"
-- Generate detailed content for these EXACT lessons:
+- Lessons to generate (use EXACT IDs):
 ${lessonsList}
 
+CONTENT GENERATION RULES — FOLLOW EXACTLY:
+For EACH lesson:
+1. Parse the lesson title and identify EVERY distinct sub-topic or concept named in it.
+2. For EACH sub-topic, generate a dedicated "paragraph" section (heading = that exact sub-topic name) with 6-10 sentences.
+3. Immediately after each sub-topic paragraph that involves code/syntax, insert a "code" section for JUST that sub-topic.
+4. Example: lesson titled "Lists, Tuples, Dictionaries, Sets" MUST produce:
+   - paragraph: "Lists" (6-10 sentences)
+   - code: Lists example
+   - paragraph: "Tuples" (6-10 sentences)  
+   - code: Tuples example
+   - paragraph: "Dictionaries" (6-10 sentences)
+   - code: Dictionaries example
+   - paragraph: "Sets" (6-10 sentences)
+   - code: Sets example
+   - bullets: cheat-sheet of all four
+   - table: comparison table of all four
+   - callout: beginner tip or common mistake
+5. Never write a single generic paragraph about "all data types". Always one paragraph per type.
+
 Requirements for the Quiz:
-- Generate 5-6 high-quality quiz questions for this module.
-- Questions should be multiple choice or true/false.
+- Generate 8-10 high-quality quiz questions for this module.
+- Each question must target a SPECIFIC named sub-topic from the lessons.
+- Multiple choice (4 options) or true/false.
+- Include a detailed "explanation" for every answer.
 
 Requirements for Flashcards:
-- Generate 8-10 spaced repetition flashcards for key concepts in this module.
+- Generate 12-15 spaced repetition flashcards — one per distinct concept/sub-topic.
+- Backs must be 3-5 sentence explanations, not single words or phrases.
 
-Return this EXACT JSON structure (fill every field with detailed, substantive content):
+Return this EXACT JSON structure:
 {
   "lessons": [
     {
-      "id": "Use the exact lesson ID provided in the list above",
+      "id": "EXACT lesson ID from the list above — do not invent IDs",
       "content": {
-        "introduction": "2-3 sentences introducing the concept and why it matters for this module/role",
+        "introduction": "4-6 sentences orienting the learner: what is covered, why each named sub-topic matters, what they will be able to do after this lesson",
         "sections": [
           {
             "type": "paragraph",
-            "heading": "Syllabus Concept",
-            "body": "Detailed 3-5 sentence explanation of the main concept with concrete examples and context"
+            "heading": "Exact Sub-Topic Name",
+            "body": "6-10 sentences of deep, detailed explanation of this ONE sub-topic. Real-world analogies, concrete examples, why it exists, how it works, common uses."
           },
           {
             "type": "code",
-            "heading": "Code Example",
-            "language": "javascript",
-            "description": "1-2 sentence explanation of what this code demonstrates and why it matters in interviews",
-            "body": "// Real, runnable code with inline comments\nfunction exampleFunction(input) {\n  // Each key step commented\n  return result;\n}"
+            "heading": "Sub-Topic Name — Example",
+            "language": "python",
+            "description": "What this code demonstrates and why it is important to understand",
+            "body": "# Every line has a comment explaining what it does and why\nname = 'Ola'  # Create a variable called name and assign the string 'Ola' to it"
+          },
+          {
+            "type": "bullets",
+            "heading": "Quick-Reference Cheat Sheet",
+            "items": [
+              "ConceptName — one-line explanation of what it is and when to use it",
+              "ConceptName — one-line explanation"
+            ]
           },
           {
             "type": "table",
-            "heading": "Trade-offs and Comparison",
-            "headers": ["Option", "Pros", "Cons"],
+            "heading": "Comparison",
+            "headers": ["Concept", "Description", "Mutable?", "Example"],
             "rows": [
-              ["Approach A", "Fast reads", "Complex cache invalidation"],
-              ["Approach B", "Real-time updates", "Heavy DB load"]
+              ["List", "Ordered collection", "Yes", "[1, 2, 3]"],
+              ["Tuple", "Ordered, fixed collection", "No", "(1, 2, 3)"]
             ]
           },
           {
             "type": "callout",
-            "heading": "Interview Insight",
-            "body": "Specific tip about how this topic appears in interviews, what interviewers look for, and common pitfalls"
-          },
-          {
-            "type": "bullets",
-            "heading": "Key Points to Remember",
-            "items": ["Detailed point 1 with explanation", "Detailed point 2 with explanation", "Detailed point 3 with explanation"]
-          },
-          {
-            "type": "steps",
-            "heading": "How to Implement",
-            "items": ["Step 1 explanation", "Step 2 explanation", "Step 3 explanation"]
-          },
-          {
-            "type": "definition",
-            "heading": "Key Term",
-            "body": "Term Name: Complete definition with context, real-world application, and interview relevance"
+            "heading": "${calloutLabel}",
+            "body": "${calloutInstruction}"
           }
         ],
-        "whyThisMatters": "3-4 sentences explaining exactly how this topic appears in real interviews, what competencies are being assessed, common mistakes candidates make, and what a standout answer looks like"
+        "whyThisMatters": "4-6 sentences: why every sub-topic in this lesson matters, how they all connect, what real-world problems they solve, and what mastery looks like"
       }
     }
   ],
@@ -139,17 +174,17 @@ Return this EXACT JSON structure (fill every field with detailed, substantive co
       {
         "id": "q-1",
         "type": "multiple_choice",
-        "question": "Detailed question testing deep understanding?",
-        "options": ["Option A - incorrect", "Option B - correct", "Option C - incorrect", "Option D - incorrect"],
-        "correctAnswer": "Option B - correct",
-        "explanation": "Explanation of why the option is correct."
+        "question": "Specific question about a named sub-topic?",
+        "options": ["Option A", "Option B", "Option C", "Option D"],
+        "correctAnswer": "Option B",
+        "explanation": "Why this is correct and why each other option is wrong."
       }
     ]
   },
   "flashcards": [
     {
-      "front": "Flashcard front side question?",
-      "back": "Detailed back side answer with explanation."
+      "front": "Specific concept or term from the lesson?",
+      "back": "3-5 sentence explanation: definition, why it exists, how it works, and a concrete example."
     }
   ]
 }`;
