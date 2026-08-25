@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Loader2, Video, Search, Filter, MoreVertical, Play, Image as ImageIcon, Plus } from "lucide-react";
 import { motion } from "framer-motion";
+import CreateContentModal from "../components/CreateContentModal";
 
 export default function ProjectContentsPage() {
   const { id } = useParams();
@@ -12,6 +13,7 @@ export default function ProjectContentsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [isAddingContent, setIsAddingContent] = useState(false);
 
   useEffect(() => {
     fetchProject();
@@ -85,8 +87,8 @@ export default function ProjectContentsPage() {
 
   const contents = (project?.contents as any[]) || [];
   const filteredContents = contents.filter((item: any) => {
-    const matchesSearch = item.title?.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          item.details?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = (item.title || "").toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          (item.details || "").toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === "ALL" || item.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -108,7 +110,7 @@ export default function ProjectContentsPage() {
           </button>
           
           <button 
-            onClick={() => router.push(`/admin/creators/${id}?addContent=true`)}
+            onClick={() => setIsAddingContent(true)}
             className="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2 rounded-xl font-bold transition-all shadow-lg shadow-emerald-500/20 flex items-center gap-2 cursor-pointer"
           >
             <Video className="w-4 h-4" />
@@ -225,7 +227,7 @@ export default function ProjectContentsPage() {
             
             {/* Add New Card */}
             <motion.div 
-              onClick={() => router.push(`/admin/creators/${id}?addContent=true`)}
+              onClick={() => setIsAddingContent(true)}
               className="bg-slate-900/50 border-2 border-dashed border-slate-800 rounded-2xl flex flex-col items-center justify-center min-h-[300px] hover:border-slate-600 hover:bg-slate-800/30 transition-colors cursor-pointer group"
             >
               <div className="w-16 h-16 rounded-full bg-slate-800 group-hover:bg-blue-500 flex items-center justify-center mb-4 transition-colors">
@@ -237,6 +239,21 @@ export default function ProjectContentsPage() {
           </div>
         )}
 
+        <CreateContentModal 
+          isOpen={isAddingContent}
+          onClose={() => setIsAddingContent(false)}
+          projectId={id as string}
+          onSaveContent={async (item) => {
+            const updatedContents = [...contents, item];
+            const updatedProject = { ...project, contents: updatedContents };
+            setProject(updatedProject);
+            await fetch(`/api/creators/${id}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(updatedProject)
+            });
+          }}
+        />
       </div>
     </div>
   );

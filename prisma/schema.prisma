@@ -518,6 +518,7 @@ model CreatorProject {
   titles    Json?    @default("[]")
   contents  Json?    @default("[]")
   videos    Json?    @default("[]")
+  images    Json?    @default("[]")
 }
 
 // -----------------------------------------------------------------------------

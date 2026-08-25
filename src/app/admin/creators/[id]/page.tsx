@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Loader2, DollarSign, Edit, Users, Calendar as CalendarIcon, CheckCircle2, FileText, Type, CalendarDays, Plus, ChevronLeft, ChevronRight, LayoutGrid, Upload, Copy, Check, Eye, Search, Filter, MoreVertical, Play, Image as ImageIcon, Link, Trash2, X, Video, Sparkles } from "lucide-react";
+import { ArrowLeft, Loader2, DollarSign, Edit, Users, Calendar as CalendarIcon, CheckCircle2, FileText, Type, CalendarDays, Plus, ChevronLeft, ChevronRight, LayoutGrid, Upload, Copy, Check, Eye, Search, Filter, MoreVertical, Play, Image as ImageIcon, Link, Trash2, X, Video, Sparkles, Download } from "lucide-react";
 import { motion } from "framer-motion";
 import SocialTemplates from "@/components/admin/SocialTemplates";
+import CreateContentModal from "./components/CreateContentModal";
 
 export default function CreatorProjectDetails() {
   const { id } = useParams();
@@ -25,24 +26,73 @@ export default function CreatorProjectDetails() {
 
   // Video Library State
   const [savedVideos, setSavedVideos] = useState<any[]>([]);
+  const [savedImages, setSavedImages] = useState<any[]>([]);
+  const multipleVideoInputRef = useRef<HTMLInputElement>(null);
   const [showAddVideo, setShowAddVideo] = useState(false);
+  const [videoUploadMode, setVideoUploadMode] = useState<"choice" | "single">("choice");
+  const [imagePage, setImagePage] = useState(1);
+  const [activePreviewImageIndex, setActivePreviewImageIndex] = useState<number | null>(null);
   const [videoFormTitle, setVideoFormTitle] = useState("");
   const [videoFormUrl, setVideoFormUrl] = useState("");
   const [videoFormNote, setVideoFormNote] = useState("");
   const [isUploading, setIsUploading] = useState(false);
+  const [isSavingVideo, setIsSavingVideo] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadError, setUploadError] = useState("");
   const [activePlayingVideo, setActivePlayingVideo] = useState<any | null>(null);
   const [videoSearch, setVideoSearch] = useState("");
+  const [videoSubTab, setVideoSubTab] = useState<"new" | "used">("new");
+  const [imageSubTab, setImageSubTab] = useState<"new" | "used">("new");
+  const [videoToDelete, setVideoToDelete] = useState<any | null>(null);
+  const [isDeletingVideo, setIsDeletingVideo] = useState(false);
+  const [selectedVideoIds, setSelectedVideoIds] = useState<number[]>([]);
+  const [showBulkDeleteVideoConfirm, setShowBulkDeleteVideoConfirm] = useState(false);
+  const [isBulkDeletingVideos, setIsBulkDeletingVideos] = useState(false);
+  const [isEditingVideoPlayer, setIsEditingVideoPlayer] = useState(false);
+  const [editVideoTitle, setEditVideoTitle] = useState("");
+  const [editVideoNote, setEditVideoNote] = useState("");
+  const [isDownloadingVideoPlayer, setIsDownloadingVideoPlayer] = useState(false);
+  const [isSavingVideoPlayerEdit, setIsSavingVideoPlayerEdit] = useState(false);
+  const [activeVideoDropdownId, setActiveVideoDropdownId] = useState<number | null>(null);
+  const [activeImageDropdownId, setActiveImageDropdownId] = useState<number | null>(null);
+  const [imageToDelete, setImageToDelete] = useState<any | null>(null);
+  const [isDeletingImage, setIsDeletingImage] = useState(false);
+  const [isUploadingImages, setIsUploadingImages] = useState(false);
+  const [showAddImage, setShowAddImage] = useState(false);
+  const [selectedImageIds, setSelectedImageIds] = useState<number[]>([]);
+  const [showBulkDeleteImageConfirm, setShowBulkDeleteImageConfirm] = useState(false);
+  const [isBulkDeletingImages, setIsBulkDeletingImages] = useState(false);
+  const [imageUploadMode, setImageUploadMode] = useState<"choice" | "single" | "carousel">("choice");
+  const [imageFormTitle, setImageFormTitle] = useState("");
+  const [imageFormUrl, setImageFormUrl] = useState("");
+  const [imageFormNote, setImageFormNote] = useState("");
+  const [isUploadingSingleImage, setIsUploadingSingleImage] = useState(false);
+  const [isEditingImagePlayer, setIsEditingImagePlayer] = useState(false);
+  const [editImageTitle, setEditImageTitle] = useState("");
+  const [editImageNote, setEditImageNote] = useState("");
+  const [isSavingImagePlayerEdit, setIsSavingImagePlayerEdit] = useState(false);
+  const [uploadProgressImages, setUploadProgressImages] = useState(0);
+  const [carouselFormTitle, setCarouselFormTitle] = useState("");
+  const [carouselFormNote, setCarouselFormNote] = useState("");
+  const [carouselUrls, setCarouselUrls] = useState<string[]>([]);
+  const [isUploadingCarousel, setIsUploadingCarousel] = useState(false);
+  const [activeCarouselSlideIndex, setActiveCarouselSlideIndex] = useState(0);
+  const [activeCarouselFormSlideIndex, setActiveCarouselFormSlideIndex] = useState(0);
+  const multipleImageInputRef = useRef<HTMLInputElement>(null);
+  const [isSavingImage, setIsSavingImage] = useState(false);
+  const [isSavingCarousel, setIsSavingCarousel] = useState(false);
 
   // Contents Hub State (For Video Tab)
-  const [contents, setContents] = useState<any[]>([
-    { id: 1, title: "I Survived 50 Hours in the Metaverse", type: "Video", status: "Published", views: "1.2M", date: "Aug 12, 2026" },
-    { id: 2, title: "Testing the World's Most Expensive Setup", type: "Short", status: "In Review", views: "-", date: "Aug 15, 2026" },
-    { id: 3, title: "My 5 AM Morning Routine", type: "Video", status: "Draft", views: "-", date: "Aug 18, 2026" },
-    { id: 4, title: "Behind the Scenes Vlog", type: "Video", status: "Filming", views: "-", date: "Aug 22, 2026" },
-    { id: 5, title: "Why You're Using Your iPhone Wrong", type: "Short", status: "Editing", views: "-", date: "Aug 25, 2026" },
-  ]);
+  const [contents, setContents] = useState<any[]>([]);
+
+  // Edit Project State
+  const [showEditProject, setShowEditProject] = useState(false);
+  const [editProjectName, setEditProjectName] = useState("");
+  const [editProjectClient, setEditProjectClient] = useState("");
+  const [editProjectCreator, setEditProjectCreator] = useState("");
+  const [editProjectStatus, setEditProjectStatus] = useState("");
+  const [editProjectBudget, setEditProjectBudget] = useState("");
+  const [isSavingProject, setIsSavingProject] = useState(false);
 
   const getStatusColor = (status: string) => {
     switch(status) {
@@ -56,19 +106,7 @@ export default function CreatorProjectDetails() {
   };
 
   // Timeline State
-  const [timeline, setTimeline] = useState([
-    { id: 1, title: "Initial Briefing & Contract", date: "Day 1", completed: true },
-    { id: 2, title: "Product Shipment", date: "Day 3", completed: true },
-    { id: 3, title: "Concept Brainstorming", date: "Day 5", completed: false },
-    { id: 4, title: "Script Approval", date: "Day 7", completed: false },
-    { id: 5, title: "Production (Filming)", date: "Day 10", completed: false },
-    { id: 6, title: "Initial Edit", date: "Day 12", completed: false },
-    { id: 7, title: "Internal Review", date: "Day 14", completed: false },
-    { id: 8, title: "Creator Revisions", date: "Day 16", completed: false },
-    { id: 9, title: "Final Polish", date: "Day 18", completed: false },
-    { id: 10, title: "Content Upload", date: "Day 20", completed: false },
-    { id: 11, title: "Content Go-Live", date: "Day 21", completed: false },
-  ]);
+  const [timeline, setTimeline] = useState<any[]>([]);
 
   // Bulk Upload State for Milestones
   const [isBulkUploading, setIsBulkUploading] = useState(false);
@@ -92,33 +130,40 @@ export default function CreatorProjectDetails() {
 
   // Add Single Milestone State
   const [isAddingMilestone, setIsAddingMilestone] = useState(false);
+  const [isSavingNewMilestone, setIsSavingNewMilestone] = useState(false);
+  const [isEditingMilestone, setIsEditingMilestone] = useState(false);
+  const [editMilestoneTitle, setEditMilestoneTitle] = useState("");
+  const [editMilestoneDate, setEditMilestoneDate] = useState("");
+  const [editMilestoneDesc, setEditMilestoneDesc] = useState("");
+  const [milestoneToDelete, setMilestoneToDelete] = useState<any | null>(null);
+  const [isDeletingMilestone, setIsDeletingMilestone] = useState(false);
   const [newMilestoneTitle, setNewMilestoneTitle] = useState("");
   const [newMilestoneDate, setNewMilestoneDate] = useState("");
   const [newMilestoneDesc, setNewMilestoneDesc] = useState("");
 
+  // Toast Notification State
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const showToast = (message: string, type: "success" | "error" = "success") => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
   // Titles State & Pagination
   const [titlePage, setTitlePage] = useState(1);
-  const [titles, setTitles] = useState([
-    { id: 1, text: "I Survived 50 Hours in the Metaverse", type: "High retention hook" },
-    { id: 2, text: "Testing the World's Most Expensive Setup", type: "Tech / Gadget focus" },
-    { id: 3, text: "How I Built a $100k Business in 30 Days", type: "Finance / Business" },
-    { id: 4, text: "Why You're Using Your iPhone Wrong", type: "Tutorial / Tech" },
-    { id: 5, text: "The Secret to Viral Videos Revealed", type: "Educational" },
-    { id: 6, text: "I Tried Elon Musk's Daily Routine", type: "Lifestyle Challenge" },
-    { id: 7, text: "Don't Buy This Laptop Until You Watch This", type: "Review Warning" },
-    { id: 8, text: "My 5 AM Morning Routine for Productivity", type: "Lifestyle" },
-    { id: 9, text: "Exposing the Biggest Tech Scam of 2026", type: "Investigative" },
-    { id: 10, text: "Building a Custom PC for a Celebrity", type: "Build / VLOG" },
-    { id: 11, text: "I Ate Only Pizza for 7 Days", type: "Challenge" },
-    { id: 12, text: "React vs Next.js in 2026", type: "Programming" },
-    { id: 13, text: "How to Make Cinematic Videos on Phone", type: "Tutorial" },
-    { id: 14, text: "Behind the Scenes of my Studio", type: "Vlog", hook: "Come see where the magic happens.", script: "Welcome to my new studio..." }
-  ]);
+  const [titles, setTitles] = useState<any[]>([]);
 
   const [showTitleOptions, setShowTitleOptions] = useState(false);
   
   // Single Title State
   const [isAddingTitle, setIsAddingTitle] = useState(false);
+  const [isSavingNewTitle, setIsSavingNewTitle] = useState(false);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editTitleText, setEditTitleText] = useState("");
+  const [editTitleType, setEditTitleType] = useState("");
+  const [editTitleHook, setEditTitleHook] = useState("");
+  const [editTitleScript, setEditTitleScript] = useState("");
+  const [titleToDelete, setTitleToDelete] = useState<any | null>(null);
+  const [isDeletingTitle, setIsDeletingTitle] = useState(false);
   const [newTitleText, setNewTitleText] = useState("");
   const [newTitleType, setNewTitleType] = useState("");
   const [newTitleHook, setNewTitleHook] = useState("");
@@ -142,17 +187,6 @@ export default function CreatorProjectDetails() {
 
   // Content addition state
   const [isAddingContent, setIsAddingContent] = useState(false);
-  const [newContentTitle, setNewContentTitle] = useState("");
-  const [newContentType, setNewContentType] = useState("Video");
-  const [newContentStatus, setNewContentStatus] = useState("Draft");
-  const [newContentVideo, setNewContentVideo] = useState("");
-  const [newContentText, setNewContentText] = useState("");
-  const [newContentShorts, setNewContentShorts] = useState("");
-  const [newContentDetails, setNewContentDetails] = useState("");
-  const [isGeneratingAIContent, setIsGeneratingAIContent] = useState(false);
-  const [outlineStatus, setOutlineStatus] = useState<"pending" | "generating" | "completed">("pending");
-  const [outlineStepLabel, setOutlineStepLabel] = useState("Analyzing your request...");
-  const [socialsList, setSocialsList] = useState<{ id: string; name: string; status: "pending" | "generating" | "completed" }[]>([]);
 
   // Titles Pagination Logic
   const TITLES_PER_PAGE = 7;
@@ -179,6 +213,7 @@ export default function CreatorProjectDetails() {
         if (data.project.titles) setTitles(data.project.titles);
         if (data.project.contents) setContents(data.project.contents);
         if (data.project.videos) setSavedVideos(data.project.videos);
+        if (data.project.images) setSavedImages(data.project.images);
       }
     } catch (err) {
       console.error(err);
@@ -187,7 +222,7 @@ export default function CreatorProjectDetails() {
     }
   };
 
-  const saveProjectData = async (updatedTimeline?: any, updatedTitles?: any, updatedContents?: any, updatedVideos?: any) => {
+  const saveProjectData = async (updatedTimeline?: any, updatedTitles?: any, updatedContents?: any, updatedVideos?: any, updatedImages?: any) => {
     if (!project) return;
     try {
       await fetch(`/api/creators/${id}`, {
@@ -203,6 +238,7 @@ export default function CreatorProjectDetails() {
           titles: updatedTitles !== undefined ? updatedTitles : titles,
           contents: updatedContents !== undefined ? updatedContents : contents,
           videos: updatedVideos !== undefined ? updatedVideos : savedVideos,
+          images: updatedImages !== undefined ? updatedImages : savedImages,
         })
       });
     } catch (err) {
@@ -305,8 +341,9 @@ export default function CreatorProjectDetails() {
     setBulkPreview(null);
   };
 
-  const handleSaveSingleMilestone = () => {
+  const handleSaveSingleMilestone = async () => {
     if (!newMilestoneTitle) return;
+    setIsSavingNewMilestone(true);
     const newItem = {
       id: Date.now(),
       title: newMilestoneTitle,
@@ -316,11 +353,13 @@ export default function CreatorProjectDetails() {
     };
     const updated = [...timeline, newItem];
     setTimeline(updated);
-    saveProjectData(updated);
+    await saveProjectData(updated);
+    setIsSavingNewMilestone(false);
     setIsAddingMilestone(false);
     setNewMilestoneTitle("");
     setNewMilestoneDate("");
     setNewMilestoneDesc("");
+    showToast("Milestone added successfully!");
   };
 
   const handleCopyTitleTemplate = () => {
@@ -358,8 +397,9 @@ export default function CreatorProjectDetails() {
     setBulkTitlePreview(null);
   };
 
-  const handleSaveSingleTitle = () => {
+  const handleSaveSingleTitle = async () => {
     if (!newTitleText) return;
+    setIsSavingNewTitle(true);
     const newItem = {
       id: Date.now(),
       text: newTitleText,
@@ -369,150 +409,14 @@ export default function CreatorProjectDetails() {
     };
     const updated = [newItem, ...titles];
     setTitles(updated);
-    saveProjectData(undefined, updated);
+    await saveProjectData(undefined, updated);
+    setIsSavingNewTitle(false);
     setIsAddingTitle(false);
     setNewTitleText("");
     setNewTitleType("");
     setNewTitleHook("");
     setNewTitleScript("");
-  };
-
-  const closeAddContentModal = () => {
-    setIsAddingContent(false);
-    setNewContentTitle("");
-    setNewContentType("Video");
-    setNewContentStatus("Draft");
-    setNewContentVideo("");
-    setNewContentText("");
-    setNewContentShorts("");
-    setNewContentDetails("");
-    setIsUploading(false);
-    setUploadProgress(0);
-    setUploadError("");
-  };
-
-  const handleSaveSingleContent = () => {
-    if (!newContentTitle) return;
-    const newItem = {
-      id: Date.now(),
-      title: newContentTitle,
-      type: newContentType,
-      status: newContentStatus,
-      views: "-",
-      date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-      video: newContentVideo,
-      text: newContentText,
-      shorts: newContentShorts,
-      details: newContentDetails
-    };
-    const updated = [...contents, newItem];
-    setContents(updated);
-    saveProjectData(undefined, undefined, updated);
-    closeAddContentModal();
-  };
-
-  const triggerContentGeneration = async () => {
-    if (!newContentTitle) return;
-
-    setIsGeneratingAIContent(true);
-    setOutlineStatus("generating");
-    setOutlineStepLabel("Analyzing content idea...");
-    setSocialsList([
-      { id: "ig", name: "Instagram Reel", status: "pending" },
-      { id: "ig_image", name: "Instagram Image Post", status: "pending" },
-      { id: "tk", name: "TikTok Hook", status: "pending" },
-      { id: "yt", name: "YouTube Shorts", status: "pending" },
-      { id: "yt_video", name: "YouTube Main Video", status: "pending" },
-      { id: "x", name: "Twitter/X Thread", status: "pending" },
-      { id: "in", name: "LinkedIn Post", status: "pending" },
-    ]);
-
-    try {
-      // 1. Call Step 1 API (Outline generation)
-      const outlineRes = await fetch("/api/creators/generate-content/outline", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: newContentTitle,
-          format: newContentType,
-          details: newContentDetails,
-        }),
-      });
-
-      if (!outlineRes.ok) throw new Error("Outline generation failed");
-
-      const outlineData = await outlineRes.json();
-      if (!outlineData.success) throw new Error(outlineData.error || "Outline generation failed");
-
-      setOutlineStepLabel("Formatting checklist and script content...");
-
-      const generatedContent = outlineData.result;
-      const newContentId = Date.now();
-      const newContentItem = {
-        id: newContentId,
-        title: generatedContent.title || newContentTitle,
-        type: newContentType,
-        status: newContentStatus,
-        views: "-",
-        date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-        video: newContentVideo,
-        details: generatedContent.details || newContentDetails,
-        text: generatedContent.script || newContentText,
-        shorts: newContentShorts,
-        checklist: (generatedContent.checklist || []).map((text: string, idx: number) => ({
-          id: idx + 1,
-          text,
-          checked: false
-        })),
-        research: {
-          points: generatedContent.research?.points || [],
-          notes: generatedContent.research?.notes || ""
-        },
-        socials: {}
-      };
-
-      // Save initial outline content item to database
-      const updatedContents = [...contents, newContentItem];
-      setContents(updatedContents);
-      await saveProjectData(undefined, undefined, updatedContents);
-
-      setOutlineStatus("completed");
-
-      // 2. Loop through platforms sequentially to generate social content
-      const platforms = ["ig", "ig_image", "tk", "yt", "yt_video", "x", "in"];
-      for (let i = 0; i < platforms.length; i++) {
-        const currentPlatformId = platforms[i];
-        
-        // Mark as generating
-        setSocialsList(prev => prev.map(s => s.id === currentPlatformId ? { ...s, status: "generating" } : s));
-
-        const socialGenRes = await fetch("/api/creators/generate-content/social", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            projectId: id,
-            contentId: newContentId,
-            platform: currentPlatformId
-          })
-        });
-
-        if (!socialGenRes.ok) {
-          console.error(`Failed to generate social content for ${currentPlatformId}`);
-        }
-
-        // Mark as completed
-        setSocialsList(prev => prev.map(s => s.id === currentPlatformId ? { ...s, status: "completed" } : s));
-      }
-
-      // 3. Complete and redirect
-      setIsGeneratingAIContent(false);
-      closeAddContentModal();
-      router.push(`/admin/creators/${id}/contents/${newContentId}`);
-
-    } catch (err: any) {
-      console.error(err);
-      alert(`Content generation failed: ${err.message || "Unknown error"}`);
-    }
+    showToast("Title added successfully!");
   };
 
   const handlePromoteTitleToContent = (titleObj: any) => {
@@ -541,68 +445,104 @@ export default function CreatorProjectDetails() {
     setVideoFormTitle("");
     setVideoFormUrl("");
     setVideoFormNote("");
-    setIsUploading(false);
-    setUploadProgress(0);
     setUploadError("");
+    setUploadProgress(0);
+    setIsUploading(false);
+    setVideoUploadMode("choice");
   };
 
   const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
-    setIsUploading(true);
-    setUploadProgress(0);
-    setUploadError("");
+    if (files.length === 1) {
+      const file = files[0];
+      setIsUploading(true);
+      setUploadProgress(0);
+      setUploadError("");
 
-    const formData = new FormData();
-    formData.append("file", file);
+      const formData = new FormData();
+      formData.append("file", file);
 
-    const xhr = new XMLHttpRequest();
-    xhr.open("POST", "/api/uploads", true);
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", "/api/uploads", true);
 
-    xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable) {
-        const percent = Math.round((event.loaded / event.total) * 100);
-        setUploadProgress(percent);
-      }
-    };
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          const percent = Math.round((event.loaded / event.total) * 100);
+          setUploadProgress(percent);
+        }
+      };
 
-    xhr.onload = () => {
-      setIsUploading(false);
-      if (xhr.status >= 200 && xhr.status < 300) {
-        try {
-          const res = JSON.parse(xhr.responseText);
-          if (res.success && res.url) {
-            if (isAddingContent) {
-              setNewContentVideo(res.url);
-              if (!newContentTitle) {
-                const nameWithoutExt = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
-                setNewContentTitle(nameWithoutExt);
-              }
-            } else {
+      xhr.onload = () => {
+        setIsUploading(false);
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const res = JSON.parse(xhr.responseText);
+            if (res.success && res.url) {
               setVideoFormUrl(res.url);
               if (!videoFormTitle) {
                 const nameWithoutExt = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
                 setVideoFormTitle(nameWithoutExt);
               }
+            } else {
+              setUploadError(res.error || "Upload failed");
             }
-          } else {
-            setUploadError(res.error || "Upload failed");
+          } catch (err) {
+            setUploadError("Failed to parse server response");
+          }
+        } else {
+          setUploadError(`Upload failed with status ${xhr.status}`);
+        }
+      };
+
+      xhr.onerror = () => {
+        setIsUploading(false);
+        setUploadError("Network error occurred during upload");
+      };
+
+      xhr.send(formData);
+    } else {
+      setIsUploading(true);
+      setUploadProgress(0);
+      setUploadError("");
+      
+      const newVideos: any[] = [];
+      let completed = 0;
+      
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        try {
+          const formData = new FormData();
+          formData.append("file", file);
+          const res = await fetch("/api/uploads", { method: "POST", body: formData });
+          const data = await res.json();
+          if (data.success && data.url) {
+            const nameWithoutExt = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+            newVideos.push({
+              id: Date.now() + i,
+              title: nameWithoutExt,
+              url: data.url,
+              note: ""
+            });
           }
         } catch (err) {
-          setUploadError("Failed to parse server response");
+          console.error("Upload failed for", file.name, err);
         }
-      } else {
-        setUploadError(`Upload failed with status ${xhr.status}`);
+        completed++;
+        setUploadProgress(Math.round((completed / files.length) * 100));
       }
-    };
-
-    xhr.onerror = () => {
+      
+      if (newVideos.length > 0) {
+        const updated = [...newVideos, ...savedVideos];
+        setSavedVideos(updated);
+        saveProjectData(undefined, undefined, undefined, updated);
+        closeAddVideoModal();
+      } else {
+        setUploadError("All uploads failed.");
+      }
       setIsUploading(false);
-      setUploadError("Network error occurred during upload");
-    };
-
-    xhr.send(formData);
+    }
   };
 
 
@@ -669,7 +609,16 @@ export default function CreatorProjectDetails() {
                 <LayoutGrid className="w-4 h-4" />
                 All Contents
               </button>
-              <button className="bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white px-5 py-2.5 rounded-xl font-medium transition-all flex items-center gap-2 border border-slate-700 hover:border-slate-600">
+              <button 
+                onClick={() => {
+                  setEditProjectName(project.name || "");
+                  setEditProjectClient(project.client || "");
+                  setEditProjectCreator(project.creator || "");
+                  setEditProjectStatus(project.status || "");
+                  setEditProjectBudget(project.budget || "");
+                  setShowEditProject(true);
+                }}
+                className="bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white px-5 py-2.5 rounded-xl font-medium transition-all flex items-center gap-2 border border-slate-700 hover:border-slate-600 cursor-pointer">
                 <Edit className="w-4 h-4" />
                 Edit Details
               </button>
@@ -710,6 +659,7 @@ export default function CreatorProjectDetails() {
             { id: 'home', label: 'Home' },
             { id: 'titles', label: 'Titles' },
             { id: 'videos', label: 'Videos' },
+            { id: 'images', label: 'Images' },
             { id: 'social', label: 'Social Templates' },
           ].map((tab) => (
             <button
@@ -893,7 +843,51 @@ export default function CreatorProjectDetails() {
 
         {/* Tab: VIDEOS (Video Library) */}
         {activeProjectTab === 'videos' && (
-          <div className="space-y-5">
+          <div className="space-y-5 relative">
+            
+            {/* Floating Bulk Actions Bar */}
+            {selectedVideoIds.length > 0 && (
+              <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 bg-slate-800 border border-slate-700 rounded-full px-6 py-3 shadow-[0_10px_40px_rgba(0,0,0,0.5)] flex items-center gap-4 animate-fade-in-up">
+                <span className="text-white font-bold text-sm bg-blue-500/20 px-3 py-1 rounded-full text-blue-400 border border-blue-500/30">
+                  {selectedVideoIds.length} Selected
+                </span>
+                <div className="w-px h-6 bg-slate-700"></div>
+                <button 
+                  onClick={() => {
+                    const selectedVids = savedVideos.filter(v => selectedVideoIds.includes(v.id));
+                    const newContents = selectedVids.map((v, i) => ({
+                      id: Date.now() + i,
+                      title: v.title,
+                      type: "Video",
+                      status: "Draft",
+                      views: "-",
+                      date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                    }));
+                    const updatedContents = [...contents, ...newContents];
+                    setContents(updatedContents);
+                    saveProjectData(undefined, undefined, updatedContents);
+                    setSelectedVideoIds([]);
+                    showToast(`${selectedVids.length} videos added to contents!`);
+                  }} 
+                  className="text-blue-400 hover:text-blue-300 font-semibold text-sm flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" /> Add to Content
+                </button>
+                <button 
+                  onClick={() => setShowBulkDeleteVideoConfirm(true)} 
+                  className="text-red-400 hover:text-red-300 font-semibold text-sm flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Trash2 className="w-4 h-4" /> Delete
+                </button>
+                <button 
+                  onClick={() => setSelectedVideoIds([])} 
+                  className="ml-2 text-slate-400 hover:text-slate-200 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
             {/* Toolbar */}
             <div className="flex flex-col md:flex-row gap-3 justify-between items-stretch md:items-center">
               <div className="relative flex-1 max-w-md">
@@ -914,10 +908,31 @@ export default function CreatorProjectDetails() {
               </button>
             </div>
 
+            {/* Video Sub-Tabs */}
+            <div className="flex bg-slate-900 border border-slate-800 rounded-xl p-1 max-w-xs">
+              <button
+                onClick={() => setVideoSubTab("new")}
+                className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${
+                  videoSubTab === "new" ? "bg-slate-800 text-white shadow-sm" : "text-slate-500 hover:text-slate-300"
+                }`}
+              >
+                New
+              </button>
+              <button
+                onClick={() => setVideoSubTab("used")}
+                className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${
+                  videoSubTab === "used" ? "bg-slate-800 text-white shadow-sm" : "text-slate-500 hover:text-slate-300"
+                }`}
+              >
+                Used
+              </button>
+            </div>
+
             {/* Video Grid */}
             {savedVideos.filter(v =>
-              v.title.toLowerCase().includes(videoSearch.toLowerCase()) ||
-              v.url.toLowerCase().includes(videoSearch.toLowerCase())
+              (videoSubTab === "new" ? !(v.downloadCount > 0) : (v.downloadCount > 0)) &&
+              ((v.title || "").toLowerCase().includes(videoSearch.toLowerCase()) ||
+               (v.url || "").toLowerCase().includes(videoSearch.toLowerCase()))
             ).length === 0 ? (
               <div className="flex flex-col items-center justify-center py-24 bg-slate-900/50 border-2 border-dashed border-slate-800 rounded-3xl text-slate-500">
                 <Video className="w-14 h-14 text-slate-700 mb-4" />
@@ -934,12 +949,13 @@ export default function CreatorProjectDetails() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                 {savedVideos
                   .filter(v =>
-                    v.title.toLowerCase().includes(videoSearch.toLowerCase()) ||
-                    v.url.toLowerCase().includes(videoSearch.toLowerCase())
+                    (videoSubTab === "new" ? !(v.downloadCount > 0) : (v.downloadCount > 0)) &&
+                    ((v.title || "").toLowerCase().includes(videoSearch.toLowerCase()) ||
+                     (v.url || "").toLowerCase().includes(videoSearch.toLowerCase()))
                   )
                   .map((vid: any) => {
-                    const isYoutube = vid.url.includes("youtube.com") || vid.url.includes("youtu.be");
-                    const isVimeo = vid.url.includes("vimeo.com");
+                    const isYoutube = (vid.url || "").includes("youtube.com") || (vid.url || "").includes("youtu.be");
+                    const isVimeo = (vid.url || "").includes("vimeo.com");
                     const embedUrl = isYoutube
                       ? `https://www.youtube.com/embed/${vid.url.split("v=")[1]?.split("&")[0] || vid.url.split("/").pop()}`
                       : isVimeo
@@ -947,12 +963,64 @@ export default function CreatorProjectDetails() {
                       : null;
 
                     return (
-                      <div key={vid.id} className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden hover:border-slate-700 transition-colors group">
+                      <div key={vid.id} className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden hover:border-slate-700 transition-colors group flex flex-col">
                         {/* Thumbnail / Preview */}
                         <div
-                          className="h-44 bg-slate-950 relative flex items-center justify-center cursor-pointer overflow-hidden"
+                          className="h-44 bg-slate-950 relative flex items-center justify-center cursor-pointer overflow-hidden shrink-0 group/thumb"
                           onClick={() => setActivePlayingVideo(vid)}
                         >
+                          {/* Selector */}
+                          <div className="absolute top-3 left-3 z-10" onClick={e => e.stopPropagation()}>
+                            <input 
+                              type="checkbox" 
+                              checked={selectedVideoIds.includes(vid.id)}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                if (e.target.checked) {
+                                  setSelectedVideoIds([...selectedVideoIds, vid.id]);
+                                } else {
+                                  setSelectedVideoIds(selectedVideoIds.filter(id => id !== vid.id));
+                                }
+                              }}
+                              className="w-5 h-5 rounded border-slate-600 bg-slate-800/80 cursor-pointer accent-blue-500 hover:scale-110 transition-transform" 
+                            />
+                          </div>
+
+                          {/* 3-Dot Menu */}
+                          <div className="absolute top-3 right-3 z-10" onClick={e => e.stopPropagation()}>
+                            <button 
+                              onClick={() => setActiveVideoDropdownId(activeVideoDropdownId === vid.id ? null : vid.id)}
+                              className="p-1.5 rounded-full bg-slate-900/60 text-white hover:bg-slate-800 backdrop-blur-sm transition-colors shadow-sm cursor-pointer"
+                            >
+                              <MoreVertical className="w-4 h-4" />
+                            </button>
+                            
+                            {activeVideoDropdownId === vid.id && (
+                              <>
+                                <div className="fixed inset-0 z-20 cursor-default" onClick={() => setActiveVideoDropdownId(null)} />
+                                <div className="absolute right-0 top-full mt-1 w-36 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden z-30">
+                                  <button
+                                    onClick={() => {
+                                      setActivePlayingVideo(vid);
+                                      setActiveVideoDropdownId(null);
+                                    }}
+                                    className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800 hover:text-white flex items-center gap-2 transition-colors cursor-pointer"
+                                  >
+                                    <Eye className="w-3.5 h-3.5 text-blue-400" /> View Details
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setVideoToDelete(vid);
+                                      setActiveVideoDropdownId(null);
+                                    }}
+                                    className="w-full text-left px-3 py-2 text-xs font-semibold text-red-400 hover:bg-red-950/30 hover:text-red-300 flex items-center gap-2 border-t border-slate-800/80 transition-colors cursor-pointer"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" /> Delete
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                          </div>
                           {isYoutube ? (
                             <img
                               src={`https://img.youtube.com/vi/${vid.url.split("v=")[1]?.split("&")[0] || vid.url.split("/").pop()}/hqdefault.jpg`}
@@ -979,29 +1047,37 @@ export default function CreatorProjectDetails() {
                         </div>
 
                         {/* Info */}
-                        <div className="p-4">
+                        <div className="p-4 flex flex-col flex-1">
                           <h3 className="font-bold text-white leading-tight mb-1 line-clamp-1">{vid.title}</h3>
                           {vid.note && <p className="text-xs text-slate-500 mb-3 line-clamp-2">{vid.note}</p>}
-                          <div className="flex items-center justify-between pt-3 border-t border-slate-800">
-                            <a
-                              href={vid.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors"
-                              onClick={e => e.stopPropagation()}
-                            >
-                              <Link className="w-3 h-3" /> Open Link
-                            </a>
-                            <button
-                              onClick={() => {
-                                const updated = savedVideos.filter(v => v.id !== vid.id);
-                                setSavedVideos(updated);
-                                saveProjectData(undefined, undefined, undefined, updated);
-                              }}
-                              className="text-xs text-slate-500 hover:text-red-400 flex items-center gap-1 transition-colors"
-                            >
-                              <Trash2 className="w-3 h-3" /> Remove
-                            </button>
+                          <div className="mt-auto flex flex-wrap items-center justify-end gap-3 pt-3 border-t border-slate-800">
+                            <div className="flex items-center gap-3">
+                              <button
+                                onClick={async () => {
+                                  const a = document.createElement("a");
+                                  a.href = vid.url;
+                                  a.download = vid.title || "video.mp4";
+                                  a.target = "_blank";
+                                  a.click();
+                                  
+                                  const count = (vid.downloadCount || 0) + 1;
+                                  const updated = savedVideos.map(v => v.id === vid.id ? { ...v, downloadCount: count } : v);
+                                  setSavedVideos(updated);
+                                  saveProjectData(undefined, undefined, undefined, updated);
+                                }}
+                                className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors"
+                                title="Download Video"
+                              >
+                                <Download className="w-3 h-3" /> {vid.downloadCount || 0}
+                              </button>
+                              <button
+                                onClick={() => setVideoToDelete(vid)}
+                                className="text-xs text-slate-500 hover:text-red-400 flex items-center transition-colors"
+                                title="Delete Video"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -1015,127 +1091,582 @@ export default function CreatorProjectDetails() {
               <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={closeAddVideoModal}>
                 <div className="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-lg p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
                   <div className="flex justify-between items-center mb-5">
-                    <h2 className="text-xl font-bold text-white flex items-center gap-2"><Video className="w-5 h-5 text-blue-400" /> Add Video</h2>
+                    <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                      <Video className="w-5 h-5 text-blue-400" /> 
+                      {videoUploadMode === "choice" ? "Add Video" : "Single Video Upload"}
+                    </h2>
                     <button onClick={closeAddVideoModal} className="text-slate-400 hover:text-white"><X className="w-5 h-5" /></button>
                   </div>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-400 mb-1">Upload Video File</label>
-                      <div className="relative">
+                  
+                  {videoUploadMode === "choice" && !isUploading && (
+                    <div className="flex flex-col gap-4 py-4">
+                      <button 
+                        onClick={() => setVideoUploadMode("single")}
+                        className="bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl p-6 text-left transition-colors flex items-center gap-4 group"
+                      >
+                        <div className="w-12 h-12 bg-blue-500/10 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform shrink-0">
+                          <Plus className="w-6 h-6 text-blue-400" />
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-white text-lg">Single Upload</h3>
+                          <p className="text-sm text-slate-400">Add a single video and add descriptive notes to it.</p>
+                        </div>
+                      </button>
+
+                      <button 
+                        onClick={() => multipleVideoInputRef.current?.click()}
+                        className="bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl p-6 text-left transition-colors flex items-center gap-4 group"
+                      >
+                        <div className="w-12 h-12 bg-purple-500/10 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform shrink-0">
+                          <LayoutGrid className="w-6 h-6 text-purple-400" />
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-white text-lg">Multiple Upload</h3>
+                          <p className="text-sm text-slate-400">Select multiple files and automatically bulk-upload them.</p>
+                        </div>
+                      </button>
+                      <input 
+                        type="file" 
+                        accept="video/*" 
+                        multiple 
+                        className="hidden" 
+                        ref={multipleVideoInputRef} 
+                        onChange={handleVideoUpload} 
+                      />
+                    </div>
+                  )}
+
+                  {isUploading && videoUploadMode === "choice" && (
+                    <div className="py-12 flex flex-col items-center justify-center text-center">
+                      <Loader2 className="w-12 h-12 animate-spin text-blue-400 mb-4" />
+                      <h3 className="text-lg font-bold text-white mb-2">Uploading Videos...</h3>
+                      <p className="text-slate-400 text-sm mb-6">Please keep this window open.</p>
+                      <div className="w-full max-w-xs bg-slate-800 rounded-full h-2 overflow-hidden">
+                        <div className="bg-blue-500 h-2 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
+                      </div>
+                      <p className="mt-3 text-sm font-semibold text-blue-400">{uploadProgress}% Complete</p>
+                    </div>
+                  )}
+
+                  {videoUploadMode === "single" && (
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-400 mb-1">Upload Video File</label>
+                        <div className="relative">
+                          <input
+                            type="file"
+                            accept="video/*"
+                            onChange={handleVideoUpload}
+                            disabled={isUploading}
+                            className="hidden"
+                            id="video-file-upload"
+                          />
+                          {videoFormUrl ? (
+                             <div className="relative rounded-xl overflow-hidden bg-black border border-slate-700 aspect-video flex items-center justify-center">
+                               <video src={videoFormUrl} controls className="w-full h-full object-contain" />
+                               <button onClick={() => setVideoFormUrl("")} className="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white rounded-full p-1.5 transition-colors">
+                                 <X className="w-4 h-4" />
+                               </button>
+                             </div>
+                          ) : (
+                            <label
+                              htmlFor="video-file-upload"
+                              className={`w-full flex flex-col items-center justify-center gap-2 bg-slate-950 hover:bg-slate-950/80 border border-slate-700 border-dashed rounded-xl p-5 text-sm text-slate-300 hover:text-white cursor-pointer transition-all hover:border-blue-500/50 ${
+                                isUploading ? "opacity-50 cursor-not-allowed" : ""
+                              }`}
+                            >
+                              {isUploading ? (
+                                <div className="flex flex-col items-center gap-2 w-full">
+                                  <Loader2 className="w-6 h-6 animate-spin text-blue-400" />
+                                  <span className="font-semibold text-xs">Uploading ({uploadProgress}%)...</span>
+                                  <div className="w-full bg-slate-800 rounded-full h-1.5 mt-1 overflow-hidden">
+                                    <div 
+                                      className="bg-blue-500 h-1.5 rounded-full transition-all duration-300" 
+                                      style={{ width: `${uploadProgress}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              ) : (
+                                <>
+                                  <Upload className="w-6 h-6 text-blue-400" />
+                                  <span className="font-medium text-xs">Select video file from computer</span>
+                                  <span className="text-[10px] text-slate-500">Supports MP4, MOV, WebM</span>
+                                </>
+                              )}
+                            </label>
+                          )}
+                        </div>
+                        {uploadError && <p className="text-xs text-red-400 mt-1.5">{uploadError}</p>}
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-400 mb-1">Title *</label>
                         <input
-                          type="file"
-                          accept="video/*"
-                          onChange={handleVideoUpload}
-                          disabled={isUploading}
-                          className="hidden"
-                          id="video-file-upload"
+                          type="text"
+                          value={videoFormTitle}
+                          onChange={e => setVideoFormTitle(e.target.value)}
+                          placeholder="e.g. Reference tutorial for intro style"
+                          className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-blue-500 transition-colors"
                         />
-                        <label
-                          htmlFor="video-file-upload"
-                          className={`w-full flex flex-col items-center justify-center gap-2 bg-slate-950 hover:bg-slate-950/80 border border-slate-700 border-dashed rounded-xl p-5 text-sm text-slate-300 hover:text-white cursor-pointer transition-all hover:border-blue-500/50 ${
-                            isUploading ? "opacity-50 cursor-not-allowed" : ""
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-400 mb-1">Description</label>
+                        <textarea
+                          rows={2}
+                          value={videoFormNote}
+                          onChange={e => setVideoFormNote(e.target.value)}
+                          placeholder="Why you saved this, what to use it for..."
+                          className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-blue-500 transition-colors resize-none"
+                        />
+                      </div>
+                      <div className="flex justify-end gap-3 mt-6">
+                        <button onClick={() => setVideoUploadMode("choice")} className="px-5 py-2 text-slate-400 hover:text-white text-sm font-semibold transition-colors">Back</button>
+                        <button
+                          disabled={isSavingVideo}
+                          onClick={async () => {
+                            if (!videoFormTitle || !videoFormUrl) return;
+                            setIsSavingVideo(true);
+                            const newVid = { id: Date.now(), title: videoFormTitle, url: videoFormUrl, note: videoFormNote };
+                            const updated = [newVid, ...savedVideos];
+                            setSavedVideos(updated);
+                            await saveProjectData(undefined, undefined, undefined, updated);
+                            setIsSavingVideo(false);
+                            closeAddVideoModal();
+                          }}
+                          className={`px-5 py-2 text-white rounded-xl font-bold text-sm transition-colors flex items-center gap-2 ${
+                            isSavingVideo ? "bg-blue-800 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-500"
                           }`}
                         >
-                          {isUploading ? (
-                            <div className="flex flex-col items-center gap-2 w-full">
-                              <Loader2 className="w-6 h-6 animate-spin text-blue-400" />
-                              <span className="font-semibold text-xs">Uploading ({uploadProgress}%)...</span>
-                              <div className="w-full bg-slate-800 rounded-full h-1.5 mt-1 overflow-hidden">
-                                <div 
-                                  className="bg-blue-500 h-1.5 rounded-full transition-all duration-300" 
-                                  style={{ width: `${uploadProgress}%` }}
-                                />
-                              </div>
-                            </div>
-                          ) : (
+                          {isSavingVideo ? (
                             <>
-                              <Upload className="w-6 h-6 text-blue-400" />
-                              <span className="font-medium text-xs">Select video file from computer</span>
-                              <span className="text-[10px] text-slate-500">Supports MP4, MOV, WebM, etc.</span>
+                              <Loader2 className="w-4 h-4 animate-spin" /> Saving...
                             </>
+                          ) : (
+                            "Save Video"
                           )}
-                        </label>
+                        </button>
                       </div>
-                      {uploadError && <p className="text-xs text-red-400 mt-1.5">{uploadError}</p>}
                     </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-400 mb-1">Title *</label>
-                      <input
-                        type="text"
-                        value={videoFormTitle}
-                        onChange={e => setVideoFormTitle(e.target.value)}
-                        placeholder="e.g. Reference tutorial for intro style"
-                        className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-blue-500 transition-colors"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-400 mb-1">Video URL * <span className="text-slate-600">(YouTube, Vimeo, or direct .mp4)</span></label>
-                      <input
-                        type="url"
-                        value={videoFormUrl}
-                        onChange={e => setVideoFormUrl(e.target.value)}
-                        placeholder="https://youtube.com/watch?v=..."
-                        className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-blue-500 transition-colors"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-400 mb-1">Notes <span className="text-slate-600">(optional)</span></label>
-                      <textarea
-                        rows={2}
-                        value={videoFormNote}
-                        onChange={e => setVideoFormNote(e.target.value)}
-                        placeholder="Why you saved this, what to use it for..."
-                        className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-blue-500 transition-colors resize-none"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex justify-end gap-3 mt-6">
-                    <button onClick={closeAddVideoModal} className="px-5 py-2 text-slate-400 hover:text-white text-sm font-semibold transition-colors">Cancel</button>
-                    <button
-                      onClick={() => {
-                        if (!videoFormTitle || !videoFormUrl) return;
-                        const newVid = { id: Date.now(), title: videoFormTitle, url: videoFormUrl, note: videoFormNote };
-                        const updated = [newVid, ...savedVideos];
-                        setSavedVideos(updated);
-                        saveProjectData(undefined, undefined, undefined, updated);
-                        closeAddVideoModal();
-                      }}
-                      className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold text-sm transition-colors"
-                    >
-                      Save Video
-                    </button>
-                  </div>
+                  )}
                 </div>
               </div>
             )}
 
             {/* Video Player Modal */}
             {activePlayingVideo && (
-              <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md" onClick={() => setActivePlayingVideo(null)}>
-                <div className="w-full max-w-4xl" onClick={e => e.stopPropagation()}>
-                  <div className="flex justify-between items-center mb-3">
-                    <h3 className="text-white font-bold text-lg">{activePlayingVideo.title}</h3>
-                    <button onClick={() => setActivePlayingVideo(null)} className="text-slate-400 hover:text-white p-1"><X className="w-6 h-6" /></button>
-                  </div>
-                  {(() => {
-                    const url = activePlayingVideo.url;
-                    const isYoutube = url.includes("youtube.com") || url.includes("youtu.be");
-                    const isVimeo = url.includes("vimeo.com");
-                    const embedUrl = isYoutube
-                      ? `https://www.youtube.com/embed/${url.split("v=")[1]?.split("&")[0] || url.split("/").pop()}?autoplay=1`
-                      : isVimeo
-                      ? `https://player.vimeo.com/video/${url.split("/").pop()}?autoplay=1`
-                      : null;
-                    return embedUrl ? (
-                      <iframe src={embedUrl} className="w-full aspect-video rounded-2xl bg-black" allowFullScreen allow="autoplay" />
+              <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in" onClick={() => { if (!isEditingVideoPlayer && !isDownloadingVideoPlayer) setActivePlayingVideo(null); }}>
+                <div className="w-full max-w-4xl bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+                  <div className="flex justify-between items-center mb-4">
+                    {isEditingVideoPlayer ? (
+                      <input
+                        type="text"
+                        value={editVideoTitle}
+                        onChange={e => setEditVideoTitle(e.target.value)}
+                        className="bg-slate-950 border border-slate-700 rounded-xl px-4 py-2 text-white font-bold text-lg w-full max-w-lg focus:outline-none focus:border-blue-500"
+                      />
                     ) : (
-                      <video src={url} controls autoPlay className="w-full aspect-video rounded-2xl bg-black" />
-                    );
-                  })()}
+                      <h3 className="text-white font-bold text-xl">{activePlayingVideo.title}</h3>
+                    )}
+                    <button onClick={() => setActivePlayingVideo(null)} className="text-slate-400 hover:text-white p-2 transition-colors"><X className="w-6 h-6" /></button>
+                  </div>
+                  
+                  {/* Video Player */}
+                  <div className="rounded-2xl overflow-hidden bg-black aspect-video mb-5 shadow-inner">
+                    {(() => {
+                      const url = activePlayingVideo.url;
+                      const isYoutube = (url || "").includes("youtube.com") || (url || "").includes("youtu.be");
+                      const isVimeo = (url || "").includes("vimeo.com");
+                      const embedUrl = isYoutube
+                        ? `https://www.youtube.com/embed/${url.split("v=")[1]?.split("&")[0] || url.split("/").pop()}?autoplay=1`
+                        : isVimeo
+                        ? `https://player.vimeo.com/video/${url.split("/").pop()}?autoplay=1`
+                        : null;
+                      return embedUrl ? (
+                        <iframe src={embedUrl} className="w-full h-full" allowFullScreen allow="autoplay" />
+                      ) : (
+                        <video src={url} controls autoPlay className="w-full h-full object-contain" />
+                      );
+                    })()}
+                  </div>
+
+                  {/* Metadata and Description */}
+                  <div className="space-y-4">
+                    <div className="bg-slate-950/60 p-5 rounded-2xl border border-slate-800 relative">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-xs font-black text-slate-500 uppercase tracking-widest">Description</span>
+                        {!isEditingVideoPlayer && activePlayingVideo.note && (
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(activePlayingVideo.note);
+                              showToast("Description copied to clipboard!");
+                            }}
+                            className="text-xs text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1.5 transition-colors bg-blue-500/10 px-2.5 py-1 rounded-lg border border-blue-500/10"
+                          >
+                            <Copy className="w-3.5 h-3.5" /> Copy
+                          </button>
+                        )}
+                      </div>
+                      
+                      {isEditingVideoPlayer ? (
+                        <textarea
+                          rows={3}
+                          value={editVideoNote}
+                          onChange={e => setEditVideoNote(e.target.value)}
+                          className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-blue-500 transition-colors resize-none"
+                        />
+                      ) : (
+                        <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">
+                          {activePlayingVideo.note || <span className="text-slate-500 italic">No description added to this video.</span>}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex justify-end gap-3 pt-2">
+                      {isEditingVideoPlayer ? (
+                        <>
+                          <button
+                            onClick={() => setIsEditingVideoPlayer(false)}
+                            className="px-5 py-2.5 text-slate-400 font-semibold hover:text-white transition-colors text-sm"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            disabled={isSavingVideoPlayerEdit}
+                            onClick={async () => {
+                              if (!editVideoTitle) return;
+                              setIsSavingVideoPlayerEdit(true);
+                              const updated = savedVideos.map(v => v.id === activePlayingVideo.id ? { ...v, title: editVideoTitle, note: editVideoNote } : v);
+                              setSavedVideos(updated);
+                              await saveProjectData(undefined, undefined, undefined, updated);
+                              setActivePlayingVideo({ ...activePlayingVideo, title: editVideoTitle, note: editVideoNote });
+                              setIsSavingVideoPlayerEdit(false);
+                              setIsEditingVideoPlayer(false);
+                              showToast("Video details updated!");
+                            }}
+                            className={`px-5 py-2.5 text-white rounded-xl font-bold transition-all text-sm flex items-center gap-2 ${
+                              isSavingVideoPlayerEdit ? "bg-blue-800 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-500 shadow-lg shadow-blue-500/25"
+                            }`}
+                          >
+                            {isSavingVideoPlayerEdit ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" /> Saving...
+                              </>
+                            ) : (
+                              "Save Changes"
+                            )}
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => {
+                              setEditVideoTitle(activePlayingVideo.title);
+                              setEditVideoNote(activePlayingVideo.note || "");
+                              setIsEditingVideoPlayer(true);
+                            }}
+                            className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-xl font-bold transition-all text-sm"
+                          >
+                            Edit Details
+                          </button>
+                          
+                          <button
+                            disabled={isDownloadingVideoPlayer}
+                            onClick={async () => {
+                              setIsDownloadingVideoPlayer(true);
+                              const a = document.createElement("a");
+                              a.href = activePlayingVideo.url;
+                              a.download = activePlayingVideo.title || "video.mp4";
+                              a.target = "_blank";
+                              a.click();
+
+                              const count = (activePlayingVideo.downloadCount || 0) + 1;
+                              const updated = savedVideos.map(v => v.id === activePlayingVideo.id ? { ...v, downloadCount: count } : v);
+                              setSavedVideos(updated);
+                              await saveProjectData(undefined, undefined, undefined, updated);
+                              setActivePlayingVideo({ ...activePlayingVideo, downloadCount: count });
+                              showToast("Video download started!");
+                              setIsDownloadingVideoPlayer(false);
+                            }}
+                            className={`px-5 py-2.5 text-white rounded-xl font-bold transition-all text-sm shadow-lg flex items-center gap-2 ${
+                              isDownloadingVideoPlayer ? "bg-blue-800 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-500 shadow-blue-500/25"
+                            }`}
+                          >
+                            {isDownloadingVideoPlayer ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" /> Downloading...
+                              </>
+                            ) : (
+                              <>
+                                <Download className="w-4 h-4" /> Download Video ({activePlayingVideo.downloadCount || 0})
+                              </>
+                            )}
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
+           </div>
+        )}
+
+        {/* Tab: IMAGES */}
+        {activeProjectTab === 'images' && (
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col min-h-[550px]">
+            {(() => {
+              const getImageUrl = (img: any) => {
+                if (typeof img === "string") return img;
+                if (img.type === "carousel" && img.urls && img.urls.length > 0) return img.urls[0];
+                return img.url || "";
+              };
+              const getImageDownloadCount = (img: any) => typeof img === "string" ? 0 : (img.downloadCount || 0);
+              const getImageId = (img: any, idx: number) => typeof img === "string" ? idx : (img.id || idx);
+
+              const filteredImages = savedImages.filter(img => {
+                const count = getImageDownloadCount(img);
+                return imageSubTab === "new" ? !(count > 0) : (count > 0);
+              });
+
+              const itemsPerPage = 12; // Smaller images allow more per page
+              const totalPages = Math.ceil(filteredImages.length / itemsPerPage);
+              const currentPageImages = filteredImages.slice((imagePage - 1) * itemsPerPage, imagePage * itemsPerPage);
+
+              return (
+                <>
+                  <div className="flex flex-col md:flex-row gap-3 justify-between items-stretch md:items-center mb-6 relative">
+                    {/* Floating Bulk Actions Bar for Images */}
+                    {selectedImageIds.length > 0 && (
+                      <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 bg-slate-800 border border-slate-700 rounded-full px-6 py-3 shadow-[0_10px_40px_rgba(0,0,0,0.5)] flex items-center gap-4 animate-fade-in-up">
+                        <span className="text-white font-bold text-sm bg-emerald-500/20 px-3 py-1 rounded-full text-emerald-400 border border-emerald-500/30">
+                          {selectedImageIds.length} Selected
+                        </span>
+                        <div className="w-px h-6 bg-slate-700"></div>
+                        <button 
+                          onClick={() => {
+                            const selectedImgs = savedImages.filter((img: any, idx: number) => selectedImageIds.includes(getImageId(img, idx)));
+                            const newContents = selectedImgs.map((img: any, i: number) => {
+                              const title = typeof img === 'string' ? `Image ${i+1}` : (img.title || `Image ${i+1}`);
+                              return {
+                                id: Date.now() + i,
+                                title: title,
+                                type: img.type === "carousel" ? "Carousel" : "Image",
+                                status: "Draft",
+                                views: "-",
+                                date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                              };
+                            });
+                            const updatedContents = [...contents, ...newContents];
+                            setContents(updatedContents);
+                            saveProjectData(undefined, undefined, updatedContents);
+                            setSelectedImageIds([]);
+                            showToast(`${selectedImgs.length} items added to contents!`);
+                          }} 
+                          className="text-emerald-400 hover:text-emerald-300 font-semibold text-sm flex items-center gap-1.5 transition-colors cursor-pointer"
+                        >
+                          <Plus className="w-4 h-4" /> Add to Content
+                        </button>
+                        <button 
+                          onClick={() => setShowBulkDeleteImageConfirm(true)} 
+                          className="text-red-400 hover:text-red-300 font-semibold text-sm flex items-center gap-1.5 transition-colors cursor-pointer"
+                        >
+                          <Trash2 className="w-4 h-4" /> Delete
+                        </button>
+                        <button 
+                          onClick={() => setSelectedImageIds([])} 
+                          className="ml-2 text-slate-400 hover:text-slate-200 cursor-pointer"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+
+                    <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                      <ImageIcon className="w-5 h-5 text-emerald-500" />
+                      Image Gallery
+                    </h2>
+                    
+                    <button 
+                      onClick={() => {
+                        setImageUploadMode("choice");
+                        setShowAddImage(true);
+                      }}
+                      className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2 rounded-xl flex items-center gap-2 transition-all shadow-lg shadow-emerald-500/20 text-sm shrink-0 cursor-pointer"
+                    >
+                      <Plus className="w-4 h-4" /> Upload Images
+                    </button>
+                  </div>
+
+                  {/* Image Sub-Tabs */}
+                  <div className="flex bg-slate-900 border border-slate-800 rounded-xl p-1 max-w-xs mb-6">
+                    <button
+                      onClick={() => { setImageSubTab("new"); setImagePage(1); }}
+                      className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${
+                        imageSubTab === "new" ? "bg-slate-800 text-white shadow-sm" : "text-slate-500 hover:text-slate-300"
+                      }`}
+                    >
+                      New
+                    </button>
+                    <button
+                      onClick={() => { setImageSubTab("used"); setImagePage(1); }}
+                      className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${
+                        imageSubTab === "used" ? "bg-slate-800 text-white shadow-sm" : "text-slate-500 hover:text-slate-300"
+                      }`}
+                    >
+                      Used
+                    </button>
+                  </div>
+                  
+                  {filteredImages.length > 0 ? (
+                    <div className="flex-1 flex flex-col justify-between">
+                      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
+                        {currentPageImages.map((img: any, idx) => {
+                          const globalIdx = savedImages.indexOf(img);
+                          const isCarousel = img && img.type === "carousel";
+                          return (
+                            <div 
+                              key={getImageId(img, globalIdx)} 
+                              className="relative aspect-square rounded-xl border border-slate-800 bg-slate-950 overflow-hidden group cursor-pointer hover:border-emerald-500/50 transition-all flex flex-col"
+                              onClick={() => {
+                                setActiveCarouselSlideIndex(0);
+                                setActivePreviewImageIndex(globalIdx);
+                              }}
+                            >
+                              <img src={getImageUrl(img)} alt={`Gallery item ${globalIdx}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                              
+                              {/* Carousel Stack Indicator */}
+                              {isCarousel && (
+                                <div className="absolute top-2 left-10 z-10 bg-slate-950/80 backdrop-blur-sm border border-slate-800 px-1.5 py-0.5 rounded text-[9px] font-black text-amber-400 flex items-center gap-1">
+                                  <Copy className="w-2.5 h-2.5" /> Carousel ({img.urls?.length || 0})
+                                </div>
+                              )}
+
+                              {/* Selector Checkbox */}
+                              <div className="absolute top-2 left-2 z-10" onClick={e => e.stopPropagation()}>
+                                <input 
+                                  type="checkbox" 
+                                  checked={selectedImageIds.includes(getImageId(img, globalIdx))}
+                                  onChange={(e) => {
+                                    e.stopPropagation();
+                                    const imgId = getImageId(img, globalIdx);
+                                    if (e.target.checked) {
+                                      setSelectedImageIds([...selectedImageIds, imgId]);
+                                    } else {
+                                      setSelectedImageIds(selectedImageIds.filter(id => id !== imgId));
+                                    }
+                                  }}
+                                  className="w-4 h-4 rounded border-slate-600 bg-slate-800/80 cursor-pointer accent-emerald-500 hover:scale-110 transition-transform" 
+                                />
+                              </div>
+
+                              {/* 3-Dot Menu */}
+                              <div className="absolute top-2 right-2 z-10" onClick={e => e.stopPropagation()}>
+                                <button 
+                                  onClick={() => setActiveImageDropdownId(activeImageDropdownId === getImageId(img, globalIdx) ? null : getImageId(img, globalIdx))}
+                                  className="p-1 rounded-full bg-slate-900/60 text-white hover:bg-slate-800 backdrop-blur-sm transition-colors shadow-sm cursor-pointer"
+                                >
+                                  <MoreVertical className="w-3.5 h-3.5" />
+                                </button>
+
+                                {activeImageDropdownId === getImageId(img, globalIdx) && (
+                                  <>
+                                    <div className="fixed inset-0 z-20 cursor-default" onClick={() => setActiveImageDropdownId(null)} />
+                                    <div className="absolute right-0 top-full mt-1 w-36 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden z-30">
+                                      <button
+                                        onClick={() => {
+                                          setActiveCarouselSlideIndex(0);
+                                          setActivePreviewImageIndex(globalIdx);
+                                          setActiveImageDropdownId(null);
+                                        }}
+                                        className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800 hover:text-white flex items-center gap-2 transition-colors cursor-pointer"
+                                      >
+                                        <Eye className="w-3.5 h-3.5 text-emerald-400" /> View Details
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          setActiveImageDropdownId(null);
+                                          setImageToDelete(img);
+                                        }}
+                                        className="w-full text-left px-3 py-2 text-xs font-semibold text-red-400 hover:bg-red-950/30 hover:text-red-300 flex items-center gap-2 border-t border-slate-800/80 transition-colors cursor-pointer"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" /> Delete
+                                      </button>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+
+                              {/* Download Overlay Button */}
+                              <div className="absolute bottom-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
+                                <button 
+                                  onClick={async () => {
+                                    // Trigger downloads
+                                    if (isCarousel && img.urls) {
+                                      img.urls.forEach((url: string, i: number) => {
+                                        const a = document.createElement("a");
+                                        a.href = url;
+                                        a.download = `carousel-${getImageId(img, globalIdx)}-${i}.jpg`;
+                                        a.target = "_blank";
+                                        a.click();
+                                      });
+                                    } else {
+                                      const a = document.createElement("a");
+                                      a.href = getImageUrl(img);
+                                      a.download = `image-${getImageId(img, globalIdx)}.jpg`;
+                                      a.target = "_blank";
+                                      a.click();
+                                    }
+                                    
+                                    const updated = savedImages.map((item, i) => {
+                                      if (i === globalIdx) {
+                                        return { ...item, downloadCount: getImageDownloadCount(item) + 1 };
+                                      }
+                                      return item;
+                                    });
+                                    setSavedImages(updated);
+                                    await saveProjectData(undefined, undefined, undefined, undefined, updated);
+                                    showToast("Image download started!");
+                                  }}
+                                  className="p-1 rounded bg-slate-900/85 text-emerald-400 hover:bg-slate-800 hover:text-emerald-300 backdrop-blur-sm text-[10px] font-semibold flex items-center gap-1 border border-slate-800/50 shadow-md"
+                                >
+                                  <Download className="w-3 h-3" /> {getImageDownloadCount(img)}
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Pagination Controls */}
+                      {totalPages > 1 && (
+                        <div className="mt-6 pt-4 border-t border-slate-800 flex justify-between items-center text-sm">
+                          <button 
+                            onClick={() => setImagePage(prev => Math.max(1, prev - 1))}
+                            disabled={imagePage === 1}
+                            className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                          >
+                            <ChevronLeft className="w-4 h-4" />
+                          </button>
+                          <span className="text-slate-500 font-medium">Page {imagePage} of {totalPages}</span>
+                          <button 
+                            onClick={() => setImagePage(prev => Math.min(totalPages, prev + 1))}
+                            disabled={imagePage === totalPages}
+                            className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                          >
+                            <ChevronRight className="w-4 h-4" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex-1 flex flex-col items-center justify-center py-24 border-2 border-dashed border-slate-800 rounded-2xl text-slate-500">
+                      <ImageIcon className="w-14 h-14 text-slate-700 mb-4" />
+                      <h3 className="text-lg font-bold text-slate-400 mb-1">No images in this category</h3>
+                      <p className="text-sm text-center max-w-xs">Upload images or download existing ones to move them here.</p>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
         )}
 
@@ -1214,8 +1745,9 @@ export default function CreatorProjectDetails() {
       </div>
 
       {/* Popups */}
+      {/* Popups */}
       {selectedTimelineItem && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm" onClick={() => setSelectedTimelineItem(null)}>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm" onClick={() => { if (!isEditingMilestone) setSelectedTimelineItem(null); }}>
           <motion.div 
             initial={{ opacity: 0, scale: 0.95, y: 20 }} 
             animate={{ opacity: 1, scale: 1, y: 0 }} 
@@ -1223,36 +1755,124 @@ export default function CreatorProjectDetails() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 rounded-full blur-[80px] pointer-events-none" />
-            <h3 className="text-2xl font-bold text-white mb-2">{selectedTimelineItem.title}</h3>
-            <p className="text-slate-400 mb-6">Scheduled for: <span className="text-slate-200 font-medium">{selectedTimelineItem.date}</span></p>
             
-            <div className="bg-slate-950/50 p-5 rounded-2xl border border-slate-800 text-slate-300 mb-8 min-h-[120px] leading-relaxed">
-              {selectedTimelineItem.description ? (
-                <p>{selectedTimelineItem.description}</p>
+            {isEditingMilestone ? (
+              <div className="space-y-4 mb-6 relative z-10">
+                <h3 className="text-xl font-bold text-white mb-4">Edit Milestone</h3>
+                <div>
+                  <label className="block text-sm font-medium text-slate-400 mb-1">Milestone Title *</label>
+                  <input 
+                    type="text" 
+                    value={editMilestoneTitle}
+                    onChange={(e) => setEditMilestoneTitle(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white focus:outline-none focus:border-blue-500 transition-colors" 
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-400 mb-1">Date or Tag</label>
+                  <input 
+                    type="text" 
+                    value={editMilestoneDate}
+                    onChange={(e) => setEditMilestoneDate(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white focus:outline-none focus:border-blue-500 transition-colors" 
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-400 mb-1">Description (Optional)</label>
+                  <textarea 
+                    value={editMilestoneDesc}
+                    onChange={(e) => setEditMilestoneDesc(e.target.value)}
+                    className="w-full h-24 bg-slate-950 border border-slate-800 rounded-lg p-3 text-white focus:outline-none focus:border-blue-500 transition-colors resize-none" 
+                  />
+                </div>
+              </div>
+            ) : (
+              <>
+                <h3 className="text-2xl font-bold text-white mb-2">{selectedTimelineItem.title}</h3>
+                <p className="text-slate-400 mb-6">Scheduled for: <span className="text-slate-200 font-medium">{selectedTimelineItem.date}</span></p>
+                
+                <div className="bg-slate-950/50 p-5 rounded-2xl border border-slate-800 text-slate-300 mb-8 min-h-[120px] leading-relaxed">
+                  {selectedTimelineItem.description ? (
+                    <p>{selectedTimelineItem.description}</p>
+                  ) : (
+                    <p className="text-slate-500 italic">Detailed notes, links, and requirements for this milestone will appear here when the full system is connected.</p>
+                  )}
+                </div>
+              </>
+            )}
+            
+            <div className="flex flex-wrap justify-between items-center gap-4 relative z-10 border-t border-slate-800/80 pt-5">
+              {isEditingMilestone ? (
+                <>
+                  <button 
+                    onClick={() => setIsEditingMilestone(false)} 
+                    className="px-5 py-2.5 text-slate-400 font-medium hover:text-white transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={() => {
+                      if (!editMilestoneTitle) return;
+                      const updated = timeline.map(item => 
+                        item.id === selectedTimelineItem.id 
+                          ? { ...item, title: editMilestoneTitle, date: editMilestoneDate || "TBD", description: editMilestoneDesc }
+                          : item
+                      );
+                      setTimeline(updated);
+                      saveProjectData(updated);
+                      setSelectedTimelineItem({ ...selectedTimelineItem, title: editMilestoneTitle, date: editMilestoneDate || "TBD", description: editMilestoneDesc });
+                      setIsEditingMilestone(false);
+                      showToast("Milestone updated successfully!");
+                    }}
+                    disabled={!editMilestoneTitle}
+                    className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold transition-all disabled:opacity-50"
+                  >
+                    Save Changes
+                  </button>
+                </>
               ) : (
-                <p className="text-slate-500 italic">Detailed notes, links, and requirements for this milestone will appear here when the full system is connected.</p>
+                <>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => setMilestoneToDelete(selectedTimelineItem)} 
+                      className="px-4 py-2 bg-red-950 hover:bg-red-900 border border-red-500/20 hover:border-red-500/40 text-red-400 rounded-xl font-bold text-sm transition-all"
+                    >
+                      Delete
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setEditMilestoneTitle(selectedTimelineItem.title);
+                        setEditMilestoneDate(selectedTimelineItem.date);
+                        setEditMilestoneDesc(selectedTimelineItem.description || "");
+                        setIsEditingMilestone(true);
+                      }} 
+                      className="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-xl font-bold text-sm transition-all"
+                    >
+                      Edit
+                    </button>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => setSelectedTimelineItem(null)} className="px-4 py-2 text-slate-400 font-medium hover:text-white transition-colors">Close</button>
+                    <button 
+                      onClick={() => { toggleTimeline(selectedTimelineItem.id); setSelectedTimelineItem(null); }}
+                      className={`px-5 py-2 rounded-xl font-bold transition-all shadow-lg text-sm ${
+                        selectedTimelineItem.completed 
+                          ? 'bg-slate-855 border border-slate-700 text-slate-300 hover:bg-slate-700' 
+                          : 'bg-blue-600 text-white hover:bg-blue-500 hover:shadow-blue-500/25'
+                      }`}
+                    >
+                      {selectedTimelineItem.completed ? 'Mark Pending' : 'Complete'}
+                    </button>
+                  </div>
+                </>
               )}
-            </div>
-            
-            <div className="flex justify-end gap-4 relative z-10">
-              <button onClick={() => setSelectedTimelineItem(null)} className="px-5 py-2.5 text-slate-400 font-medium hover:text-white transition-colors">Close</button>
-              <button 
-                onClick={() => { toggleTimeline(selectedTimelineItem.id); setSelectedTimelineItem(null); }}
-                className={`px-6 py-2.5 rounded-xl font-bold transition-all shadow-lg ${
-                  selectedTimelineItem.completed 
-                    ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' 
-                    : 'bg-blue-600 text-white hover:bg-blue-500 hover:shadow-blue-500/25'
-                }`}
-              >
-                {selectedTimelineItem.completed ? 'Mark as Pending' : 'Complete Milestone'}
-              </button>
             </div>
           </motion.div>
         </div>
       )}
 
       {selectedTitle && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm" onClick={() => setSelectedTitle(null)}>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm" onClick={() => { if (!isEditingTitle) setSelectedTitle(null); }}>
           <motion.div 
             initial={{ opacity: 0, scale: 0.95, y: 20 }} 
             animate={{ opacity: 1, scale: 1, y: 0 }} 
@@ -1260,32 +1880,131 @@ export default function CreatorProjectDetails() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-[80px] pointer-events-none" />
-            <div className="mb-8 relative z-10">
-              <span className="px-4 py-1.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full text-xs font-bold inline-block mb-4 shadow-sm">
-                {selectedTitle.type}
-              </span>
-              <h3 className="text-3xl font-extrabold text-white leading-tight">{selectedTitle.text}</h3>
-            </div>
             
-            <div className="space-y-4 mb-8 relative z-10">
-              <div className="bg-slate-950/50 p-5 rounded-2xl border border-slate-800">
-                <h4 className="text-xs font-black text-slate-500 mb-2 uppercase tracking-widest">Visual Hook Idea</h4>
-                <p className="text-slate-300 leading-relaxed">A striking visual of the subject with glowing neon outlines, pointing directly at a blurred background element.</p>
+            {isEditingTitle ? (
+              <div className="space-y-4 mb-6 relative z-10">
+                <h3 className="text-xl font-bold text-white mb-4">Edit Title & Hook</h3>
+                <div>
+                  <label className="block text-sm font-medium text-slate-400 mb-1">Title Text *</label>
+                  <input 
+                    type="text" 
+                    value={editTitleText}
+                    onChange={(e) => setEditTitleText(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white focus:outline-none focus:border-emerald-500 transition-colors" 
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-400 mb-1">Category / Type</label>
+                  <input 
+                    type="text" 
+                    value={editTitleType}
+                    onChange={(e) => setEditTitleType(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white focus:outline-none focus:border-emerald-500 transition-colors" 
+                    placeholder="e.g. High retention hook, Vlog"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-400 mb-1">Visual Hook Idea</label>
+                  <input 
+                    type="text" 
+                    value={editTitleHook}
+                    onChange={(e) => setEditTitleHook(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white focus:outline-none focus:border-emerald-500 transition-colors" 
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-400 mb-1">Script Intro</label>
+                  <textarea 
+                    value={editTitleScript}
+                    onChange={(e) => setEditTitleScript(e.target.value)}
+                    className="w-full h-20 bg-slate-950 border border-slate-800 rounded-lg p-3 text-white focus:outline-none focus:border-emerald-500 transition-colors resize-none" 
+                  />
+                </div>
               </div>
-              <div className="bg-slate-950/50 p-5 rounded-2xl border border-slate-800">
-                <h4 className="text-xs font-black text-slate-500 mb-2 uppercase tracking-widest">Script Intro</h4>
-                <p className="text-slate-300 italic leading-relaxed">"You have been lied to about this your entire life, and today I'm going to prove it."</p>
-              </div>
-            </div>
+            ) : (
+              <>
+                <div className="mb-8 relative z-10">
+                  <span className="px-4 py-1.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full text-xs font-bold inline-block mb-4 shadow-sm">
+                    {selectedTitle.type}
+                  </span>
+                  <h3 className="text-3xl font-extrabold text-white leading-tight">{selectedTitle.text}</h3>
+                </div>
+                
+                <div className="space-y-4 mb-8 relative z-10">
+                  <div className="bg-slate-950/50 p-5 rounded-2xl border border-slate-800">
+                    <h4 className="text-xs font-black text-slate-500 mb-2 uppercase tracking-widest">Visual Hook Idea</h4>
+                    <p className="text-slate-300 leading-relaxed">{selectedTitle.hook || "A striking visual of the subject with glowing neon outlines, pointing directly at a blurred background element."}</p>
+                  </div>
+                  <div className="bg-slate-950/50 p-5 rounded-2xl border border-slate-800">
+                    <h4 className="text-xs font-black text-slate-500 mb-2 uppercase tracking-widest">Script Intro</h4>
+                    <p className="text-slate-300 italic leading-relaxed">{selectedTitle.script || "\"You have been lied to about this your entire life, and today I'm going to prove it.\""}</p>
+                  </div>
+                </div>
+              </>
+            )}
             
-            <div className="flex justify-end gap-4 relative z-10">
-              <button onClick={() => setSelectedTitle(null)} className="px-5 py-2.5 text-slate-400 font-medium hover:text-white transition-colors cursor-pointer">Close</button>
-              <button 
-                onClick={() => handlePromoteTitleToContent(selectedTitle)}
-                className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold transition-all shadow-lg shadow-emerald-500/25 cursor-pointer"
-              >
-                Promote to Content
-              </button>
+            <div className="flex flex-wrap justify-between items-center gap-4 relative z-10 border-t border-slate-800/80 pt-5">
+              {isEditingTitle ? (
+                <>
+                  <button 
+                    onClick={() => setIsEditingTitle(false)} 
+                    className="px-5 py-2.5 text-slate-400 font-medium hover:text-white transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={() => {
+                      if (!editTitleText) return;
+                      const updated = titles.map(item => 
+                        item.id === selectedTitle.id 
+                          ? { ...item, text: editTitleText, type: editTitleType || "General", hook: editTitleHook, script: editTitleScript }
+                          : item
+                      );
+                      setTitles(updated);
+                      saveProjectData(undefined, updated);
+                      setSelectedTitle({ ...selectedTitle, text: editTitleText, type: editTitleType || "General", hook: editTitleHook, script: editTitleScript });
+                      setIsEditingTitle(false);
+                      showToast("Title updated successfully!");
+                    }}
+                    disabled={!editTitleText}
+                    className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold transition-all disabled:opacity-50"
+                  >
+                    Save Changes
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => setTitleToDelete(selectedTitle)} 
+                      className="px-4 py-2 bg-red-950 hover:bg-red-900 border border-red-500/20 hover:border-red-500/40 text-red-400 rounded-xl font-bold text-sm transition-all"
+                    >
+                      Delete
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setEditTitleText(selectedTitle.text);
+                        setEditTitleType(selectedTitle.type || "");
+                        setEditTitleHook(selectedTitle.hook || "");
+                        setEditTitleScript(selectedTitle.script || "");
+                        setIsEditingTitle(true);
+                      }} 
+                      className="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-xl font-bold text-sm transition-all"
+                    >
+                      Edit
+                    </button>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => setSelectedTitle(null)} className="px-5 py-2.5 text-slate-400 font-medium hover:text-white transition-colors cursor-pointer">Close</button>
+                    <button 
+                      onClick={() => handlePromoteTitleToContent(selectedTitle)}
+                      className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold transition-all shadow-lg shadow-emerald-500/25 cursor-pointer"
+                    >
+                      Promote to Content
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </motion.div>
         </div>
@@ -1426,10 +2145,16 @@ export default function CreatorProjectDetails() {
               </button>
               <button 
                 onClick={handleSaveSingleMilestone}
-                disabled={!newMilestoneTitle}
-                className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={!newMilestoneTitle || isSavingNewMilestone}
+                className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
-                Add Milestone
+                {isSavingNewMilestone ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" /> Adding...
+                  </>
+                ) : (
+                  "Add Milestone"
+                )}
               </button>
             </div>
           </motion.div>
@@ -1500,10 +2225,16 @@ export default function CreatorProjectDetails() {
               </button>
               <button 
                 onClick={handleSaveSingleTitle}
-                disabled={!newTitleText}
-                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={!newTitleText || isSavingNewTitle}
+                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
-                Add Title
+                {isSavingNewTitle ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" /> Adding...
+                  </>
+                ) : (
+                  "Add Title"
+                )}
               </button>
             </div>
           </motion.div>
@@ -1647,240 +2378,1060 @@ export default function CreatorProjectDetails() {
       )}
 
       {/* Add New Content Modal */}
-      {isAddingContent && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={closeAddContentModal}>
+      <CreateContentModal 
+        isOpen={isAddingContent}
+        onClose={() => setIsAddingContent(false)}
+        projectId={id as string}
+        onSaveContent={async (item) => {
+          const updatedContents = [...contents, item];
+          setContents(updatedContents);
+          await saveProjectData(undefined, undefined, updatedContents);
+        }}
+      />
+
+      {/* Delete Video Confirmation Modal */}
+      {videoToDelete && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => !isDeletingVideo && setVideoToDelete(null)}>
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-sm p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <h3 className="text-xl font-bold text-white mb-2">Delete Video?</h3>
+            <p className="text-sm text-slate-400 mb-6 break-words">Are you sure you want to delete "{videoToDelete.title}"? This cannot be undone.</p>
+            
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setVideoToDelete(null)}
+                disabled={isDeletingVideo}
+                className="px-4 py-2 text-slate-400 hover:text-white text-sm font-semibold transition-colors disabled:opacity-50 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  setIsDeletingVideo(true);
+                  const updated = savedVideos.filter(v => v.id !== videoToDelete.id);
+                  setSavedVideos(updated);
+                  await saveProjectData(undefined, undefined, undefined, updated);
+                  setIsDeletingVideo(false);
+                  setVideoToDelete(null);
+                  showToast("Video deleted successfully!");
+                }}
+                disabled={isDeletingVideo}
+                className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-xl font-bold text-sm transition-colors flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+              >
+                {isDeletingVideo ? <><Loader2 className="w-4 h-4 animate-spin" /> Deleting...</> : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Delete Videos Confirmation Modal */}
+      {showBulkDeleteVideoConfirm && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => !isBulkDeletingVideos && setShowBulkDeleteVideoConfirm(false)}>
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-sm p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <h3 className="text-xl font-bold text-white mb-2">Delete {selectedVideoIds.length} Videos?</h3>
+            <p className="text-sm text-slate-400 mb-6">Are you sure you want to delete the selected videos? This cannot be undone.</p>
+            
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowBulkDeleteVideoConfirm(false)}
+                disabled={isBulkDeletingVideos}
+                className="px-4 py-2 text-slate-400 hover:text-white text-sm font-semibold transition-colors disabled:opacity-50 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  setIsBulkDeletingVideos(true);
+                  const updated = savedVideos.filter(v => !selectedVideoIds.includes(v.id));
+                  setSavedVideos(updated);
+                  await saveProjectData(undefined, undefined, undefined, updated);
+                  setIsBulkDeletingVideos(false);
+                  setShowBulkDeleteVideoConfirm(false);
+                  setSelectedVideoIds([]);
+                  showToast(`${selectedVideoIds.length} videos deleted!`);
+                }}
+                disabled={isBulkDeletingVideos}
+                className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-xl font-bold text-sm transition-colors flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+              >
+                {isBulkDeletingVideos ? <><Loader2 className="w-4 h-4 animate-spin" /> Deleting...</> : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Milestone Confirmation Modal */}
+      {milestoneToDelete && (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => !isDeletingMilestone && setMilestoneToDelete(null)}>
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-sm p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <h3 className="text-xl font-bold text-white mb-2">Delete Milestone?</h3>
+            <p className="text-sm text-slate-400 mb-6 break-words">Are you sure you want to delete "{milestoneToDelete.title}"? This cannot be undone.</p>
+            
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setMilestoneToDelete(null)}
+                disabled={isDeletingMilestone}
+                className="px-4 py-2 text-slate-400 hover:text-white text-sm font-semibold transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  setIsDeletingMilestone(true);
+                  const updated = timeline.filter(item => item.id !== milestoneToDelete.id);
+                  setTimeline(updated);
+                  await saveProjectData(updated);
+                  setIsDeletingMilestone(false);
+                  setMilestoneToDelete(null);
+                  setSelectedTimelineItem(null); // Close the detail modal too
+                  showToast("Milestone deleted successfully!");
+                }}
+                disabled={isDeletingMilestone}
+                className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-xl font-bold text-sm transition-colors flex items-center gap-2 disabled:opacity-50"
+              >
+                {isDeletingMilestone ? <><Loader2 className="w-4 h-4 animate-spin" /> Deleting...</> : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Title Confirmation Modal */}
+      {titleToDelete && (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => !isDeletingTitle && setTitleToDelete(null)}>
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-sm p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <h3 className="text-xl font-bold text-white mb-2">Delete Title Idea?</h3>
+            <p className="text-sm text-slate-400 mb-6 break-words">Are you sure you want to delete "{titleToDelete.text}"? This cannot be undone.</p>
+            
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setTitleToDelete(null)}
+                disabled={isDeletingTitle}
+                className="px-4 py-2 text-slate-400 hover:text-white text-sm font-semibold transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  setIsDeletingTitle(true);
+                  const updated = titles.filter(item => item.id !== titleToDelete.id);
+                  setTitles(updated);
+                  await saveProjectData(undefined, updated);
+                  setIsDeletingTitle(false);
+                  setTitleToDelete(null);
+                  setSelectedTitle(null); // Close the detail modal too
+                  showToast("Title deleted successfully!");
+                }}
+                disabled={isDeletingTitle}
+                className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-xl font-bold text-sm transition-colors flex items-center gap-2 disabled:opacity-50"
+              >
+                {isDeletingTitle ? <><Loader2 className="w-4 h-4 animate-spin" /> Deleting...</> : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Image Confirmation Modal */}
+      {imageToDelete && (
+        <div className="fixed inset-0 z-[140] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => !isDeletingImage && setImageToDelete(null)}>
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-sm p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <h3 className="text-xl font-bold text-white mb-2">Delete Image?</h3>
+            <p className="text-sm text-slate-400 mb-6 break-words">Are you sure you want to delete this image? This cannot be undone.</p>
+            
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setImageToDelete(null)}
+                disabled={isDeletingImage}
+                className="px-4 py-2 text-slate-400 hover:text-white text-sm font-semibold transition-colors disabled:opacity-50 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  setIsDeletingImage(true);
+                  const updated = savedImages.filter(item => {
+                    const url = typeof item === "string" ? item : item.url;
+                    const deleteUrl = typeof imageToDelete === "string" ? imageToDelete : imageToDelete.url;
+                    return url !== deleteUrl;
+                  });
+                  setSavedImages(updated);
+                  await saveProjectData(undefined, undefined, undefined, undefined, updated);
+                  setIsDeletingImage(false);
+                  setImageToDelete(null);
+                  setActivePreviewImageIndex(null); // Close preview modal
+                  showToast("Image deleted successfully!");
+                }}
+                disabled={isDeletingImage}
+                className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-xl font-bold text-sm transition-colors flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+              >
+                {isDeletingImage ? <><Loader2 className="w-4 h-4 animate-spin" /> Deleting...</> : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Delete Images Confirmation Modal */}
+      {showBulkDeleteImageConfirm && (
+        <div className="fixed inset-0 z-[140] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => !isBulkDeletingImages && setShowBulkDeleteImageConfirm(false)}>
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-sm p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <h3 className="text-xl font-bold text-white mb-2">Delete {selectedImageIds.length} Items?</h3>
+            <p className="text-sm text-slate-400 mb-6">Are you sure you want to delete the selected images and carousels? This cannot be undone.</p>
+            
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowBulkDeleteImageConfirm(false)}
+                disabled={isBulkDeletingImages}
+                className="px-4 py-2 text-slate-400 hover:text-white text-sm font-semibold transition-colors disabled:opacity-50 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  setIsBulkDeletingImages(true);
+                  const updated = savedImages.filter((img, idx) => {
+                    const imgId = typeof img === "string" ? idx : (img.id || idx);
+                    return !selectedImageIds.includes(imgId);
+                  });
+                  setSavedImages(updated);
+                  await saveProjectData(undefined, undefined, undefined, undefined, updated);
+                  setIsBulkDeletingImages(false);
+                  setShowBulkDeleteImageConfirm(false);
+                  setSelectedImageIds([]);
+                  showToast(`${selectedImageIds.length} items deleted!`);
+                }}
+                disabled={isBulkDeletingImages}
+                className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-xl font-bold text-sm transition-colors flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+              >
+                {isBulkDeletingImages ? <><Loader2 className="w-4 h-4 animate-spin" /> Deleting...</> : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Image Preview Modal */}
+      {activePreviewImageIndex !== null && (
+        <div 
+          className="fixed inset-0 z-[125] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm"
+          onClick={() => { if (!isEditingImagePlayer) setActivePreviewImageIndex(null); }}
+        >
+          {(() => {
+            const getImageUrl = (img: any, idx?: number) => {
+              if (typeof img === "string") return img;
+              if (img.type === "carousel" && img.urls && img.urls.length > 0) {
+                return img.urls[idx !== undefined ? idx : activeCarouselSlideIndex] || img.urls[0];
+              }
+              return img.url || "";
+            };
+            const getImageDownloadCount = (img: any) => typeof img === "string" ? 0 : (img.downloadCount || 0);
+            const getImageId = (img: any, idx: number) => typeof img === "string" ? idx : (img.id || idx);
+            const getImageTitle = (img: any, idx: number) => typeof img === "string" ? `Image ${idx + 1}` : (img.title || `Image ${idx + 1}`);
+            const getImageNote = (img: any) => typeof img === "string" ? "" : (img.note || "");
+            const currentImg = savedImages[activePreviewImageIndex];
+            const isCarousel = currentImg && currentImg.type === "carousel";
+
+            return (
+              <div className="w-full max-w-4xl bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden p-6 shadow-2xl flex flex-col" onClick={e => e.stopPropagation()}>
+                <div className="w-full flex justify-between items-center mb-4 text-white">
+                  {isEditingImagePlayer ? (
+                    <input
+                      type="text"
+                      value={editImageTitle}
+                      onChange={e => setEditImageTitle(e.target.value)}
+                      className="bg-slate-950 border border-slate-700 rounded-xl px-4 py-2 text-white font-bold text-lg w-full max-w-lg focus:outline-none focus:border-emerald-500"
+                    />
+                  ) : (
+                    <h3 className="text-white font-bold text-xl">{getImageTitle(currentImg, activePreviewImageIndex)}</h3>
+                  )}
+                  <button onClick={() => setActivePreviewImageIndex(null)} className="text-slate-400 hover:text-white p-2 transition-colors cursor-pointer">
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+
+                {/* Main Preview Container with Carousel arrows */}
+                <div className="relative w-full aspect-video md:aspect-[16/10] bg-slate-950 rounded-2xl overflow-hidden border border-slate-800 flex items-center justify-center shadow-inner group">
+                  <img 
+                    src={getImageUrl(currentImg)} 
+                    alt={`Image preview ${activePreviewImageIndex}`} 
+                    className="max-w-full max-h-full object-contain" 
+                  />
+                  
+                  {/* Outer arrows: navigate gallery items (only if not editing and NOT on carousel slide navigation) */}
+                  {savedImages.length > 1 && !isEditingImagePlayer && !isCarousel && (
+                    <>
+                      <button 
+                        onClick={() => setActivePreviewImageIndex((prev) => (prev! - 1 + savedImages.length) % savedImages.length)} 
+                        className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-black/80 text-white rounded-full p-3 backdrop-blur-sm transition-all border border-slate-800/50 shadow-md cursor-pointer"
+                      >
+                        <ChevronLeft className="w-6 h-6" />
+                      </button>
+                      <button 
+                        onClick={() => setActivePreviewImageIndex((prev) => (prev! + 1) % savedImages.length)} 
+                        className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-black/80 text-white rounded-full p-3 backdrop-blur-sm transition-all border border-slate-800/50 shadow-md cursor-pointer"
+                      >
+                        <ChevronRight className="w-6 h-6" />
+                      </button>
+                    </>
+                  )}
+
+                  {/* Inner Carousel arrows: navigate carousel urls */}
+                  {isCarousel && currentImg.urls && currentImg.urls.length > 1 && !isEditingImagePlayer && (
+                    <>
+                      <button 
+                        onClick={() => setActiveCarouselSlideIndex((prev) => (prev - 1 + currentImg.urls.length) % currentImg.urls.length)} 
+                        className="absolute left-4 top-1/2 -translate-y-1/2 bg-slate-900/80 hover:bg-slate-900 border border-slate-700 text-white rounded-full p-2 backdrop-blur-sm transition-all shadow-md cursor-pointer"
+                      >
+                        <ChevronLeft className="w-5 h-5" />
+                      </button>
+                      <button 
+                        onClick={() => setActiveCarouselSlideIndex((prev) => (prev + 1) % currentImg.urls.length)} 
+                        className="absolute right-4 top-1/2 -translate-y-1/2 bg-slate-900/80 hover:bg-slate-900 border border-slate-700 text-white rounded-full p-2 backdrop-blur-sm transition-all shadow-md cursor-pointer"
+                      >
+                        <ChevronRight className="w-5 h-5" />
+                      </button>
+
+                      {/* Dots inside the carousel */}
+                      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 z-10 bg-black/40 px-2.5 py-1 rounded-full backdrop-blur-sm">
+                        {currentImg.urls.map((_: any, i: number) => (
+                          <div 
+                            key={i} 
+                            onClick={() => setActiveCarouselSlideIndex(i)}
+                            className={`w-2 h-2 rounded-full cursor-pointer transition-colors ${
+                              i === activeCarouselSlideIndex ? "bg-amber-400" : "bg-white/40 hover:bg-white/70"
+                            }`} 
+                          />
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* Metadata and Description */}
+                <div className="space-y-4 mt-5 text-left">
+                  <div className="bg-slate-950/60 p-5 rounded-2xl border border-slate-800 relative">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-xs font-black text-slate-500 uppercase tracking-widest">Description</span>
+                      {!isEditingImagePlayer && (
+                        <button
+                          onClick={() => {
+                            if (!getImageNote(currentImg)) return;
+                            navigator.clipboard.writeText(getImageNote(currentImg));
+                            showToast("Description copied to clipboard!");
+                          }}
+                          disabled={!getImageNote(currentImg)}
+                          className={`text-xs font-semibold flex items-center gap-1.5 transition-colors px-2.5 py-1 rounded-lg border ${
+                            getImageNote(currentImg)
+                              ? "text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 border-emerald-500/10 cursor-pointer"
+                              : "text-slate-600 bg-slate-800/30 border-slate-800 cursor-not-allowed"
+                          }`}
+                        >
+                          <Copy className="w-3.5 h-3.5" /> Copy
+                        </button>
+                      )}
+                    </div>
+                    
+                    {isEditingImagePlayer ? (
+                      <textarea
+                        rows={3}
+                        value={editImageNote}
+                        onChange={e => setEditImageNote(e.target.value)}
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors resize-none"
+                      />
+                    ) : (
+                      <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">
+                        {getImageNote(currentImg) || <span className="text-slate-500 italic">No description added to this image.</span>}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex justify-end gap-3 pt-2">
+                    {isEditingImagePlayer ? (
+                      <>
+                        <button
+                          onClick={() => setIsEditingImagePlayer(false)}
+                          className="px-5 py-2.5 text-slate-400 font-semibold hover:text-white transition-colors text-sm"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          disabled={isSavingImagePlayerEdit || !editImageTitle}
+                          onClick={async () => {
+                            if (!editImageTitle) return;
+                            setIsSavingImagePlayerEdit(true);
+                            const updated = savedImages.map((v, i) => i === activePreviewImageIndex ? { ...v, title: editImageTitle, note: editImageNote } : v);
+                            setSavedImages(updated);
+                            await saveProjectData(undefined, undefined, undefined, undefined, updated);
+                            setIsSavingImagePlayerEdit(false);
+                            setIsEditingImagePlayer(false);
+                            showToast("Image details updated!");
+                          }}
+                          className={`px-5 py-2.5 text-white rounded-xl font-bold transition-all text-sm shadow-lg flex items-center gap-2 ${
+                            isSavingImagePlayerEdit ? "bg-emerald-800 cursor-not-allowed" : "bg-emerald-600 hover:bg-emerald-500 shadow-emerald-500/25"
+                          }`}
+                        >
+                          {isSavingImagePlayerEdit ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" /> Saving...
+                            </>
+                          ) : (
+                            "Save Changes"
+                          )}
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button 
+                          onClick={() => setImageToDelete(currentImg)}
+                          className="px-5 py-2.5 bg-red-950 hover:bg-red-900 border border-red-500/20 hover:border-red-500/40 text-red-400 rounded-xl font-bold text-sm transition-all"
+                        >
+                          Delete Image
+                        </button>
+                        
+                        <button
+                          onClick={() => {
+                            setEditImageTitle(getImageTitle(currentImg, activePreviewImageIndex!));
+                            setEditImageNote(getImageNote(currentImg));
+                            setIsEditingImagePlayer(true);
+                          }}
+                          className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-xl font-bold transition-all text-sm"
+                        >
+                          Edit Details
+                        </button>
+
+                        <button 
+                          onClick={async () => {
+                            if (isCarousel && currentImg.urls) {
+                              currentImg.urls.forEach((url: string, i: number) => {
+                                const a = document.createElement("a");
+                                a.href = url;
+                                a.download = `carousel-${getImageId(currentImg, activePreviewImageIndex!)}-${i}.jpg`;
+                                a.target = "_blank";
+                                a.click();
+                              });
+                            } else {
+                              const a = document.createElement("a");
+                              a.href = getImageUrl(currentImg);
+                              a.download = `image-${getImageId(currentImg, activePreviewImageIndex!)}.jpg`;
+                              a.target = "_blank";
+                              a.click();
+                            }
+
+                            const updated = savedImages.map((item, i) => {
+                              if (i === activePreviewImageIndex) {
+                                return { ...item, downloadCount: getImageDownloadCount(item) + 1 };
+                              }
+                              return item;
+                            });
+                            setSavedImages(updated);
+                            await saveProjectData(undefined, undefined, undefined, undefined, updated);
+                            showToast("Image download started!");
+                          }}
+                          className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-sm transition-all flex items-center gap-1.5"
+                        >
+                          <Download className="w-4 h-4" /> Download ({getImageDownloadCount(currentImg)})
+                        </button>
+                        <button 
+                          onClick={() => setActivePreviewImageIndex(null)} 
+                          className="px-5 py-2.5 bg-slate-850 hover:bg-slate-800 border border-slate-700 text-slate-300 rounded-xl font-bold text-sm transition-all"
+                        >
+                          Close
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
+      {/* Add Image Modal */}
+      {showAddImage && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => !isUploadingSingleImage && !isUploadingCarousel && setShowAddImage(false)}>
           <motion.div 
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-2xl p-6 shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
+            className="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-lg p-6 shadow-2xl"
+            onClick={e => e.stopPropagation()}
           >
-            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-              <Plus className="w-5 h-5 text-emerald-500" />
-              Add New Content
-            </h2>
+            <div className="flex justify-between items-center mb-5">
+              <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                <ImageIcon className="w-5 h-5 text-emerald-400" /> 
+                {imageUploadMode === "choice" ? "Add Image" : imageUploadMode === "single" ? "Single Image Upload" : "Create Carousel Post"}
+              </h2>
+              <button onClick={() => !isUploadingSingleImage && !isUploadingCarousel && setShowAddImage(false)} className="text-slate-400 hover:text-white cursor-pointer"><X className="w-5 h-5" /></button>
+            </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-              {/* Left Column */}
+            {imageUploadMode === "choice" && !isUploadingImages && (
+              <div className="flex flex-col gap-4 py-4">
+                <button 
+                  onClick={() => setImageUploadMode("single")}
+                  className="bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl p-6 text-left transition-colors flex items-center gap-4 group cursor-pointer"
+                >
+                  <div className="w-12 h-12 bg-emerald-500/10 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform shrink-0">
+                    <Plus className="w-6 h-6 text-emerald-400" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-white text-lg">Single Upload</h3>
+                    <p className="text-sm text-slate-400">Add a single image, name it, and add a description.</p>
+                  </div>
+                </button>
+
+                <button 
+                  onClick={() => setImageUploadMode("carousel")}
+                  className="bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl p-6 text-left transition-colors flex items-center gap-4 group cursor-pointer"
+                >
+                  <div className="w-12 h-12 bg-amber-500/10 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform shrink-0">
+                    <Copy className="w-6 h-6 text-amber-400" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-white text-lg">Create Carousel</h3>
+                    <p className="text-sm text-slate-400">Upload multiple images as a single grouped carousel post.</p>
+                  </div>
+                </button>
+
+                <button 
+                  onClick={() => multipleImageInputRef.current?.click()}
+                  className="bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl p-6 text-left transition-colors flex items-center gap-4 group cursor-pointer"
+                >
+                  <div className="w-12 h-12 bg-purple-500/10 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform shrink-0">
+                    <LayoutGrid className="w-6 h-6 text-purple-400" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-white text-lg">Bulk Upload</h3>
+                    <p className="text-sm text-slate-400">Select multiple image files and upload them as separate items.</p>
+                  </div>
+                </button>
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  multiple 
+                  className="hidden" 
+                  ref={multipleImageInputRef} 
+                  onChange={async (e) => {
+                    if (e.target.files && e.target.files.length > 0) {
+                      setIsUploadingImages(true);
+                      setUploadProgressImages(0);
+                      const files = Array.from(e.target.files);
+                      const newImages: any[] = [];
+                      for (let i = 0; i < files.length; i++) {
+                        const file = files[i];
+                        try {
+                          const formData = new FormData();
+                          formData.append("file", file);
+                          const res = await fetch("/api/uploads", { method: "POST", body: formData });
+                          const data = await res.json();
+                          if (data.success && data.url) {
+                            newImages.push({
+                              id: Date.now() + i,
+                              url: data.url,
+                              title: file.name.substring(0, file.name.lastIndexOf('.')) || file.name,
+                              note: "",
+                              downloadCount: 0
+                            });
+                          }
+                        } catch (err) {
+                          console.error(err);
+                        }
+                        setUploadProgressImages(Math.round(((i + 1) / files.length) * 100));
+                      }
+                      if (newImages.length > 0) {
+                        const updated = [...savedImages, ...newImages];
+                        setSavedImages(updated);
+                        await saveProjectData(undefined, undefined, undefined, undefined, updated);
+                        showToast(`${newImages.length} image(s) uploaded successfully!`);
+                      }
+                      setIsUploadingImages(false);
+                      setShowAddImage(false);
+                    }
+                  }} 
+                />
+              </div>
+            )}
+
+            {isUploadingImages && imageUploadMode === "choice" && (
+              <div className="py-12 flex flex-col items-center justify-center text-center">
+                <Loader2 className="w-12 h-12 animate-spin text-emerald-400 mb-4" />
+                <h3 className="text-lg font-bold text-white mb-2">Uploading Images...</h3>
+                <p className="text-slate-400 text-sm mb-6">Please keep this window open.</p>
+                <div className="w-full max-w-xs bg-slate-800 rounded-full h-2 overflow-hidden">
+                  <div className="bg-emerald-500 h-2 rounded-full transition-all duration-300" style={{ width: `${uploadProgressImages}%` }} />
+                </div>
+                <p className="mt-3 text-sm font-semibold text-emerald-400">{uploadProgressImages}% Complete</p>
+              </div>
+            )}
+
+            {imageUploadMode === "single" && (
               <div className="space-y-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1">Content Title *</label>
-                  <input 
-                    type="text" 
-                    value={newContentTitle}
-                    onChange={(e) => setNewContentTitle(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white text-sm focus:outline-none focus:border-emerald-500 transition-colors" 
-                    placeholder="e.g. My 5 AM Morning Routine" 
-                  />
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-400 mb-1">Format</label>
-                    <select 
-                      value={newContentType}
-                      onChange={(e) => setNewContentType(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white text-sm focus:outline-none focus:border-emerald-500 transition-colors"
-                    >
-                      <option value="Video">Video</option>
-                      <option value="Short">Short</option>
-                      <option value="Text">Text</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-400 mb-1">Status</label>
-                    <select 
-                      value={newContentStatus}
-                      onChange={(e) => setNewContentStatus(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white text-sm focus:outline-none focus:border-emerald-500 transition-colors"
-                    >
-                      <option value="Draft">Draft</option>
-                      <option value="Filming">Filming</option>
-                      <option value="Editing">Editing</option>
-                      <option value="In Review">In Review</option>
-                      <option value="Published">Published</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1">Upload Video File</label>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">Select Image File</label>
                   <div className="relative">
                     <input
                       type="file"
-                      accept="video/*"
-                      onChange={handleVideoUpload}
-                      disabled={isUploading}
+                      accept="image/*"
+                      onChange={async (e) => {
+                        if (e.target.files && e.target.files[0]) {
+                          setIsUploadingSingleImage(true);
+                          const file = e.target.files[0];
+                          try {
+                            const formData = new FormData();
+                            formData.append("file", file);
+                            const res = await fetch("/api/uploads", { method: "POST", body: formData });
+                            const data = await res.json();
+                            if (data.success && data.url) {
+                              setImageFormUrl(data.url);
+                              setImageFormTitle(file.name.substring(0, file.name.lastIndexOf('.')) || file.name);
+                            }
+                          } catch (err) {
+                            console.error(err);
+                          }
+                          setIsUploadingSingleImage(false);
+                        }
+                      }}
+                      disabled={isUploadingSingleImage}
                       className="hidden"
-                      id="content-video-file-upload"
+                      id="single-image-file-upload"
                     />
-                    <label
-                      htmlFor="content-video-file-upload"
-                      className={`w-full flex flex-col items-center justify-center gap-1.5 bg-slate-950 hover:bg-slate-950/80 border border-slate-800 border-dashed rounded-xl p-4 text-sm text-slate-300 hover:text-white cursor-pointer transition-all hover:border-emerald-500/50 ${
-                        isUploading ? "opacity-50 cursor-not-allowed" : ""
-                      }`}
-                    >
-                      {isUploading ? (
-                        <div className="flex flex-col items-center gap-1 w-full">
-                          <Loader2 className="w-5 h-5 animate-spin text-emerald-400" />
-                          <span className="font-semibold text-[10px]">Uploading ({uploadProgress}%)...</span>
-                          <div className="w-full bg-slate-800 rounded-full h-1 mt-1 overflow-hidden">
-                            <div 
-                              className="bg-emerald-500 h-1 rounded-full transition-all duration-300" 
-                              style={{ width: `${uploadProgress}%` }}
-                            />
-                          </div>
-                        </div>
-                      ) : (
-                        <>
-                          <Upload className="w-5 h-5 text-emerald-400" />
-                          <span className="font-medium text-xs">Select video from computer</span>
-                        </>
-                      )}
-                    </label>
+                    {imageFormUrl ? (
+                      <div className="relative rounded-xl overflow-hidden bg-slate-950 border border-slate-700 aspect-video flex items-center justify-center">
+                        <img src={imageFormUrl} alt="Preview" className="w-full h-full object-contain" />
+                        <button onClick={() => setImageFormUrl("")} className="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white rounded-full p-1.5 transition-colors cursor-pointer">
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <label htmlFor="single-image-file-upload" className="flex flex-col items-center justify-center border-2 border-dashed border-slate-700 rounded-xl h-40 hover:border-emerald-500/50 hover:bg-slate-800/30 transition-colors cursor-pointer text-slate-500">
+                        {isUploadingSingleImage ? (
+                          <>
+                            <Loader2 className="w-8 h-8 animate-spin text-emerald-400 mb-2" />
+                            <span className="text-xs font-medium text-slate-400">Uploading to server...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="w-8 h-8 mb-2" />
+                            <span className="text-xs font-medium text-slate-400">Choose Image File</span>
+                          </>
+                        )}
+                      </label>
+                    )}
                   </div>
-                  {uploadError && <p className="text-xs text-red-400 mt-1">{uploadError}</p>}
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1">Video URL <span className="text-slate-600">(if hosted online)</span></label>
-                  <input 
-                    type="url" 
-                    value={newContentVideo}
-                    onChange={(e) => setNewContentVideo(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white text-sm focus:outline-none focus:border-emerald-500 transition-colors" 
-                    placeholder="https://..." 
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">Image Name / Title</label>
+                  <input
+                    type="text"
+                    value={imageFormTitle}
+                    onChange={e => setImageFormTitle(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-850 rounded-xl p-3 text-white text-sm focus:outline-none focus:border-emerald-500"
+                    placeholder="Enter name..."
                   />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">Description / Notes (Optional)</label>
+                  <textarea
+                    rows={3}
+                    value={imageFormNote}
+                    onChange={e => setImageFormNote(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-850 rounded-xl p-3 text-white text-sm focus:outline-none focus:border-emerald-500 resize-none"
+                    placeholder="Describe this image..."
+                  />
+                </div>
+
+                <div className="flex justify-end gap-3 pt-3 border-t border-slate-800">
+                  <button 
+                    onClick={() => {
+                      setImageUploadMode("choice");
+                      setImageFormUrl("");
+                      setImageFormTitle("");
+                      setImageFormNote("");
+                    }} 
+                    className="px-5 py-2 text-slate-400 hover:text-white text-sm font-semibold transition-colors cursor-pointer"
+                  >
+                    Back
+                  </button>
+                  <button
+                    disabled={!imageFormUrl || !imageFormTitle || isUploadingSingleImage || isSavingImage}
+                    onClick={async () => {
+                      setIsSavingImage(true);
+                      const newImgObj = {
+                        id: Date.now(),
+                        url: imageFormUrl,
+                        title: imageFormTitle,
+                        note: imageFormNote,
+                        downloadCount: 0
+                      };
+                      const updated = [...savedImages, newImgObj];
+                      setSavedImages(updated);
+                      await saveProjectData(undefined, undefined, undefined, undefined, updated);
+                      setIsSavingImage(false);
+                      showToast("Image added successfully!");
+                      setShowAddImage(false);
+                      setImageFormUrl("");
+                      setImageFormTitle("");
+                      setImageFormNote("");
+                    }}
+                    className={`px-5 py-2 rounded-xl font-bold text-sm transition-colors flex items-center gap-2 cursor-pointer ${
+                      isSavingImage ? "bg-emerald-800 text-white cursor-not-allowed" : "bg-emerald-600 hover:bg-emerald-500 text-white"
+                    }`}
+                  >
+                    {isSavingImage ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" /> Adding...
+                      </>
+                    ) : (
+                      "Add Image"
+                    )}
+                  </button>
                 </div>
               </div>
+            )}
 
-              {/* Right Column */}
+            {imageUploadMode === "carousel" && (
               <div className="space-y-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1">Content Idea / Details</label>
-                  <textarea 
-                    value={newContentDetails}
-                    onChange={(e) => setNewContentDetails(e.target.value)}
-                    rows={2}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white text-sm focus:outline-none focus:border-emerald-500 transition-colors resize-none text-slate-200" 
-                    placeholder="Concept overview, hooks, target audience..." 
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">Upload Carousel Images</label>
+                  <div className="relative">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={async (e) => {
+                        if (e.target.files && e.target.files.length > 0) {
+                          setIsUploadingCarousel(true);
+                          setUploadProgressImages(0);
+                          const files = Array.from(e.target.files);
+                          const uploadedUrls: string[] = [];
+                          for (let i = 0; i < files.length; i++) {
+                            const file = files[i];
+                            try {
+                              const formData = new FormData();
+                              formData.append("file", file);
+                              const res = await fetch("/api/uploads", { method: "POST", body: formData });
+                              const data = await res.json();
+                              if (data.success && data.url) {
+                                uploadedUrls.push(data.url);
+                              }
+                            } catch (err) {
+                              console.error(err);
+                            }
+                            setUploadProgressImages(Math.round(((i + 1) / files.length) * 100));
+                          }
+                          setCarouselUrls(prev => [...prev, ...uploadedUrls]);
+                          setIsUploadingCarousel(false);
+                        }
+                      }}
+                      disabled={isUploadingCarousel}
+                      className="hidden"
+                      id="carousel-files-upload"
+                    />
+
+                    {carouselUrls.length > 0 ? (
+                      <div className="space-y-3">
+                        <div className="relative aspect-video rounded-xl border border-slate-700 overflow-hidden bg-slate-950 flex items-center justify-center group">
+                          <img src={carouselUrls[activeCarouselFormSlideIndex]} alt="Carousel slide" className="w-full h-full object-contain" />
+                          <button 
+                            onClick={() => {
+                              const newUrls = carouselUrls.filter((_, i) => i !== activeCarouselFormSlideIndex);
+                              setCarouselUrls(newUrls);
+                              if (activeCarouselFormSlideIndex >= newUrls.length) {
+                                setActiveCarouselFormSlideIndex(Math.max(0, newUrls.length - 1));
+                              }
+                            }} 
+                            className="absolute top-2 right-2 bg-red-500/80 hover:bg-red-500 text-white rounded-full p-2 transition-colors shadow-md z-20 cursor-pointer"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                          
+                          {carouselUrls.length > 1 && (
+                            <>
+                              <button 
+                                onClick={() => setActiveCarouselFormSlideIndex((prev) => (prev - 1 + carouselUrls.length) % carouselUrls.length)} 
+                                className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-black/80 text-white rounded-full p-2 backdrop-blur-sm transition-all z-10 cursor-pointer"
+                              >
+                                <ChevronLeft className="w-5 h-5" />
+                              </button>
+                              <button 
+                                onClick={() => setActiveCarouselFormSlideIndex((prev) => (prev + 1) % carouselUrls.length)} 
+                                className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-black/80 text-white rounded-full p-2 backdrop-blur-sm transition-all z-10 cursor-pointer"
+                              >
+                                <ChevronRight className="w-5 h-5" />
+                              </button>
+                              
+                              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5 z-10 bg-black/40 px-2 py-1 rounded-full backdrop-blur-sm">
+                                {carouselUrls.map((_, i) => (
+                                  <div 
+                                    key={i} 
+                                    onClick={() => setActiveCarouselFormSlideIndex(i)}
+                                    className={`w-1.5 h-1.5 rounded-full cursor-pointer transition-colors ${
+                                      i === activeCarouselFormSlideIndex ? "bg-amber-400" : "bg-white/40 hover:bg-white/70"
+                                    }`} 
+                                  />
+                                ))}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                        
+                        <label htmlFor="carousel-files-upload" className="w-full flex items-center justify-center gap-2 border border-dashed border-slate-700 hover:border-amber-500/50 rounded-lg p-2 text-slate-500 hover:text-amber-400 transition-colors cursor-pointer text-sm font-medium">
+                          {isUploadingCarousel ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin text-amber-500" /> Uploading ({uploadProgressImages}%)...
+                            </>
+                          ) : (
+                            <>
+                              <Plus className="w-4 h-4" /> Add More Images
+                            </>
+                          )}
+                        </label>
+                      </div>
+                    ) : (
+                      <label htmlFor="carousel-files-upload" className="flex flex-col items-center justify-center border-2 border-dashed border-slate-700 rounded-xl h-40 hover:border-amber-500/50 hover:bg-slate-800/30 transition-colors cursor-pointer text-slate-500">
+                        {isUploadingCarousel ? (
+                          <>
+                            <Loader2 className="w-8 h-8 animate-spin text-amber-500 mb-2" />
+                            <span className="text-xs font-medium text-slate-400">Uploading images ({uploadProgressImages}%) ...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-8 h-8 mb-2" />
+                            <span className="text-xs font-medium text-slate-400">Select Multiple Images for Carousel</span>
+                          </>
+                        )}
+                      </label>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">Carousel Name / Title</label>
+                  <input
+                    type="text"
+                    value={carouselFormTitle}
+                    onChange={e => setCarouselFormTitle(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-850 rounded-xl p-3 text-white text-sm focus:outline-none focus:border-amber-500"
+                    placeholder="Enter post name..."
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1">Text Content / Article / Script</label>
-                  <textarea 
-                    value={newContentText}
-                    onChange={(e) => setNewContentText(e.target.value)}
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">Description / Notes (Optional)</label>
+                  <textarea
                     rows={3}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white text-sm focus:outline-none focus:border-emerald-500 transition-colors resize-none text-slate-200" 
-                    placeholder="Paste the full video script or text post content here..." 
+                    value={carouselFormNote}
+                    onChange={e => setCarouselFormNote(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-850 rounded-xl p-3 text-white text-sm focus:outline-none focus:border-amber-500 resize-none"
+                    placeholder="Describe this carousel post..."
                   />
                 </div>
 
+                <div className="flex justify-end gap-3 pt-3 border-t border-slate-800">
+                  <button 
+                    onClick={() => {
+                      setImageUploadMode("choice");
+                      setCarouselUrls([]);
+                      setCarouselFormTitle("");
+                      setCarouselFormNote("");
+                    }} 
+                    className="px-5 py-2 text-slate-400 hover:text-white text-sm font-semibold transition-colors cursor-pointer"
+                  >
+                    Back
+                  </button>
+                  <button
+                    disabled={carouselUrls.length === 0 || !carouselFormTitle || isUploadingCarousel || isSavingCarousel}
+                    onClick={async () => {
+                      setIsSavingCarousel(true);
+                      const newCarouselObj = {
+                        id: Date.now(),
+                        type: 'carousel',
+                        url: carouselUrls[0],
+                        urls: carouselUrls,
+                        title: carouselFormTitle,
+                        note: carouselFormNote,
+                        downloadCount: 0
+                      };
+                      const updated = [...savedImages, newCarouselObj];
+                      setSavedImages(updated);
+                      await saveProjectData(undefined, undefined, undefined, undefined, updated);
+                      setIsSavingCarousel(false);
+                      showToast("Carousel created successfully!");
+                      setShowAddImage(false);
+                      setCarouselUrls([]);
+                      setCarouselFormTitle("");
+                      setCarouselFormNote("");
+                      setActiveCarouselFormSlideIndex(0);
+                    }}
+                    className={`px-5 py-2 rounded-xl font-bold text-sm transition-colors flex items-center gap-2 cursor-pointer ${
+                      isSavingCarousel ? "bg-amber-800 text-white cursor-not-allowed" : "bg-amber-600 hover:bg-amber-500 text-white"
+                    }`}
+                  >
+                    {isSavingCarousel ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" /> Creating...
+                      </>
+                    ) : (
+                      "Create Carousel"
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+          </motion.div>
+        </div>
+      )}
+
+      {/* Edit Project Details Modal */}
+      {showEditProject && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={() => !isSavingProject && setShowEditProject(false)}>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-lg p-6 shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                <Edit className="w-5 h-5 text-blue-400" /> Edit Project Details
+              </h2>
+              <button onClick={() => !isSavingProject && setShowEditProject(false)} className="text-slate-400 hover:text-white cursor-pointer transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Campaign Name</label>
+                <input
+                  type="text"
+                  value={editProjectName}
+                  onChange={e => setEditProjectName(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500 transition-colors"
+                  placeholder="e.g. Metaverse Survival Campaign"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Client / Brand</label>
+                <input
+                  type="text"
+                  value={editProjectClient}
+                  onChange={e => setEditProjectClient(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500 transition-colors"
+                  placeholder="e.g. Vibe Tech Inc."
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Assigned Creator</label>
+                <input
+                  type="text"
+                  value={editProjectCreator}
+                  onChange={e => setEditProjectCreator(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500 transition-colors"
+                  placeholder="e.g. Ola"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1">Shorts Script / Caption</label>
-                  <textarea 
-                    value={newContentShorts}
-                    onChange={(e) => setNewContentShorts(e.target.value)}
-                    rows={2}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white text-sm focus:outline-none focus:border-emerald-500 transition-colors resize-none text-slate-200" 
-                    placeholder="Short-form alternative script, hooks, or platform caption..." 
+                  <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Status</label>
+                  <select
+                    value={editProjectStatus}
+                    onChange={e => setEditProjectStatus(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500 transition-colors cursor-pointer"
+                  >
+                    <option value="In Progress">In Progress</option>
+                    <option value="Planning">Planning</option>
+                    <option value="Review">Review</option>
+                    <option value="Completed">Completed</option>
+                    <option value="On Hold">On Hold</option>
+                    <option value="Cancelled">Cancelled</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Budget</label>
+                  <input
+                    type="text"
+                    value={editProjectBudget}
+                    onChange={e => setEditProjectBudget(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500 transition-colors"
+                    placeholder="e.g. $12,500"
                   />
                 </div>
               </div>
             </div>
 
-            <div className="flex justify-end gap-3 border-t border-slate-800 pt-4">
-              <button 
-                onClick={closeAddContentModal}
-                className="px-5 py-2 text-slate-400 hover:text-white transition-colors"
+            <div className="flex justify-end gap-3 pt-5 mt-5 border-t border-slate-800">
+              <button
+                onClick={() => setShowEditProject(false)}
+                disabled={isSavingProject}
+                className="px-5 py-2.5 text-slate-400 hover:text-white font-semibold text-sm transition-colors disabled:opacity-50 cursor-pointer"
               >
                 Cancel
               </button>
-              <button 
-                onClick={triggerContentGeneration}
-                disabled={!newContentTitle}
-                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              <button
+                disabled={!editProjectName || isSavingProject}
+                onClick={async () => {
+                  setIsSavingProject(true);
+                  try {
+                    await fetch(`/api/creators/${id}`, {
+                      method: "PUT",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        name: editProjectName,
+                        client: editProjectClient,
+                        creator: editProjectCreator,
+                        status: editProjectStatus,
+                        budget: editProjectBudget,
+                        timeline,
+                        titles,
+                        contents,
+                        videos: savedVideos,
+                        images: savedImages,
+                      })
+                    });
+                    setProject({ ...project, name: editProjectName, client: editProjectClient, creator: editProjectCreator, status: editProjectStatus, budget: editProjectBudget });
+                    setShowEditProject(false);
+                    showToast("Project details updated!");
+                  } catch (err) {
+                    showToast("Failed to save changes.", "error");
+                  } finally {
+                    setIsSavingProject(false);
+                  }
+                }}
+                className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2 ${
+                  isSavingProject ? "bg-blue-800 cursor-not-allowed text-white" : "bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-500/20 cursor-pointer disabled:opacity-50"
+                }`}
               >
-                Save Content
+                {isSavingProject ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</> : "Save Changes"}
               </button>
             </div>
           </motion.div>
         </div>
       )}
 
-      {/* AI Content Generation Loader Overlay */}
-      {isGeneratingAIContent && (() => {
-        const totalSteps = 1 + socialsList.length;
-        const completedCount = (outlineStatus === "completed" ? 1 : 0) + socialsList.filter(s => s.status === "completed").length;
-        const progressPercent = totalSteps > 1 ? Math.round((completedCount / totalSteps) * 100) : 0;
-
-        return (
-          <div className="fixed inset-0 z-[200] bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-6">
-            <div className="max-w-lg w-full bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
-              {/* Decorative glows */}
-              <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-[80px] pointer-events-none" />
-              <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-500/10 rounded-full blur-[80px] pointer-events-none" />
-
-              <div className="text-center mb-8 relative z-10">
-                <Sparkles className="w-12 h-12 mx-auto mb-4 text-emerald-400 animate-pulse" />
-                <h2 className="text-2xl font-bold text-white mb-2">Generating Creator Content</h2>
-                <p className="text-slate-400 text-sm leading-relaxed">Our AI is analyzing your concept and building outline, script, research notes, and platform-specific social posts sequentially.</p>
-              </div>
-
-              <div className="space-y-3 max-h-[350px] overflow-y-auto pr-2 scrollbar-thin relative z-10 mb-6">
-                {/* Step 1: Outline and Brief */}
-                <div className={`flex items-center gap-3 p-4 rounded-2xl border transition-colors ${
-                  outlineStatus === "completed" ? "border-emerald-800/40 bg-emerald-950/10 text-emerald-400" :
-                  outlineStatus === "generating" ? "border-emerald-500/50 bg-emerald-950/20 text-white" :
-                  "border-slate-800 bg-slate-950/30 text-slate-500"
-                }`}>
-                  {outlineStatus === "completed" ? <CheckCircle2 size={18} className="text-emerald-400 shrink-0" /> :
-                    outlineStatus === "generating" ? <Loader2 size={18} className="animate-spin text-emerald-400 shrink-0" /> :
-                    <div className="w-[18px] h-[18px] rounded-full border border-slate-800 shrink-0" />}
-                  <div className="flex-1 text-sm font-semibold">
-                    {outlineStatus === "completed" ? "Outline and script generated" :
-                      outlineStatus === "generating" ? outlineStepLabel : "Understand and structure content idea"}
-                  </div>
-                </div>
-
-                {/* Step 2: Social media contents */}
-                {socialsList.map((platform) => {
-                  const isGeneratingPlat = platform.status === "generating";
-                  const isDone = platform.status === "completed";
-
-                  return (
-                    <div key={platform.id} className={`flex items-center gap-3 p-4 rounded-2xl border transition-colors ${
-                      isDone ? "border-emerald-800/40 bg-emerald-950/10 text-emerald-400" :
-                      isGeneratingPlat ? "border-blue-500 bg-blue-950/20 text-white font-medium animate-pulse" :
-                      "border-slate-800 bg-slate-950/30 text-slate-500"
-                    }`}>
-                      {isDone ? <CheckCircle2 size={18} className="text-emerald-400 shrink-0" /> :
-                        isGeneratingPlat ? <Loader2 size={18} className="animate-spin text-blue-400 shrink-0" /> :
-                        <div className="w-[18px] h-[18px] rounded-full border border-slate-800 shrink-0" />}
-                      <span className="text-sm">
-                        {isGeneratingPlat ? "Generating post for " : ""} {platform.name} Copy
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="relative z-10">
-                <div className="flex justify-between text-xs text-slate-400 mb-2">
-                  <span>Overall Progress</span>
-                  <span>{progressPercent}%</span>
-                </div>
-                <div className="w-full bg-slate-950 rounded-full h-2.5 overflow-hidden border border-slate-850">
-                  <div className="bg-emerald-500 h-full rounded-full transition-all duration-500" style={{ width: `${progressPercent}%` }} />
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
+      {/* Toast Notification */}
+      {toast && (
+        <div className="fixed bottom-5 right-5 z-[200]">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={`px-4 py-3 rounded-xl border flex items-center gap-3 shadow-lg backdrop-blur-md ${
+              toast.type === "success" 
+                ? "bg-slate-900/90 border-green-500/20 text-green-400" 
+                : "bg-slate-900/90 border-red-500/20 text-red-400"
+            }`}
+          >
+            {toast.type === "success" ? (
+              <CheckCircle2 className="w-5 h-5 text-green-500" />
+            ) : (
+              <X className="w-5 h-5 text-red-500" />
+            )}
+            <span className="text-sm font-semibold text-white">{toast.message}</span>
+          </motion.div>
+        </div>
+      )}
 
     </div>
   );

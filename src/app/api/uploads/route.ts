@@ -4,6 +4,7 @@ import {
   getBucketName,
   PutObjectCommand,
   GetObjectCommand,
+  DeleteObjectCommand,
   getPublicUrl,
 } from "@/lib/r2";
 
@@ -35,9 +36,12 @@ export async function GET(request: Request) {
     const byteArray = await response.Body.transformToByteArray();
     const contentType = response.ContentType || "application/pdf";
 
+    const isDownload = searchParams.get("download") === "1";
+    const filename = key.split("/").pop() || "video.mp4";
+
     const headers: Record<string, string> = {
       "Content-Type": contentType,
-      "Content-Disposition": "inline",
+      "Content-Disposition": isDownload ? `attachment; filename="${filename}"` : "inline",
       "Cache-Control": "public, max-age=31536000, immutable",
       "Accept-Ranges": "bytes",
     };
@@ -93,6 +97,32 @@ export async function POST(request: Request) {
     console.error("Upload failed", err);
     return NextResponse.json(
       { success: false, error: "Upload failed: " + err?.message },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const key = searchParams.get("key");
+
+    if (!key) {
+      return NextResponse.json({ error: "Missing key parameter" }, { status: 400 });
+    }
+
+    const command = new DeleteObjectCommand({
+      Bucket: getBucketName(),
+      Key: key,
+    });
+
+    await r2Client.send(command);
+
+    return NextResponse.json({ success: true });
+  } catch (err: any) {
+    console.error("Error deleting file:", err);
+    return NextResponse.json(
+      { error: "Failed to delete file", details: err?.message },
       { status: 500 }
     );
   }

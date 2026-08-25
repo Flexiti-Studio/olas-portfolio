@@ -523,10 +523,171 @@ export default function ContentDetailsPage() {
     }
   };
 
+  const [basicTab, setBasicTab] = useState<"caption" | "video" | "image">("caption");
+
+  const handleUpgradeToComprehensive = async () => {
+    if (project) {
+      const updatedContents = project.contents.map((c: any) => 
+        String(c.id) === String(contentId) 
+          ? { ...c, aiSettings: { ...c.aiSettings, scope: "Comprehensive" } } 
+          : c
+      );
+      setProject({ ...project, contents: updatedContents });
+      try {
+        await fetch(`/api/creators/${id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...project, contents: updatedContents })
+        });
+      } catch (err) {
+        console.error("Failed to upgrade to comprehensive:", err);
+      }
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center">
         <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
+      </div>
+    );
+  }
+
+  if (contentItem?.aiSettings?.scope === "Basic") {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-200">
+        <div className="max-w-5xl mx-auto space-y-6 py-8 px-4">
+          <div className="flex items-center justify-between">
+            <button 
+              onClick={() => router.push(`/admin/creators/${id}/contents`)}
+              className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors group cursor-pointer"
+            >
+              <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+              Back to Contents Hub
+            </button>
+            <button 
+              onClick={handleUpgradeToComprehensive}
+              className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl font-medium transition-all flex items-center gap-2 shadow-lg shadow-emerald-500/20"
+            >
+              <Sparkles className="w-4 h-4" /> Upgrade to Comprehensive
+            </button>
+          </div>
+
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 relative overflow-hidden">
+            <div className="relative z-10">
+              <div className="flex items-center justify-between mb-8">
+                <div>
+                  <h1 className="text-3xl font-bold text-white mb-2">{contentItem.title}</h1>
+                  <div className="flex items-center gap-3">
+                    <span className="px-3 py-1 bg-slate-800 text-slate-300 rounded-full text-xs font-medium border border-slate-700">
+                      {contentItem.type}
+                    </span>
+                    <span className="px-3 py-1 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-full text-xs font-medium">
+                      {contentItem.status}
+                    </span>
+                    <span className="px-3 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full text-xs font-medium">
+                      Media Type: {contentItem.aiSettings?.mediaType || "Video"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-4 border-b border-slate-800 pb-px mb-6">
+                {(() => {
+                  const mediaFocus = contentItem.aiSettings?.mediaType || "Video";
+                  const tabs = ["caption"];
+                  if (mediaFocus === "Video" || mediaFocus === "Combine") tabs.push("video");
+                  if (mediaFocus === "Image" || mediaFocus === "Combine") tabs.push("image");
+                  
+                  return tabs.map((tab) => (
+                    <button
+                      key={tab}
+                      onClick={() => setBasicTab(tab as any)}
+                      className={`pb-3 px-2 text-sm font-semibold transition-all relative ${
+                        basicTab === tab ? "text-emerald-400" : "text-slate-400 hover:text-slate-200"
+                      }`}
+                    >
+                      {tab === "caption" ? "Caption / Script" : tab === "video" ? "Video Preview" : "Image Preview"}
+                      {basicTab === tab && (
+                        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-400 rounded-t-full shadow-[0_-2px_8px_rgba(52,211,153,0.5)]" />
+                      )}
+                    </button>
+                  ));
+                })()}
+              </div>
+
+              {basicTab === "caption" && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-bold text-white">Generated Content</h3>
+                  </div>
+                  <textarea 
+                    value={scriptContent}
+                    onChange={(e) => {
+                      setScriptContent(e.target.value);
+                      if (project) {
+                        const updatedContents = project.contents.map((c: any) => 
+                          String(c.id) === String(contentId) ? { ...c, text: e.target.value } : c
+                        );
+                        setProject({ ...project, contents: updatedContents });
+                        fetch(`/api/creators/${id}`, {
+                          method: "PUT",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ ...project, contents: updatedContents })
+                        });
+                      }
+                    }}
+                    rows={12}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-slate-300 focus:outline-none focus:border-emerald-500 transition-colors"
+                    placeholder="Type or paste caption / script..."
+                  />
+                </div>
+              )}
+
+              {basicTab === "video" && (
+                <div className="aspect-video bg-slate-950 border border-slate-800 rounded-2xl flex items-center justify-center overflow-hidden">
+                   {isUploadingVideoFile ? (
+                     <div className="flex flex-col items-center justify-center gap-3 text-emerald-400">
+                       <Loader2 className="w-8 h-8 animate-spin" />
+                       <span className="font-medium">Uploading video...</span>
+                     </div>
+                   ) : videoVersions.length > 0 && videoVersions[0].url ? (
+                     <div className="w-full h-full relative group">
+                       <video src={videoVersions[0].url} controls className="w-full h-full object-contain" />
+                       <button 
+                         onClick={() => handleDeleteVideoVersion(videoVersions[0].id)}
+                         className="absolute top-4 right-4 bg-red-500/80 hover:bg-red-500 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                       >
+                         <X className="w-4 h-4" />
+                       </button>
+                     </div>
+                   ) : (
+                     <div className="text-center text-slate-500 flex flex-col items-center">
+                       <Video className="w-12 h-12 mb-3 opacity-50" />
+                       <p>No video uploaded.</p>
+                       <label className="mt-4 px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-sm text-white cursor-pointer transition-colors border border-slate-700">
+                         Upload Video
+                         <input type="file" accept="video/*" className="hidden" onChange={(e) => {
+                           if(e.target.files && e.target.files[0]) handleR2FileUpload(e.target.files[0]);
+                         }} />
+                       </label>
+                     </div>
+                   )}
+                </div>
+              )}
+
+              {basicTab === "image" && (
+                <div className="aspect-video bg-slate-950 border border-slate-800 rounded-2xl flex items-center justify-center overflow-hidden">
+                   <div className="text-center text-slate-500 flex flex-col items-center">
+                     <Frame className="w-12 h-12 mb-3 opacity-50" />
+                     <p>Image preview coming soon.</p>
+                     <p className="text-xs mt-2 text-slate-600">This tab can display image assets once integrated.</p>
+                   </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
