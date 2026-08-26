@@ -9,11 +9,13 @@ import {
   Copy, 
   Check, 
   ChevronRight, 
+  ChevronLeft,
   Sparkles, 
   Type, 
   FileText,
   Star,
-  StarOff
+  StarOff,
+  Loader2
 } from "lucide-react";
 
 interface IconProps extends React.SVGProps<SVGSVGElement> {
@@ -129,6 +131,10 @@ export default function SocialTemplates() {
   const [copiedGenerated, setCopiedGenerated] = useState(false);
   const [copiedTemplateId, setCopiedTemplateId] = useState<string | null>(null);
   const [settingPrimaryId, setSettingPrimaryId] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [templateToDelete, setTemplateToDelete] = useState<SocialTemplate | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [templatePage, setTemplatePage] = useState(1);
 
   useEffect(() => {
     fetchTemplates();
@@ -175,21 +181,25 @@ export default function SocialTemplates() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this template?")) return;
+  const handleConfirmDelete = async () => {
+    if (!templateToDelete || isDeleting) return;
+    setIsDeleting(true);
     try {
-      const res = await fetch(`/api/social-templates/${id}`, {
+      const res = await fetch(`/api/social-templates/${templateToDelete.id}`, {
         method: "DELETE"
       });
       if (res.ok) {
-        setTemplates(prev => prev.filter(t => t.id !== id));
-        if (activeGeneratorTemplate?.id === id) {
+        setTemplates(prev => prev.filter(t => t.id !== templateToDelete.id));
+        if (activeGeneratorTemplate?.id === templateToDelete.id) {
           setActiveGeneratorTemplate(null);
           setGeneratedResult("");
         }
+        setTemplateToDelete(null);
       }
     } catch (err) {
       console.error(err);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -219,8 +229,9 @@ export default function SocialTemplates() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formName || !formBody) return;
+    if (!formName || !formBody || isSaving) return;
 
+    setIsSaving(true);
     const placeholders = formPlaceholderInput
       .split(",")
       .map(p => p.trim())
@@ -263,6 +274,8 @@ export default function SocialTemplates() {
       }
     } catch (err) {
       console.error(err);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -340,32 +353,14 @@ export default function SocialTemplates() {
         </button>
       </div>
 
-      {/* Primary Templates Summary */}
-      {Object.keys(primaryByPlatform).length > 0 && (
-        <div className="bg-amber-950/20 border border-amber-800/30 rounded-2xl p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <Star size={14} className="text-amber-400 fill-amber-400" />
-            <span className="text-xs font-bold text-amber-400 uppercase tracking-wider">AI Primary Templates</span>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {Object.entries(primaryByPlatform).map(([platform, t]) => (
-              <div key={platform} className="flex items-center gap-2 bg-zinc-900/60 border border-amber-700/30 rounded-xl px-3 py-1.5">
-                {getPlatformIcon(platform)}
-                <span className="text-xs font-semibold text-zinc-300 capitalize">{platform}</span>
-                <span className="text-xs text-zinc-500">→</span>
-                <span className="text-xs text-white font-medium">{t.name}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+
 
       {/* Platforms Filter Bar */}
       <div className="flex flex-wrap gap-2">
         {["all", "youtube", "tiktok", "instagram", "twitter", "linkedin"].map((platform) => (
           <button
             key={platform}
-            onClick={() => setSelectedPlatform(platform)}
+            onClick={() => { setSelectedPlatform(platform); setTemplatePage(1); }}
             className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer capitalize ${
               selectedPlatform === platform
                 ? "bg-white text-black border-white shadow-md font-black"
@@ -377,194 +372,136 @@ export default function SocialTemplates() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-        
-        {/* Left Grid Area: Templates List */}
-        <div className="xl:col-span-2 space-y-4">
-          {isLoading ? (
-            <div className="space-y-4 animate-pulse">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="bg-zinc-900/50 border border-zinc-800 rounded-2xl h-44" />
-              ))}
-            </div>
-          ) : filteredTemplates.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {filteredTemplates.map((template) => (
-                <motion.div
-                  key={template.id}
-                  layoutId={template.id}
-                  className={`bg-zinc-900 border rounded-2xl p-5 hover:border-zinc-700 transition-all flex flex-col justify-between relative overflow-hidden group ${
-                    template.is_primary
-                      ? "border-amber-500/50 shadow-lg shadow-amber-500/10 ring-1 ring-amber-500/20"
-                      : activeGeneratorTemplate?.id === template.id
-                      ? "border-indigo-500/50 shadow-lg shadow-indigo-500/10"
-                      : "border-zinc-800"
-                  }`}
-                >
-                  {/* Primary Crown Badge */}
-                  {template.is_primary && (
-                    <div className="absolute top-0 right-0 bg-amber-500 text-black text-[9px] font-black px-2.5 py-1 rounded-bl-xl flex items-center gap-1 uppercase tracking-wider">
-                      <Star size={9} className="fill-black" /> AI Primary
-                    </div>
-                  )}
+      <div className="space-y-4">
+        {isLoading ? (
+          <div className="space-y-4 animate-pulse">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="bg-zinc-900/50 border border-zinc-800 rounded-2xl h-44" />
+            ))}
+          </div>
+        ) : filteredTemplates.length > 0 ? (
+          (() => {
+            const TEMPLATES_PER_PAGE = 6;
+            const totalTemplatePages = Math.ceil(filteredTemplates.length / TEMPLATES_PER_PAGE);
+            const currentTemplates = filteredTemplates.slice((templatePage - 1) * TEMPLATES_PER_PAGE, templatePage * TEMPLATES_PER_PAGE);
 
-                  <div>
-                    <div className="flex justify-between items-start mb-3">
-                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wider ${getPlatformClass(template.platform)}`}>
-                        {template.platform}
-                      </span>
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button 
-                          onClick={() => handleOpenEdit(template)}
-                          className="p-1 text-zinc-400 hover:text-white transition-colors"
-                          title="Edit Template"
-                        >
-                          <Edit3 size={14} />
-                        </button>
-                        <button 
-                          onClick={() => handleDelete(template.id)}
-                          className="p-1 text-zinc-400 hover:text-red-400 transition-colors"
-                          title="Delete Template"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </div>
-
-                    <h3 className="font-extrabold text-lg text-white mb-2 leading-tight group-hover:text-indigo-400 transition-colors">
-                      {template.name}
-                    </h3>
-                    {template.description && (
-                      <p className="text-zinc-400 text-xs mb-4 line-clamp-2 leading-relaxed">
-                        {template.description}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="pt-4 border-t border-zinc-800/80 mt-4 flex items-center justify-between gap-3 flex-wrap">
-                    <div className="flex items-center gap-2">
-                      {/* Set Primary button */}
-                      <button
-                        onClick={() => handleSetPrimary(template)}
-                        disabled={template.is_primary || settingPrimaryId === template.id}
-                        title={template.is_primary ? "This is already the AI primary template" : "Set as AI primary template for this platform"}
-                        className={`text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer px-2.5 py-1 rounded-lg border ${
-                          template.is_primary
-                            ? "text-amber-400 border-amber-700/40 bg-amber-950/30 cursor-default"
-                            : "text-zinc-400 border-zinc-700/50 hover:text-amber-400 hover:border-amber-700/40 hover:bg-amber-950/20"
-                        }`}
-                      >
-                        {template.is_primary ? (
-                          <><Star size={11} className="fill-amber-400" /> Primary</>
-                        ) : settingPrimaryId === template.id ? (
-                          <>Setting...</>
-                        ) : (
-                          <><StarOff size={11} /> Set Primary</>
-                        )}
-                      </button>
-                      <button 
-                        onClick={() => handleCopyTemplateText(template)}
-                        className="text-zinc-400 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-                      >
-                        {copiedTemplateId === template.id ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
-                        {copiedTemplateId === template.id ? "Copied!" : "Copy"}
-                      </button>
-                    </div>
-                    <button 
-                      onClick={() => handleSelectGenerator(template)}
-                      className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1 transition-all shadow shadow-indigo-600/10 cursor-pointer"
+            return (
+              <div className="flex flex-col justify-between min-h-[400px]">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {currentTemplates.map((template) => (
+                    <motion.div
+                      key={template.id}
+                      layoutId={template.id}
+                      className={`bg-zinc-900 border rounded-2xl p-5 hover:border-zinc-700 transition-all flex flex-col justify-between relative overflow-hidden group ${
+                        template.is_primary
+                          ? "border-amber-500/50 shadow-lg shadow-amber-500/10 ring-1 ring-amber-500/20"
+                          : "border-zinc-800"
+                      }`}
                     >
-                      Use Generator <ChevronRight size={12} />
+                      {/* Primary Crown Badge */}
+                      {template.is_primary && (
+                        <div className="absolute top-0 right-0 bg-amber-500 text-black text-[9px] font-black px-2.5 py-1 rounded-bl-xl flex items-center gap-1 uppercase tracking-wider">
+                          <Star size={9} className="fill-black" /> AI Primary
+                        </div>
+                      )}
+
+                      <div>
+                        <div className="flex justify-between items-start mb-3">
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wider ${getPlatformClass(template.platform)}`}>
+                            {template.platform}
+                          </span>
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button 
+                              onClick={() => handleOpenEdit(template)}
+                              className="p-1 text-zinc-400 hover:text-white transition-colors"
+                              title="Edit Template"
+                            >
+                              <Edit3 size={14} />
+                            </button>
+                            <button 
+                              onClick={() => setTemplateToDelete(template)}
+                              className="p-1 text-zinc-400 hover:text-red-400 transition-colors"
+                              title="Delete Template"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </div>
+
+                        <h3 className="font-extrabold text-lg text-white mb-2 leading-tight group-hover:text-amber-400 transition-colors">
+                          {template.name}
+                        </h3>
+                        {template.description && (
+                          <p className="text-zinc-400 text-xs mb-4 line-clamp-2 leading-relaxed">
+                            {template.description}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="pt-4 border-t border-zinc-800/80 mt-4 flex items-center justify-between gap-3 flex-wrap">
+                        <div className="flex items-center gap-2">
+                          {/* Set Primary button */}
+                          <button
+                            onClick={() => handleSetPrimary(template)}
+                            disabled={template.is_primary || settingPrimaryId === template.id}
+                            title={template.is_primary ? "This is already the AI primary template" : "Set as AI primary template for this platform"}
+                            className={`text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer px-2.5 py-1 rounded-lg border ${
+                              template.is_primary
+                                ? "text-amber-400 border-amber-700/40 bg-amber-950/30 cursor-default"
+                                : "text-zinc-400 border-zinc-700/50 hover:text-amber-400 hover:border-amber-700/40 hover:bg-amber-950/20"
+                            }`}
+                          >
+                            {template.is_primary ? (
+                              <><Star size={11} className="fill-amber-400" /> Primary</>
+                            ) : settingPrimaryId === template.id ? (
+                              <>Setting...</>
+                            ) : (
+                              <><StarOff size={11} /> Set Primary</>
+                            )}
+                          </button>
+                          <button 
+                            onClick={() => handleCopyTemplateText(template)}
+                            className="text-zinc-400 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                          >
+                            {copiedTemplateId === template.id ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+                            {copiedTemplateId === template.id ? "Copied!" : "Copy"}
+                          </button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+
+                {/* Templates Pagination Controls */}
+                {totalTemplatePages > 1 && (
+                  <div className="mt-6 pt-4 border-t border-zinc-800 flex justify-between items-center text-sm">
+                    <button 
+                      onClick={() => setTemplatePage(prev => Math.max(1, prev - 1))}
+                      disabled={templatePage === 1}
+                      className="p-1.5 rounded-lg bg-zinc-800 text-zinc-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <span className="text-zinc-500 font-medium">Page {templatePage} of {totalTemplatePages}</span>
+                    <button 
+                      onClick={() => setTemplatePage(prev => Math.min(totalTemplatePages, prev + 1))}
+                      disabled={templatePage === totalTemplatePages}
+                      className="p-1.5 rounded-lg bg-zinc-800 text-zinc-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                    >
+                      <ChevronRight className="w-4 h-4" />
                     </button>
                   </div>
-                </motion.div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-20 bg-zinc-900/50 border border-zinc-800 rounded-3xl flex flex-col items-center justify-center">
-              <Sparkles className="w-12 h-12 text-zinc-700 mb-3" />
-              <h3 className="text-lg font-bold text-zinc-400">No templates found</h3>
-              <p className="text-zinc-500 text-sm mt-1 max-w-sm">Create a new template for your social media content workflow.</p>
-            </div>
-          )}
-        </div>
-
-        {/* Right Area: Interactive Content Generator Tool */}
-        <div className="space-y-6">
-          <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-3xl shadow-xl relative overflow-hidden flex flex-col justify-between min-h-[450px]">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full blur-2xl pointer-events-none" />
-            
-            <div>
-              <h2 className="text-lg font-extrabold text-white flex items-center gap-2 mb-4 border-b border-zinc-800 pb-3">
-                <Sparkles className="w-5 h-5 text-indigo-400" /> Content Generator
-              </h2>
-
-              {activeGeneratorTemplate ? (
-                <div className="space-y-6">
-                  <div>
-                    <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Active Template</span>
-                    <div className="flex items-center gap-2 mt-1">
-                      <h3 className="text-white font-bold text-base">{activeGeneratorTemplate.name}</h3>
-                      {activeGeneratorTemplate.is_primary && (
-                        <span className="flex items-center gap-1 text-[9px] font-black text-amber-400 bg-amber-950/40 border border-amber-700/30 px-1.5 py-0.5 rounded-full uppercase tracking-wider">
-                          <Star size={8} className="fill-amber-400" /> Primary
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {activeGeneratorTemplate.placeholders.length > 0 ? (
-                    <div className="space-y-3">
-                      <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Input Placeholders</span>
-                      <div className="space-y-3 max-h-[220px] overflow-y-auto pr-2">
-                        {activeGeneratorTemplate.placeholders.map((ph) => (
-                          <div key={ph}>
-                            <label className="block text-xs font-semibold text-zinc-400 mb-1 capitalize">[{ph}]</label>
-                            <textarea
-                              rows={2}
-                              value={placeholderValues[ph] || ""}
-                              onChange={(e) => handlePlaceholderChange(ph, e.target.value)}
-                              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-xs text-zinc-200 focus:outline-none focus:border-indigo-500 transition-colors resize-none"
-                              placeholder={`Substitute value for [${ph}]...`}
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="text-xs text-zinc-500 italic">This template has no placeholders. It acts as a static blueprint.</p>
-                  )}
-                  
-                  <div className="space-y-2 border-t border-zinc-800 pt-4">
-                    <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Live Preview</span>
-                    <pre className="w-full h-44 bg-zinc-950 border border-zinc-800 rounded-xl p-4 text-xs font-mono text-zinc-300 overflow-y-auto whitespace-pre-wrap leading-relaxed select-all">
-                      {generatedResult}
-                    </pre>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-20 text-center text-zinc-500 h-full">
-                  <FileText className="w-10 h-10 text-zinc-700 mb-3" />
-                  <p className="text-sm font-semibold">No template selected</p>
-                  <p className="text-xs text-zinc-600 max-w-[200px] mt-1">Select "Use Generator" on any template card to start generating content.</p>
-                </div>
-              )}
-            </div>
-
-            {activeGeneratorTemplate && (
-              <div className="pt-4 border-t border-zinc-800 mt-6 flex justify-end">
-                <button
-                  onClick={handleCopyGenerated}
-                  className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-lg shadow-indigo-600/10 active:scale-95"
-                >
-                  {copiedGenerated ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
-                  {copiedGenerated ? "Copied Custom Content!" : "Copy Customized Result"}
-                </button>
+                )}
               </div>
-            )}
+            );
+          })()
+        ) : (
+          <div className="text-center py-20 bg-zinc-900/50 border border-zinc-800 rounded-3xl flex flex-col items-center justify-center">
+            <Sparkles className="w-12 h-12 text-zinc-700 mb-3" />
+            <h3 className="text-lg font-bold text-zinc-400">No templates found</h3>
+            <p className="text-zinc-500 text-sm mt-1 max-w-sm">Create a new template for your social media content workflow.</p>
           </div>
-        </div>
-
+        )}
       </div>
 
       {/* Create / Edit Modal Popup */}
@@ -589,7 +526,8 @@ export default function SocialTemplates() {
                   <select
                     value={formPlatform}
                     onChange={(e) => setFormPlatform(e.target.value)}
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500 transition-colors"
+                    disabled={isSaving}
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <option value="youtube">YouTube</option>
                     <option value="tiktok">TikTok</option>
@@ -606,7 +544,8 @@ export default function SocialTemplates() {
                     type="text" 
                     value={formName}
                     onChange={(e) => setFormName(e.target.value)}
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors" 
+                    disabled={isSaving}
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" 
                     placeholder="e.g. Standard Video Description" 
                     required
                   />
@@ -618,7 +557,8 @@ export default function SocialTemplates() {
                     type="text" 
                     value={formDesc}
                     onChange={(e) => setFormDesc(e.target.value)}
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors" 
+                    disabled={isSaving}
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" 
                     placeholder="e.g. Best for informational/educational videos" 
                   />
                 </div>
@@ -629,7 +569,8 @@ export default function SocialTemplates() {
                     rows={6}
                     value={formBody}
                     onChange={(e) => setFormBody(e.target.value)}
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors font-mono resize-none" 
+                    disabled={isSaving}
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors font-mono resize-none disabled:opacity-50 disabled:cursor-not-allowed" 
                     placeholder="Write body structure here. Use placeholders inside brackets like [hook], [cta]." 
                     required
                   />
@@ -641,7 +582,8 @@ export default function SocialTemplates() {
                     type="text" 
                     value={formPlaceholderInput}
                     onChange={(e) => setFormPlaceholderInput(e.target.value)}
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors" 
+                    disabled={isSaving}
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" 
                     placeholder="e.g. hook, value, cta" 
                   />
                   <p className="text-[10px] text-zinc-500 mt-1">Placeholders must match brackets used inside the template body exactly.</p>
@@ -651,18 +593,73 @@ export default function SocialTemplates() {
                   <button 
                     type="button"
                     onClick={() => setIsModalOpen(false)}
-                    className="px-5 py-2 text-zinc-400 hover:text-white transition-colors text-xs font-semibold cursor-pointer"
+                    disabled={isSaving}
+                    className="px-5 py-2 text-zinc-400 hover:text-white transition-colors text-xs font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Cancel
                   </button>
                   <button 
                     type="submit"
-                    className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-bold transition-colors text-xs cursor-pointer shadow-lg shadow-indigo-600/10"
+                    disabled={isSaving}
+                    className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-bold transition-colors text-xs cursor-pointer shadow-lg shadow-indigo-600/10 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {editingTemplate ? "Save Changes" : "Create Template"}
+                    {isSaving ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        {editingTemplate ? "Saving Changes..." : "Creating Template..."}
+                      </>
+                    ) : (
+                      editingTemplate ? "Save Changes" : "Create Template"
+                    )}
                   </button>
                 </div>
               </form>
+            </motion.div>
+          </div>
+        )}
+        {/* Delete Confirmation Modal */}
+        {templateToDelete && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setTemplateToDelete(null)}>
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-zinc-900 border border-zinc-800 rounded-3xl w-full max-w-md p-6 shadow-2xl overflow-hidden flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h2 className="text-lg font-bold text-white mb-2 flex items-center gap-2">
+                <Trash2 className="w-5 h-5 text-red-500" />
+                Delete Social Template
+              </h2>
+              <p className="text-zinc-400 text-sm mb-6 leading-relaxed">
+                Are you sure you want to delete <span className="text-white font-bold">"{templateToDelete.name}"</span>? This action cannot be undone.
+              </p>
+              
+              <div className="flex justify-end gap-3 pt-2">
+                <button 
+                  type="button"
+                  onClick={() => setTemplateToDelete(null)}
+                  disabled={isDeleting}
+                  className="px-5 py-2 text-zinc-400 hover:text-white transition-colors text-xs font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="button"
+                  onClick={handleConfirmDelete}
+                  disabled={isDeleting}
+                  className="px-5 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg font-bold transition-colors text-xs cursor-pointer shadow-lg shadow-red-600/10 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isDeleting ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      Deleting...
+                    </>
+                  ) : (
+                    "Delete"
+                  )}
+                </button>
+              </div>
             </motion.div>
           </div>
         )}

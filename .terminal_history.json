@@ -896,7 +896,37 @@
       "command": "npm run dev",
       "timestamp": 1787507820631,
       "cwd": "c:\\Users\\HP\\Documents\\GitHub\\flexiti studio project\\olas-portfolio"
+    },
+    {
+      "command": "git add .",
+      "timestamp": 1787668271772,
+      "cwd": "c:\\Users\\HP\\Documents\\GitHub\\flexiti studio project\\olas-portfolio"
+    },
+    {
+      "command": "git commit -m \"first version doen \"",
+      "timestamp": 1787668282087,
+      "cwd": "c:\\Users\\HP\\Documents\\GitHub\\flexiti studio project\\olas-portfolio"
+    },
+    {
+      "command": "git push origing",
+      "timestamp": 1787668321216,
+      "cwd": "c:\\Users\\HP\\Documents\\GitHub\\flexiti studio project\\olas-portfolio"
+    },
+    {
+      "command": "git push origin",
+      "timestamp": 1787668375251,
+      "cwd": "c:\\Users\\HP\\Documents\\GitHub\\flexiti studio project\\olas-portfolio"
+    },
+    {
+      "command": "& \"C:\\Users\\HP\\AppData\\Local\\Temp\\wshist_lx2xjq.ps1\"; Remove-Item \"C:\\Users\\HP\\AppData\\Local\\Temp\\wshist_lx2xjq.ps1\" -ErrorAction SilentlyContinue",
+      "timestamp": 1787775329026,
+      "cwd": "c:\\Users\\HP\\Documents\\GitHub\\flexiti studio project\\olas-portfolio"
+    },
+    {
+      "command": "npm run dev",
+      "timestamp": 1787779312640,
+      "cwd": "c:\\Users\\HP\\Documents\\GitHub\\flexiti studio project\\olas-portfolio"
     }
   ],
-  "lastUpdated": 1787507820631
+  "lastUpdated": 1787779312641
 }

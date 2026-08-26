@@ -31,6 +31,7 @@ export default function CreatorProjectDetails() {
   const [showAddVideo, setShowAddVideo] = useState(false);
   const [videoUploadMode, setVideoUploadMode] = useState<"choice" | "single">("choice");
   const [imagePage, setImagePage] = useState(1);
+  const [videoPage, setVideoPage] = useState(1);
   const [activePreviewImageIndex, setActivePreviewImageIndex] = useState<number | null>(null);
   const [videoFormTitle, setVideoFormTitle] = useState("");
   const [videoFormUrl, setVideoFormUrl] = useState("");
@@ -51,6 +52,9 @@ export default function CreatorProjectDetails() {
   const [isEditingVideoPlayer, setIsEditingVideoPlayer] = useState(false);
   const [editVideoTitle, setEditVideoTitle] = useState("");
   const [editVideoNote, setEditVideoNote] = useState("");
+  const [formatterPlatform, setFormatterPlatform] = useState("youtube");
+  const [formattedResult, setFormattedResult] = useState("");
+  const [isFormatting, setIsFormatting] = useState(false);
   const [isDownloadingVideoPlayer, setIsDownloadingVideoPlayer] = useState(false);
   const [isSavingVideoPlayerEdit, setIsSavingVideoPlayerEdit] = useState(false);
   const [activeVideoDropdownId, setActiveVideoDropdownId] = useState<number | null>(null);
@@ -202,6 +206,19 @@ export default function CreatorProjectDetails() {
       }
     }
   }, [id]);
+
+  useEffect(() => {
+    if (activePlayingVideo) {
+      setFormattedResult(activePlayingVideo.formattedNote || "");
+      setFormatterPlatform(activePlayingVideo.formatterPlatform || "youtube");
+    } else if (activePreviewImageIndex !== null && savedImages[activePreviewImageIndex]) {
+      const currentImg = savedImages[activePreviewImageIndex];
+      setFormattedResult(currentImg.formattedNote || "");
+      setFormatterPlatform(currentImg.formatterPlatform || "instagram");
+    } else {
+      setFormattedResult("");
+    }
+  }, [activePlayingVideo, activePreviewImageIndex, savedImages]);
 
   const fetchProject = async () => {
     try {
@@ -895,7 +912,7 @@ export default function CreatorProjectDetails() {
                 <input
                   type="text"
                   value={videoSearch}
-                  onChange={e => setVideoSearch(e.target.value)}
+                  onChange={e => { setVideoSearch(e.target.value); setVideoPage(1); }}
                   placeholder="Search saved videos..."
                   className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500 transition-all"
                 />
@@ -911,7 +928,7 @@ export default function CreatorProjectDetails() {
             {/* Video Sub-Tabs */}
             <div className="flex bg-slate-900 border border-slate-800 rounded-xl p-1 max-w-xs">
               <button
-                onClick={() => setVideoSubTab("new")}
+                onClick={() => { setVideoSubTab("new"); setVideoPage(1); }}
                 className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${
                   videoSubTab === "new" ? "bg-slate-800 text-white shadow-sm" : "text-slate-500 hover:text-slate-300"
                 }`}
@@ -919,7 +936,7 @@ export default function CreatorProjectDetails() {
                 New
               </button>
               <button
-                onClick={() => setVideoSubTab("used")}
+                onClick={() => { setVideoSubTab("used"); setVideoPage(1); }}
                 className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${
                   videoSubTab === "used" ? "bg-slate-800 text-white shadow-sm" : "text-slate-500 hover:text-slate-300"
                 }`}
@@ -929,162 +946,198 @@ export default function CreatorProjectDetails() {
             </div>
 
             {/* Video Grid */}
-            {savedVideos.filter(v =>
-              (videoSubTab === "new" ? !(v.downloadCount > 0) : (v.downloadCount > 0)) &&
-              ((v.title || "").toLowerCase().includes(videoSearch.toLowerCase()) ||
-               (v.url || "").toLowerCase().includes(videoSearch.toLowerCase()))
-            ).length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-24 bg-slate-900/50 border-2 border-dashed border-slate-800 rounded-3xl text-slate-500">
-                <Video className="w-14 h-14 text-slate-700 mb-4" />
-                <h3 className="text-lg font-bold text-slate-400 mb-1">No videos saved yet</h3>
-                <p className="text-sm text-center max-w-xs">Add YouTube, Vimeo, or direct video links to build your reference library for this project.</p>
-                <button
-                  onClick={() => setShowAddVideo(true)}
-                  className="mt-6 bg-blue-600 hover:bg-blue-500 text-white font-bold px-5 py-2.5 rounded-xl flex items-center gap-2 transition-all"
-                >
-                  <Plus className="w-4 h-4" /> Add First Video
-                </button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                {savedVideos
-                  .filter(v =>
-                    (videoSubTab === "new" ? !(v.downloadCount > 0) : (v.downloadCount > 0)) &&
-                    ((v.title || "").toLowerCase().includes(videoSearch.toLowerCase()) ||
-                     (v.url || "").toLowerCase().includes(videoSearch.toLowerCase()))
-                  )
-                  .map((vid: any) => {
-                    const isYoutube = (vid.url || "").includes("youtube.com") || (vid.url || "").includes("youtu.be");
-                    const isVimeo = (vid.url || "").includes("vimeo.com");
-                    const embedUrl = isYoutube
-                      ? `https://www.youtube.com/embed/${vid.url.split("v=")[1]?.split("&")[0] || vid.url.split("/").pop()}`
-                      : isVimeo
-                      ? `https://player.vimeo.com/video/${vid.url.split("/").pop()}`
-                      : null;
+            {(() => {
+              const filteredVideos = savedVideos.filter(v =>
+                (videoSubTab === "new" ? !(v.downloadCount > 0) : (v.downloadCount > 0)) &&
+                ((v.title || "").toLowerCase().includes(videoSearch.toLowerCase()) ||
+                 (v.url || "").toLowerCase().includes(videoSearch.toLowerCase()))
+              );
+              const VIDEOS_PER_PAGE = 6;
+              const totalVideoPages = Math.ceil(filteredVideos.length / VIDEOS_PER_PAGE);
+              const currentPageVideos = filteredVideos.slice((videoPage - 1) * VIDEOS_PER_PAGE, videoPage * VIDEOS_PER_PAGE);
 
-                    return (
-                      <div key={vid.id} className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden hover:border-slate-700 transition-colors group flex flex-col">
-                        {/* Thumbnail / Preview */}
-                        <div
-                          className="h-44 bg-slate-950 relative flex items-center justify-center cursor-pointer overflow-hidden shrink-0 group/thumb"
-                          onClick={() => setActivePlayingVideo(vid)}
-                        >
-                          {/* Selector */}
-                          <div className="absolute top-3 left-3 z-10" onClick={e => e.stopPropagation()}>
-                            <input 
-                              type="checkbox" 
-                              checked={selectedVideoIds.includes(vid.id)}
-                              onChange={(e) => {
-                                e.stopPropagation();
-                                if (e.target.checked) {
-                                  setSelectedVideoIds([...selectedVideoIds, vid.id]);
-                                } else {
-                                  setSelectedVideoIds(selectedVideoIds.filter(id => id !== vid.id));
-                                }
-                              }}
-                              className="w-5 h-5 rounded border-slate-600 bg-slate-800/80 cursor-pointer accent-blue-500 hover:scale-110 transition-transform" 
-                            />
-                          </div>
+              if (filteredVideos.length === 0) {
+                return (
+                  <div className="flex flex-col items-center justify-center py-24 bg-slate-900/50 border-2 border-dashed border-slate-800 rounded-3xl text-slate-500">
+                    <Video className="w-14 h-14 text-slate-700 mb-4" />
+                    <h3 className="text-lg font-bold text-slate-400 mb-1">No videos saved yet</h3>
+                    <p className="text-sm text-center max-w-xs">Add YouTube, Vimeo, or direct video links to build your reference library for this project.</p>
+                    <button
+                      onClick={() => setShowAddVideo(true)}
+                      className="mt-6 bg-blue-600 hover:bg-blue-500 text-white font-bold px-5 py-2.5 rounded-xl flex items-center gap-2 transition-all"
+                    >
+                      <Plus className="w-4 h-4" /> Add First Video
+                    </button>
+                  </div>
+                );
+              }
 
-                          {/* 3-Dot Menu */}
-                          <div className="absolute top-3 right-3 z-10" onClick={e => e.stopPropagation()}>
-                            <button 
-                              onClick={() => setActiveVideoDropdownId(activeVideoDropdownId === vid.id ? null : vid.id)}
-                              className="p-1.5 rounded-full bg-slate-900/60 text-white hover:bg-slate-800 backdrop-blur-sm transition-colors shadow-sm cursor-pointer"
-                            >
-                              <MoreVertical className="w-4 h-4" />
-                            </button>
-                            
-                            {activeVideoDropdownId === vid.id && (
-                              <>
-                                <div className="fixed inset-0 z-20 cursor-default" onClick={() => setActiveVideoDropdownId(null)} />
-                                <div className="absolute right-0 top-full mt-1 w-36 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden z-30">
-                                  <button
-                                    onClick={() => {
-                                      setActivePlayingVideo(vid);
-                                      setActiveVideoDropdownId(null);
-                                    }}
-                                    className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800 hover:text-white flex items-center gap-2 transition-colors cursor-pointer"
-                                  >
-                                    <Eye className="w-3.5 h-3.5 text-blue-400" /> View Details
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      setVideoToDelete(vid);
-                                      setActiveVideoDropdownId(null);
-                                    }}
-                                    className="w-full text-left px-3 py-2 text-xs font-semibold text-red-400 hover:bg-red-950/30 hover:text-red-300 flex items-center gap-2 border-t border-slate-800/80 transition-colors cursor-pointer"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" /> Delete
-                                  </button>
-                                </div>
-                              </>
-                            )}
-                          </div>
-                          {isYoutube ? (
-                            <img
-                              src={`https://img.youtube.com/vi/${vid.url.split("v=")[1]?.split("&")[0] || vid.url.split("/").pop()}/hqdefault.jpg`}
-                              alt={vid.title}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <video
-                              src={vid.url}
-                              className="w-full h-full object-cover"
-                              preload="metadata"
-                              muted
-                              playsInline
-                            />
-                          )}
-                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                            <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                              <Play className="w-6 h-6 text-white fill-white ml-1" />
-                            </div>
-                          </div>
-                          <span className="absolute bottom-2 right-2 px-2 py-0.5 bg-black/70 rounded text-[10px] font-bold text-white uppercase tracking-wider">
-                            {isYoutube ? "YouTube" : isVimeo ? "Vimeo" : "Video"}
-                          </span>
-                        </div>
+              return (
+                <div className="flex-1 flex flex-col justify-between">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                    {currentPageVideos.map((vid: any) => {
+                      const isYoutube = (vid.url || "").includes("youtube.com") || (vid.url || "").includes("youtu.be");
+                      const isVimeo = (vid.url || "").includes("vimeo.com");
+                      const embedUrl = isYoutube
+                        ? `https://www.youtube.com/embed/${vid.url.split("v=")[1]?.split("&")[0] || vid.url.split("/").pop()}`
+                        : isVimeo
+                        ? `https://player.vimeo.com/video/${vid.url.split("/").pop()}`
+                        : null;
 
-                        {/* Info */}
-                        <div className="p-4 flex flex-col flex-1">
-                          <h3 className="font-bold text-white leading-tight mb-1 line-clamp-1">{vid.title}</h3>
-                          {vid.note && <p className="text-xs text-slate-500 mb-3 line-clamp-2">{vid.note}</p>}
-                          <div className="mt-auto flex flex-wrap items-center justify-end gap-3 pt-3 border-t border-slate-800">
-                            <div className="flex items-center gap-3">
-                              <button
-                                onClick={async () => {
-                                  const a = document.createElement("a");
-                                  a.href = vid.url;
-                                  a.download = vid.title || "video.mp4";
-                                  a.target = "_blank";
-                                  a.click();
-                                  
-                                  const count = (vid.downloadCount || 0) + 1;
-                                  const updated = savedVideos.map(v => v.id === vid.id ? { ...v, downloadCount: count } : v);
-                                  setSavedVideos(updated);
-                                  saveProjectData(undefined, undefined, undefined, updated);
+                      return (
+                        <div key={vid.id} className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden hover:border-slate-700 transition-colors group flex flex-col">
+                          {/* Thumbnail / Preview */}
+                          <div
+                            className="h-44 bg-slate-950 relative flex items-center justify-center cursor-pointer overflow-hidden shrink-0 group/thumb"
+                            onClick={() => setActivePlayingVideo(vid)}
+                          >
+                            {/* Selector */}
+                            <div className="absolute top-3 left-3 z-10" onClick={e => e.stopPropagation()}>
+                              <input 
+                                type="checkbox" 
+                                checked={selectedVideoIds.includes(vid.id)}
+                                onChange={(e) => {
+                                  e.stopPropagation();
+                                  if (e.target.checked) {
+                                    setSelectedVideoIds([...selectedVideoIds, vid.id]);
+                                  } else {
+                                    setSelectedVideoIds(selectedVideoIds.filter(id => id !== vid.id));
+                                  }
                                 }}
-                                className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors"
-                                title="Download Video"
+                                className="w-5 h-5 rounded border-slate-600 bg-slate-800/80 cursor-pointer accent-blue-500 hover:scale-110 transition-transform" 
+                              />
+                            </div>
+
+                            {/* 3-Dot Menu */}
+                            <div className="absolute top-3 right-3 z-10" onClick={e => e.stopPropagation()}>
+                              <button 
+                                onClick={() => setActiveVideoDropdownId(activeVideoDropdownId === vid.id ? null : vid.id)}
+                                className="p-1.5 rounded-full bg-slate-900/60 text-white hover:bg-slate-800 backdrop-blur-sm transition-colors shadow-sm cursor-pointer"
                               >
-                                <Download className="w-3 h-3" /> {vid.downloadCount || 0}
+                                <MoreVertical className="w-4 h-4" />
                               </button>
-                              <button
-                                onClick={() => setVideoToDelete(vid)}
-                                className="text-xs text-slate-500 hover:text-red-400 flex items-center transition-colors"
-                                title="Delete Video"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
+                              
+                              {activeVideoDropdownId === vid.id && (
+                                <>
+                                  <div className="fixed inset-0 z-20 cursor-default" onClick={() => setActiveVideoDropdownId(null)} />
+                                  <div className="absolute right-0 top-full mt-1 w-36 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden z-30">
+                                    <button
+                                      onClick={() => {
+                                        setActivePlayingVideo(vid);
+                                        setActiveVideoDropdownId(null);
+                                      }}
+                                      className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800 hover:text-white flex items-center gap-2 transition-colors cursor-pointer"
+                                    >
+                                      <Eye className="w-3.5 h-3.5 text-blue-400" /> View Details
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        setVideoToDelete(vid);
+                                        setActiveVideoDropdownId(null);
+                                      }}
+                                      className="w-full text-left px-3 py-2 text-xs font-semibold text-red-400 hover:bg-red-950/30 hover:text-red-300 flex items-center gap-2 border-t border-slate-800/80 transition-colors cursor-pointer"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" /> Delete
+                                    </button>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                            {isYoutube ? (
+                              <img
+                                src={`https://img.youtube.com/vi/${vid.url.split("v=")[1]?.split("&")[0] || vid.url.split("/").pop()}/hqdefault.jpg`}
+                                alt={vid.title}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <video
+                                src={vid.url}
+                                className="w-full h-full object-cover"
+                                preload="metadata"
+                                muted
+                                playsInline
+                              />
+                            )}
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                              <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                                <Play className="w-6 h-6 text-white fill-white ml-1" />
+                              </div>
+                            </div>
+                            <span className="absolute bottom-2 right-2 px-2 py-0.5 bg-black/70 rounded text-[10px] font-bold text-white uppercase tracking-wider">
+                              {isYoutube ? "YouTube" : isVimeo ? "Vimeo" : "Video"}
+                            </span>
+                          </div>
+
+                          {/* Info */}
+                          <div className="p-4 flex flex-col flex-1">
+                            <div className="flex items-center justify-between gap-2 mb-1">
+                              <h3 className="font-bold text-white leading-tight line-clamp-1">{vid.title}</h3>
+                              {vid.note && (
+                                <span className="relative flex h-2 w-2 shrink-0" title="Has Description">
+                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+                                </span>
+                              )}
+                            </div>
+                            {vid.note && <p className="text-xs text-slate-500 mb-3 line-clamp-2">{vid.note}</p>}
+                            <div className="mt-auto flex flex-wrap items-center justify-end gap-3 pt-3 border-t border-slate-800">
+                              <div className="flex items-center gap-3">
+                                <button
+                                  onClick={async () => {
+                                    const a = document.createElement("a");
+                                    a.href = vid.url;
+                                    a.download = vid.title || "video.mp4";
+                                    a.target = "_blank";
+                                    a.click();
+                                    
+                                    const count = (vid.downloadCount || 0) + 1;
+                                    const updated = savedVideos.map(v => v.id === vid.id ? { ...v, downloadCount: count } : v);
+                                    setSavedVideos(updated);
+                                    saveProjectData(undefined, undefined, undefined, updated);
+                                  }}
+                                  className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors"
+                                  title="Download Video"
+                                >
+                                  <Download className="w-3 h-3" /> {vid.downloadCount || 0}
+                                </button>
+                                <button
+                                  onClick={() => setVideoToDelete(vid)}
+                                  className="text-xs text-slate-500 hover:text-red-400 flex items-center transition-colors"
+                                  title="Delete Video"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    );
-                  })}
-              </div>
-            )}
+                      );
+                    })}
+                  </div>
+
+                  {/* Video Pagination Controls */}
+                  {totalVideoPages > 1 && (
+                    <div className="mt-6 pt-4 border-t border-slate-800 flex justify-between items-center text-sm">
+                      <button 
+                        onClick={() => setVideoPage(prev => Math.max(1, prev - 1))}
+                        disabled={videoPage === 1}
+                        className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                      <span className="text-slate-500 font-medium">Page {videoPage} of {totalVideoPages}</span>
+                      <button 
+                        onClick={() => setVideoPage(prev => Math.min(totalVideoPages, prev + 1))}
+                        disabled={videoPage === totalVideoPages}
+                        className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Add Video Modal */}
             {showAddVideo && (
@@ -1254,7 +1307,7 @@ export default function CreatorProjectDetails() {
             {/* Video Player Modal */}
             {activePlayingVideo && (
               <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in" onClick={() => { if (!isEditingVideoPlayer && !isDownloadingVideoPlayer) setActivePlayingVideo(null); }}>
-                <div className="w-full max-w-4xl bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+                <div className="w-full max-w-4xl bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
                   <div className="flex justify-between items-center mb-4">
                     {isEditingVideoPlayer ? (
                       <input
@@ -1288,16 +1341,16 @@ export default function CreatorProjectDetails() {
                     })()}
                   </div>
 
-                  {/* Metadata and Description */}
+                  {/* Metadata and Caption */}
                   <div className="space-y-4">
                     <div className="bg-slate-950/60 p-5 rounded-2xl border border-slate-800 relative">
                       <div className="flex justify-between items-center mb-2">
-                        <span className="text-xs font-black text-slate-500 uppercase tracking-widest">Description</span>
+                        <span className="text-xs font-black text-slate-500 uppercase tracking-widest">Caption</span>
                         {!isEditingVideoPlayer && activePlayingVideo.note && (
                           <button
                             onClick={() => {
                               navigator.clipboard.writeText(activePlayingVideo.note);
-                              showToast("Description copied to clipboard!");
+                              showToast("Caption copied to clipboard!");
                             }}
                             className="text-xs text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1.5 transition-colors bg-blue-500/10 px-2.5 py-1 rounded-lg border border-blue-500/10"
                           >
@@ -1315,9 +1368,143 @@ export default function CreatorProjectDetails() {
                         />
                       ) : (
                         <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">
-                          {activePlayingVideo.note || <span className="text-slate-500 italic">No description added to this video.</span>}
+                          {activePlayingVideo.note || <span className="text-slate-500 italic">No caption added to this video.</span>}
                         </p>
                       )}
+                    </div>
+
+                    {/* Social Formatter Buttons */}
+                    <div className="flex flex-col gap-3 bg-slate-950/40 p-5 rounded-2xl border border-slate-800">
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="text-xs font-black text-slate-500 uppercase tracking-widest">Format for Socials</span>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {[
+                          { id: "youtube", name: "YouTube", color: "hover:bg-red-600/10 active:bg-red-600/20 text-red-400 border-red-500/20 bg-red-500/5", activeColor: "bg-red-600 text-white border-red-500" },
+                          { id: "tiktok", name: "TikTok", color: "hover:bg-cyan-600/10 active:bg-cyan-600/20 text-cyan-400 border-cyan-500/20 bg-cyan-500/5", activeColor: "bg-cyan-600 text-white border-cyan-500" },
+                          { id: "instagram", name: "Instagram", color: "hover:bg-pink-600/10 active:bg-pink-600/20 text-pink-400 border-pink-500/20 bg-pink-500/5", activeColor: "bg-gradient-to-r from-purple-600 to-pink-600 text-white border-pink-500" },
+                          { id: "twitter", name: "Twitter / X", color: "hover:bg-slate-700/10 active:bg-slate-700/20 text-slate-300 border-slate-600/20 bg-slate-800/5", activeColor: "bg-white text-slate-950 border-white font-bold" },
+                          { id: "linkedin", name: "LinkedIn", color: "hover:bg-blue-600/10 active:bg-blue-600/20 text-blue-400 border-blue-500/20 bg-blue-500/5", activeColor: "bg-blue-600 text-white border-blue-500" }
+                        ].map((plat) => {
+                          const isActive = formatterPlatform === plat.id;
+                          return (
+                            <button
+                              key={plat.id}
+                              onClick={() => {
+                                setFormatterPlatform(plat.id);
+                                setFormattedResult("");
+                              }}
+                              className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                                isActive ? plat.activeColor : `bg-slate-900 border-slate-800 text-slate-400 ${plat.color}`
+                              }`}
+                            >
+                              {plat.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Formatter Section */}
+                      <div className="mt-2 border-t border-slate-800/60 pt-4 space-y-3">
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-1.5">
+                            <Sparkles className="w-3.5 h-3.5" /> Formatter
+                          </span>
+                          <button
+                            disabled={isFormatting || !activePlayingVideo.note}
+                            onClick={async () => {
+                              if (!activePlayingVideo.note) return;
+                              setIsFormatting(true);
+                              try {
+                                const res = await fetch("/api/creators/format-video-desc", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({
+                                    description: activePlayingVideo.note,
+                                    platform: formatterPlatform
+                                  })
+                                });
+                                if (res.ok) {
+                                  const data = await res.json();
+                                  setFormattedResult(data.text);
+                                  showToast("Formatting completed successfully!");
+                                } else {
+                                  showToast("Formatting failed.", "error");
+                                }
+                              } catch (err) {
+                                console.error(err);
+                                showToast("Formatting error.", "error");
+                              } finally {
+                                setIsFormatting(false);
+                              }
+                            }}
+                            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                              isFormatting
+                                ? "bg-indigo-950 text-indigo-400 cursor-not-allowed border border-indigo-900/50"
+                                : !activePlayingVideo.note
+                                ? "bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-800"
+                                : "bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/10 cursor-pointer"
+                            }`}
+                          >
+                            {isFormatting ? (
+                              <>
+                                <Loader2 className="w-3 h-3 animate-spin" /> Formatting...
+                              </>
+                            ) : (
+                              "Format Caption"
+                            )}
+                          </button>
+                        </div>
+
+                        {formattedResult ? (
+                          <div className="space-y-2 relative">
+                            <textarea
+                              readOnly
+                              rows={6}
+                              value={formattedResult}
+                              className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 pt-10 text-xs text-slate-300 font-mono focus:outline-none resize-none leading-relaxed select-all"
+                            />
+                            {/* Copy Overlay Button */}
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(formattedResult);
+                                showToast("Formatted caption copied!");
+                              }}
+                              className="absolute top-2.5 right-2.5 text-[10px] text-blue-400 hover:text-blue-300 font-bold flex items-center gap-1 bg-blue-500/10 px-2 py-1 rounded-lg border border-blue-500/15 cursor-pointer shadow-sm transition-colors"
+                              title="Copy Formatted Caption"
+                            >
+                              <Copy className="w-3 h-3" /> Copy
+                            </button>
+                            <div className="flex justify-end gap-2">
+                              <button
+                                onClick={async () => {
+                                  const updated = savedVideos.map(v => v.id === activePlayingVideo.id ? { ...v, formattedNote: formattedResult, formatterPlatform: formatterPlatform } : v);
+                                  setSavedVideos(updated);
+                                  await saveProjectData(undefined, undefined, undefined, updated);
+                                  setActivePlayingVideo({ ...activePlayingVideo, formattedNote: formattedResult, formatterPlatform: formatterPlatform });
+                                  showToast("Format saved successfully!");
+                                }}
+                                className="text-xs text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1.5 bg-blue-500/10 px-2.5 py-1 rounded-lg border border-blue-500/15 cursor-pointer"
+                              >
+                                Save Format
+                              </button>
+                              <button
+                                onClick={() => {
+                                  navigator.clipboard.writeText(formattedResult);
+                                  showToast("Formatted text copied!");
+                                }}
+                                className="text-xs text-emerald-400 hover:text-emerald-300 font-semibold flex items-center gap-1 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/15 cursor-pointer"
+                              >
+                                <Copy className="w-3.5 h-3.5" /> Copy Formatted Text
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-slate-500 italic">
+                            Select a platform above and click "Format Caption" to format the video notes using AI social templates.
+                          </p>
+                        )}
+                      </div>
                     </div>
 
                     <div className="flex justify-end gap-3 pt-2">
@@ -1334,10 +1521,10 @@ export default function CreatorProjectDetails() {
                             onClick={async () => {
                               if (!editVideoTitle) return;
                               setIsSavingVideoPlayerEdit(true);
-                              const updated = savedVideos.map(v => v.id === activePlayingVideo.id ? { ...v, title: editVideoTitle, note: editVideoNote } : v);
+                              const updated = savedVideos.map(v => v.id === activePlayingVideo.id ? { ...v, title: editVideoTitle, note: editVideoNote, formattedNote: formattedResult, formatterPlatform: formatterPlatform } : v);
                               setSavedVideos(updated);
                               await saveProjectData(undefined, undefined, undefined, updated);
-                              setActivePlayingVideo({ ...activePlayingVideo, title: editVideoTitle, note: editVideoNote });
+                              setActivePlayingVideo({ ...activePlayingVideo, title: editVideoTitle, note: editVideoNote, formattedNote: formattedResult, formatterPlatform: formatterPlatform });
                               setIsSavingVideoPlayerEdit(false);
                               setIsEditingVideoPlayer(false);
                               showToast("Video details updated!");
@@ -1672,7 +1859,9 @@ export default function CreatorProjectDetails() {
 
         {/* Tab: SOCIAL (Social Media Templates) */}
         {activeProjectTab === 'social' && (
-          <SocialTemplates />
+          <div className="mb-44">
+            <SocialTemplates />
+          </div>
         )}
 
         {/* Grid Monthly Calendar (Persistent across all tabs) */}
@@ -2633,7 +2822,7 @@ export default function CreatorProjectDetails() {
             const isCarousel = currentImg && currentImg.type === "carousel";
 
             return (
-              <div className="w-full max-w-4xl bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden p-6 shadow-2xl flex flex-col" onClick={e => e.stopPropagation()}>
+              <div className="w-full max-w-4xl bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl flex flex-col max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
                 <div className="w-full flex justify-between items-center mb-4 text-white">
                   {isEditingImagePlayer ? (
                     <input
@@ -2708,24 +2897,18 @@ export default function CreatorProjectDetails() {
                   )}
                 </div>
 
-                {/* Metadata and Description */}
+                {/* Metadata and Caption */}
                 <div className="space-y-4 mt-5 text-left">
                   <div className="bg-slate-950/60 p-5 rounded-2xl border border-slate-800 relative">
                     <div className="flex justify-between items-center mb-2">
-                      <span className="text-xs font-black text-slate-500 uppercase tracking-widest">Description</span>
-                      {!isEditingImagePlayer && (
+                      <span className="text-xs font-black text-slate-500 uppercase tracking-widest">Caption</span>
+                      {!isEditingImagePlayer && getImageNote(currentImg) && (
                         <button
                           onClick={() => {
-                            if (!getImageNote(currentImg)) return;
                             navigator.clipboard.writeText(getImageNote(currentImg));
-                            showToast("Description copied to clipboard!");
+                            showToast("Caption copied to clipboard!");
                           }}
-                          disabled={!getImageNote(currentImg)}
-                          className={`text-xs font-semibold flex items-center gap-1.5 transition-colors px-2.5 py-1 rounded-lg border ${
-                            getImageNote(currentImg)
-                              ? "text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 border-emerald-500/10 cursor-pointer"
-                              : "text-slate-600 bg-slate-800/30 border-slate-800 cursor-not-allowed"
-                          }`}
+                          className="text-xs text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1.5 transition-colors bg-blue-500/10 px-2.5 py-1 rounded-lg border border-blue-500/10 cursor-pointer"
                         >
                           <Copy className="w-3.5 h-3.5" /> Copy
                         </button>
@@ -2741,9 +2924,142 @@ export default function CreatorProjectDetails() {
                       />
                     ) : (
                       <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">
-                        {getImageNote(currentImg) || <span className="text-slate-500 italic">No description added to this image.</span>}
+                        {getImageNote(currentImg) || <span className="text-slate-500 italic">No caption added to this image.</span>}
                       </p>
                     )}
+                  </div>
+
+                  {/* Social Formatter Buttons */}
+                  <div className="flex flex-col gap-3 bg-slate-950/40 p-5 rounded-2xl border border-slate-800">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-xs font-black text-slate-500 uppercase tracking-widest">Format for Socials</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        { id: "youtube", name: "YouTube", color: "hover:bg-red-600/10 active:bg-red-600/20 text-red-400 border-red-500/20 bg-red-500/5", activeColor: "bg-red-600 text-white border-red-500" },
+                        { id: "tiktok", name: "TikTok", color: "hover:bg-cyan-600/10 active:bg-cyan-600/20 text-cyan-400 border-cyan-500/20 bg-cyan-500/5", activeColor: "bg-cyan-600 text-white border-cyan-500" },
+                        { id: "instagram", name: "Instagram", color: "hover:bg-pink-600/10 active:bg-pink-600/20 text-pink-400 border-pink-500/20 bg-pink-500/5", activeColor: "bg-gradient-to-r from-purple-600 to-pink-600 text-white border-pink-500" },
+                        { id: "twitter", name: "Twitter / X", color: "hover:bg-slate-700/10 active:bg-slate-700/20 text-slate-300 border-slate-600/20 bg-slate-800/5", activeColor: "bg-white text-slate-950 border-white font-bold" },
+                        { id: "linkedin", name: "LinkedIn", color: "hover:bg-blue-600/10 active:bg-blue-600/20 text-blue-400 border-blue-500/20 bg-blue-500/5", activeColor: "bg-blue-600 text-white border-blue-500" }
+                      ].map((plat) => {
+                        const isActive = formatterPlatform === plat.id;
+                        return (
+                          <button
+                            key={plat.id}
+                            onClick={() => {
+                              setFormatterPlatform(plat.id);
+                              setFormattedResult("");
+                            }}
+                            className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                              isActive ? plat.activeColor : `bg-slate-900 border-slate-800 text-slate-400 ${plat.color}`
+                            }`}
+                          >
+                            {plat.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Formatter Section */}
+                    <div className="mt-2 border-t border-slate-800/60 pt-4 space-y-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-1.5">
+                          <Sparkles className="w-3.5 h-3.5" /> Formatter
+                        </span>
+                        <button
+                          disabled={isFormatting || !getImageNote(currentImg)}
+                          onClick={async () => {
+                            if (!getImageNote(currentImg)) return;
+                            setIsFormatting(true);
+                            try {
+                              const res = await fetch("/api/creators/format-video-desc", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                  description: getImageNote(currentImg),
+                                  platform: formatterPlatform
+                                })
+                              });
+                              if (res.ok) {
+                                const data = await res.json();
+                                setFormattedResult(data.text);
+                                showToast("Formatting completed successfully!");
+                              } else {
+                                showToast("Formatting failed.", "error");
+                              }
+                            } catch (err) {
+                              console.error(err);
+                              showToast("Formatting error.", "error");
+                            } finally {
+                              setIsFormatting(false);
+                            }
+                          }}
+                          className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                            isFormatting
+                              ? "bg-indigo-950 text-indigo-400 cursor-not-allowed border border-indigo-900/50"
+                              : !getImageNote(currentImg)
+                              ? "bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-800"
+                              : "bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/10 cursor-pointer"
+                          }`}
+                        >
+                          {isFormatting ? (
+                            <>
+                              <Loader2 className="w-3 h-3 animate-spin" /> Formatting...
+                            </>
+                          ) : (
+                            "Format Caption"
+                          )}
+                        </button>
+                      </div>
+
+                      {formattedResult ? (
+                        <div className="space-y-2 relative">
+                          <textarea
+                            readOnly
+                            rows={6}
+                            value={formattedResult}
+                            className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 pt-10 text-xs text-slate-300 font-mono focus:outline-none resize-none leading-relaxed select-all"
+                          />
+                          {/* Copy Overlay Button */}
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(formattedResult);
+                              showToast("Formatted caption copied!");
+                            }}
+                            className="absolute top-2.5 right-2.5 text-[10px] text-blue-400 hover:text-blue-300 font-bold flex items-center gap-1 bg-blue-500/10 px-2 py-1 rounded-lg border border-blue-500/15 cursor-pointer shadow-sm transition-colors"
+                            title="Copy Formatted Caption"
+                          >
+                            <Copy className="w-3 h-3" /> Copy
+                          </button>
+                          <div className="flex justify-end gap-2">
+                            <button
+                              onClick={async () => {
+                                const updated = savedImages.map((v, i) => i === activePreviewImageIndex ? { ...v, formattedNote: formattedResult, formatterPlatform: formatterPlatform } : v);
+                                setSavedImages(updated);
+                                await saveProjectData(undefined, undefined, undefined, undefined, updated);
+                                showToast("Format saved successfully!");
+                              }}
+                              className="text-xs text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1.5 bg-blue-500/10 px-2.5 py-1 rounded-lg border border-blue-500/15 cursor-pointer"
+                            >
+                              Save Format
+                            </button>
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(formattedResult);
+                                showToast("Formatted text copied!");
+                              }}
+                              className="text-xs text-emerald-400 hover:text-emerald-300 font-semibold flex items-center gap-1 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/15 cursor-pointer"
+                            >
+                              <Copy className="w-3.5 h-3.5" /> Copy Formatted Text
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-slate-500 italic">
+                          Select a platform above and click "Format Caption" to format the image notes using AI social templates.
+                        </p>
+                      )}
+                    </div>
                   </div>
 
                   <div className="flex justify-end gap-3 pt-2">
@@ -2760,7 +3076,7 @@ export default function CreatorProjectDetails() {
                           onClick={async () => {
                             if (!editImageTitle) return;
                             setIsSavingImagePlayerEdit(true);
-                            const updated = savedImages.map((v, i) => i === activePreviewImageIndex ? { ...v, title: editImageTitle, note: editImageNote } : v);
+                            const updated = savedImages.map((v, i) => i === activePreviewImageIndex ? { ...v, title: editImageTitle, note: editImageNote, formattedNote: formattedResult, formatterPlatform: formatterPlatform } : v);
                             setSavedImages(updated);
                             await saveProjectData(undefined, undefined, undefined, undefined, updated);
                             setIsSavingImagePlayerEdit(false);
