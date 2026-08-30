@@ -40,6 +40,7 @@ export default function CreatorProjectDetails() {
   const [isSavingVideo, setIsSavingVideo] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadError, setUploadError] = useState("");
+  const [batchUploadStats, setBatchUploadStats] = useState<{ total: number; completed: number } | null>(null);
   const [activePlayingVideo, setActivePlayingVideo] = useState<any | null>(null);
   const [videoSearch, setVideoSearch] = useState("");
   const [videoSubTab, setVideoSubTab] = useState<"new" | "used">("new");
@@ -466,6 +467,7 @@ export default function CreatorProjectDetails() {
     setUploadProgress(0);
     setIsUploading(false);
     setVideoUploadMode("choice");
+    setBatchUploadStats(null);
   };
 
   const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -523,9 +525,11 @@ export default function CreatorProjectDetails() {
       setIsUploading(true);
       setUploadProgress(0);
       setUploadError("");
+      setBatchUploadStats({ total: files.length, completed: 0 });
       
       const newVideos: any[] = [];
       let completed = 0;
+      const uploadedAt = new Date().toISOString();
       
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
@@ -540,25 +544,32 @@ export default function CreatorProjectDetails() {
               id: Date.now() + i,
               title: nameWithoutExt,
               url: data.url,
-              note: ""
+              note: "",
+              uploadedAt,
             });
           }
         } catch (err) {
           console.error("Upload failed for", file.name, err);
         }
         completed++;
+        setBatchUploadStats({ total: files.length, completed });
         setUploadProgress(Math.round((completed / files.length) * 100));
       }
       
+      // Reset file input so the same files can be re-selected later
+      if (multipleVideoInputRef.current) multipleVideoInputRef.current.value = "";
+
+      setIsUploading(false);
+      setBatchUploadStats(null);
+
       if (newVideos.length > 0) {
         const updated = [...newVideos, ...savedVideos];
         setSavedVideos(updated);
-        saveProjectData(undefined, undefined, undefined, updated);
+        await saveProjectData(undefined, undefined, undefined, updated);
         closeAddVideoModal();
       } else {
-        setUploadError("All uploads failed.");
+        setUploadError("All uploads failed. Please check your connection and try again.");
       }
-      setIsUploading(false);
     }
   };
 
@@ -974,145 +985,188 @@ export default function CreatorProjectDetails() {
 
               return (
                 <div className="flex-1 flex flex-col justify-between">
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                    {currentPageVideos.map((vid: any) => {
-                      const isYoutube = (vid.url || "").includes("youtube.com") || (vid.url || "").includes("youtu.be");
-                      const isVimeo = (vid.url || "").includes("vimeo.com");
-                      const embedUrl = isYoutube
-                        ? `https://www.youtube.com/embed/${vid.url.split("v=")[1]?.split("&")[0] || vid.url.split("/").pop()}`
-                        : isVimeo
-                        ? `https://player.vimeo.com/video/${vid.url.split("/").pop()}`
-                        : null;
+                  <div className="flex flex-col gap-8">
+                    {(() => {
+                      // Group by date
+                      const groupedByDate: Record<string, any[]> = {};
+                      currentPageVideos.forEach((vid: any) => {
+                        let dateStr = "Older";
+                        if (vid.uploadedAt) {
+                          const dateObj = new Date(vid.uploadedAt);
+                          // Check if it's today
+                          const now = new Date();
+                          const isToday = dateObj.getFullYear() === now.getFullYear() &&
+                                          dateObj.getMonth() === now.getMonth() &&
+                                          dateObj.getDate() === now.getDate();
+                          
+                          if (isToday) {
+                            dateStr = "Today";
+                          } else {
+                            dateStr = dateObj.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+                          }
+                        }
+                        if (!groupedByDate[dateStr]) groupedByDate[dateStr] = [];
+                        groupedByDate[dateStr].push(vid);
+                      });
 
-                      return (
-                        <div key={vid.id} className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden hover:border-slate-700 transition-colors group flex flex-col">
-                          {/* Thumbnail / Preview */}
-                          <div
-                            className="h-44 bg-slate-950 relative flex items-center justify-center cursor-pointer overflow-hidden shrink-0 group/thumb"
-                            onClick={() => setActivePlayingVideo(vid)}
-                          >
-                            {/* Selector */}
-                            <div className="absolute top-3 left-3 z-10" onClick={e => e.stopPropagation()}>
-                              <input 
-                                type="checkbox" 
-                                checked={selectedVideoIds.includes(vid.id)}
-                                onChange={(e) => {
-                                  e.stopPropagation();
-                                  if (e.target.checked) {
-                                    setSelectedVideoIds([...selectedVideoIds, vid.id]);
-                                  } else {
-                                    setSelectedVideoIds(selectedVideoIds.filter(id => id !== vid.id));
-                                  }
-                                }}
-                                className="w-5 h-5 rounded border-slate-600 bg-slate-800/80 cursor-pointer accent-blue-500 hover:scale-110 transition-transform" 
-                              />
-                            </div>
+                      return Object.entries(groupedByDate).map(([date, vids]) => (
+                        <div key={date}>
+                          <h3 className="text-sm font-bold text-slate-400 mb-4 border-b border-slate-800/60 pb-2">{date}</h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                            {vids.map((vid: any) => {
+                              const isYoutube = (vid.url || "").includes("youtube.com") || (vid.url || "").includes("youtu.be");
+                              const isVimeo = (vid.url || "").includes("vimeo.com");
 
-                            {/* 3-Dot Menu */}
-                            <div className="absolute top-3 right-3 z-10" onClick={e => e.stopPropagation()}>
-                              <button 
-                                onClick={() => setActiveVideoDropdownId(activeVideoDropdownId === vid.id ? null : vid.id)}
-                                className="p-1.5 rounded-full bg-slate-900/60 text-white hover:bg-slate-800 backdrop-blur-sm transition-colors shadow-sm cursor-pointer"
-                              >
-                                <MoreVertical className="w-4 h-4" />
-                              </button>
-                              
-                              {activeVideoDropdownId === vid.id && (
-                                <>
-                                  <div className="fixed inset-0 z-20 cursor-default" onClick={() => setActiveVideoDropdownId(null)} />
-                                  <div className="absolute right-0 top-full mt-1 w-36 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden z-30">
-                                    <button
-                                      onClick={() => {
-                                        setActivePlayingVideo(vid);
-                                        setActiveVideoDropdownId(null);
-                                      }}
-                                      className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800 hover:text-white flex items-center gap-2 transition-colors cursor-pointer"
-                                    >
-                                      <Eye className="w-3.5 h-3.5 text-blue-400" /> View Details
-                                    </button>
-                                    <button
-                                      onClick={() => {
-                                        setVideoToDelete(vid);
-                                        setActiveVideoDropdownId(null);
-                                      }}
-                                      className="w-full text-left px-3 py-2 text-xs font-semibold text-red-400 hover:bg-red-950/30 hover:text-red-300 flex items-center gap-2 border-t border-slate-800/80 transition-colors cursor-pointer"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" /> Delete
-                                    </button>
+                              const isNewToday = date === "Today";
+
+                              return (
+                                <div key={vid.id} className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden hover:border-slate-700 transition-colors group flex flex-col relative">
+                                  {/* Thumbnail / Preview */}
+                                  <div
+                                    className="h-44 bg-slate-950 relative flex items-center justify-center cursor-pointer overflow-hidden shrink-0 group/thumb"
+                                    onClick={() => setActivePlayingVideo(vid)}
+                                  >
+                                    {/* Selector */}
+                                    <div className="absolute top-3 left-3 z-10" onClick={e => e.stopPropagation()}>
+                                      <input 
+                                        type="checkbox" 
+                                        checked={selectedVideoIds.includes(vid.id)}
+                                        onChange={(e) => {
+                                          e.stopPropagation();
+                                          if (e.target.checked) {
+                                            setSelectedVideoIds([...selectedVideoIds, vid.id]);
+                                          } else {
+                                            setSelectedVideoIds(selectedVideoIds.filter(id => id !== vid.id));
+                                          }
+                                        }}
+                                        className="w-5 h-5 rounded border-slate-600 bg-slate-800/80 cursor-pointer accent-blue-500 hover:scale-110 transition-transform" 
+                                      />
+                                    </div>
+
+                                    {/* 3-Dot Menu */}
+                                    <div className="absolute top-3 right-3 z-10" onClick={e => e.stopPropagation()}>
+                                      <button 
+                                        onClick={() => setActiveVideoDropdownId(activeVideoDropdownId === vid.id ? null : vid.id)}
+                                        className="p-1.5 rounded-full bg-slate-900/60 text-white hover:bg-slate-800 backdrop-blur-sm transition-colors shadow-sm cursor-pointer"
+                                      >
+                                        <MoreVertical className="w-4 h-4" />
+                                      </button>
+                                      
+                                      {activeVideoDropdownId === vid.id && (
+                                        <>
+                                          <div className="fixed inset-0 z-20 cursor-default" onClick={() => setActiveVideoDropdownId(null)} />
+                                          <div className="absolute right-0 top-full mt-1 w-36 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden z-30">
+                                            <button
+                                              onClick={() => {
+                                                setActivePlayingVideo(vid);
+                                                setActiveVideoDropdownId(null);
+                                              }}
+                                              className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800 hover:text-white flex items-center gap-2 transition-colors cursor-pointer"
+                                            >
+                                              <Eye className="w-3.5 h-3.5 text-blue-400" /> View Details
+                                            </button>
+                                            <button
+                                              onClick={() => {
+                                                setVideoToDelete(vid);
+                                                setActiveVideoDropdownId(null);
+                                              }}
+                                              className="w-full text-left px-3 py-2 text-xs font-semibold text-red-400 hover:bg-red-950/30 hover:text-red-300 flex items-center gap-2 border-t border-slate-800/80 transition-colors cursor-pointer"
+                                            >
+                                              <Trash2 className="w-3.5 h-3.5" /> Delete
+                                            </button>
+                                          </div>
+                                        </>
+                                      )}
+                                    </div>
+                                    {isYoutube ? (
+                                      <img
+                                        src={`https://img.youtube.com/vi/${vid.url.split("v=")[1]?.split("&")[0] || vid.url.split("/").pop()}/hqdefault.jpg`}
+                                        alt={vid.title}
+                                        className="w-full h-full object-cover"
+                                      />
+                                    ) : (
+                                      <video
+                                        src={vid.url}
+                                        className="w-full h-full object-cover"
+                                        preload="metadata"
+                                        muted
+                                        playsInline
+                                      />
+                                    )}
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                      <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                                        <Play className="w-6 h-6 text-white fill-white ml-1" />
+                                      </div>
+                                    </div>
+                                    <span className="absolute bottom-2 right-2 px-2 py-0.5 bg-black/70 rounded text-[10px] font-bold text-white uppercase tracking-wider">
+                                      {isYoutube ? "YouTube" : isVimeo ? "Vimeo" : "Video"}
+                                    </span>
                                   </div>
-                                </>
-                              )}
-                            </div>
-                            {isYoutube ? (
-                              <img
-                                src={`https://img.youtube.com/vi/${vid.url.split("v=")[1]?.split("&")[0] || vid.url.split("/").pop()}/hqdefault.jpg`}
-                                alt={vid.title}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <video
-                                src={vid.url}
-                                className="w-full h-full object-cover"
-                                preload="metadata"
-                                muted
-                                playsInline
-                              />
-                            )}
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                              <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                                <Play className="w-6 h-6 text-white fill-white ml-1" />
-                              </div>
-                            </div>
-                            <span className="absolute bottom-2 right-2 px-2 py-0.5 bg-black/70 rounded text-[10px] font-bold text-white uppercase tracking-wider">
-                              {isYoutube ? "YouTube" : isVimeo ? "Vimeo" : "Video"}
-                            </span>
-                          </div>
 
-                          {/* Info */}
-                          <div className="p-4 flex flex-col flex-1">
-                            <div className="flex items-center justify-between gap-2 mb-1">
-                              <h3 className="font-bold text-white leading-tight line-clamp-1">{vid.title}</h3>
-                              {vid.note && (
-                                <span className="relative flex h-2 w-2 shrink-0" title="Has Description">
-                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
-                                </span>
-                              )}
-                            </div>
-                            {vid.note && <p className="text-xs text-slate-500 mb-3 line-clamp-2">{vid.note}</p>}
-                            <div className="mt-auto flex flex-wrap items-center justify-end gap-3 pt-3 border-t border-slate-800">
-                              <div className="flex items-center gap-3">
-                                <button
-                                  onClick={async () => {
-                                    const a = document.createElement("a");
-                                    a.href = vid.url;
-                                    a.download = vid.title || "video.mp4";
-                                    a.target = "_blank";
-                                    a.click();
-                                    
-                                    const count = (vid.downloadCount || 0) + 1;
-                                    const updated = savedVideos.map(v => v.id === vid.id ? { ...v, downloadCount: count } : v);
-                                    setSavedVideos(updated);
-                                    saveProjectData(undefined, undefined, undefined, updated);
-                                  }}
-                                  className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors"
-                                  title="Download Video"
-                                >
-                                  <Download className="w-3 h-3" /> {vid.downloadCount || 0}
-                                </button>
-                                <button
-                                  onClick={() => setVideoToDelete(vid)}
-                                  className="text-xs text-slate-500 hover:text-red-400 flex items-center transition-colors"
-                                  title="Delete Video"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              </div>
-                            </div>
+                                  {/* New Today Badge */}
+                                  {isNewToday && (
+                                    <span className="absolute top-2 left-10 z-20 px-2 py-0.5 rounded-full bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-500/30 flex items-center gap-1 animate-pulse">
+                                      <span className="inline-block w-1.5 h-1.5 rounded-full bg-white"></span>
+                                      New Today
+                                    </span>
+                                  )}
+
+                                  {/* Info */}
+                                  <div className="p-4 flex flex-col flex-1">
+                                    <div className="flex items-center justify-between gap-2 mb-1">
+                                      <h3 className="font-bold text-white leading-tight line-clamp-1">{vid.title}</h3>
+                                      <div className="flex items-center gap-1.5 shrink-0">
+                                        {isNewToday && (
+                                          <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 text-[9px] font-black uppercase tracking-wider">
+                                            New
+                                          </span>
+                                        )}
+                                        {vid.note && (
+                                          <span className="relative flex h-2 w-2 shrink-0" title="Has Description">
+                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                                            <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                    {vid.note && <p className="text-xs text-slate-500 mb-3 line-clamp-2">{vid.note}</p>}
+                                    <div className="mt-auto flex flex-wrap items-center justify-end gap-3 pt-3 border-t border-slate-800">
+                                      <div className="flex items-center gap-3">
+                                        <button
+                                          onClick={async () => {
+                                            const a = document.createElement("a");
+                                            a.href = vid.url;
+                                            a.download = vid.title || "video.mp4";
+                                            a.target = "_blank";
+                                            a.click();
+                                            
+                                            const count = (vid.downloadCount || 0) + 1;
+                                            const updated = savedVideos.map(v => v.id === vid.id ? { ...v, downloadCount: count } : v);
+                                            setSavedVideos(updated);
+                                            saveProjectData(undefined, undefined, undefined, updated);
+                                          }}
+                                          className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors"
+                                          title="Download Video"
+                                        >
+                                          <Download className="w-3 h-3" /> {vid.downloadCount || 0}
+                                        </button>
+                                        <button
+                                          onClick={() => setVideoToDelete(vid)}
+                                          className="text-xs text-slate-500 hover:text-red-400 flex items-center transition-colors"
+                                          title="Delete Video"
+                                        >
+                                          <Trash2 className="w-4 h-4" />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
-                      );
-                    })}
+                      ));
+                    })()}
                   </div>
 
                   {/* Video Pagination Controls */}
@@ -1141,14 +1195,14 @@ export default function CreatorProjectDetails() {
 
             {/* Add Video Modal */}
             {showAddVideo && (
-              <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={closeAddVideoModal}>
+              <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => { if (!isUploading) closeAddVideoModal(); }}>
                 <div className="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-lg p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
                   <div className="flex justify-between items-center mb-5">
                     <h2 className="text-xl font-bold text-white flex items-center gap-2">
                       <Video className="w-5 h-5 text-blue-400" /> 
                       {videoUploadMode === "choice" ? "Add Video" : "Single Video Upload"}
                     </h2>
-                    <button onClick={closeAddVideoModal} className="text-slate-400 hover:text-white"><X className="w-5 h-5" /></button>
+                    <button onClick={() => { if (!isUploading) closeAddVideoModal(); }} className={`transition-colors ${isUploading ? 'text-slate-700 cursor-not-allowed' : 'text-slate-400 hover:text-white'}`} disabled={isUploading}><X className="w-5 h-5" /></button>
                   </div>
                   
                   {videoUploadMode === "choice" && !isUploading && (
@@ -1190,12 +1244,28 @@ export default function CreatorProjectDetails() {
                   )}
 
                   {isUploading && videoUploadMode === "choice" && (
-                    <div className="py-12 flex flex-col items-center justify-center text-center">
-                      <Loader2 className="w-12 h-12 animate-spin text-blue-400 mb-4" />
-                      <h3 className="text-lg font-bold text-white mb-2">Uploading Videos...</h3>
-                      <p className="text-slate-400 text-sm mb-6">Please keep this window open.</p>
-                      <div className="w-full max-w-xs bg-slate-800 rounded-full h-2 overflow-hidden">
-                        <div className="bg-blue-500 h-2 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
+                    <div className="py-10 flex flex-col items-center justify-center text-center">
+                      <div className="relative mb-5">
+                        <Loader2 className="w-14 h-14 animate-spin text-blue-400" />
+                        {batchUploadStats && (
+                          <span className="absolute inset-0 flex items-center justify-center text-xs font-black text-white">
+                            {batchUploadStats.completed}/{batchUploadStats.total}
+                          </span>
+                        )}
+                      </div>
+                      <h3 className="text-lg font-bold text-white mb-1">Uploading Videos...</h3>
+                      {batchUploadStats ? (
+                        <p className="text-slate-400 text-sm mb-5">
+                          <span className="text-blue-400 font-bold">{batchUploadStats.completed}</span>
+                          <span className="text-slate-500"> of </span>
+                          <span className="text-white font-bold">{batchUploadStats.total}</span>
+                          <span className="text-slate-500"> videos uploaded</span>
+                        </p>
+                      ) : (
+                        <p className="text-slate-400 text-sm mb-5">Please keep this window open.</p>
+                      )}
+                      <div className="w-full max-w-xs bg-slate-800 rounded-full h-2.5 overflow-hidden">
+                        <div className="bg-gradient-to-r from-blue-600 to-blue-400 h-2.5 rounded-full transition-all duration-500" style={{ width: `${uploadProgress}%` }} />
                       </div>
                       <p className="mt-3 text-sm font-semibold text-blue-400">{uploadProgress}% Complete</p>
                     </div>
@@ -1278,7 +1348,7 @@ export default function CreatorProjectDetails() {
                           onClick={async () => {
                             if (!videoFormTitle || !videoFormUrl) return;
                             setIsSavingVideo(true);
-                            const newVid = { id: Date.now(), title: videoFormTitle, url: videoFormUrl, note: videoFormNote };
+                            const newVid = { id: Date.now(), title: videoFormTitle, url: videoFormUrl, note: videoFormNote, uploadedAt: new Date().toISOString() };
                             const updated = [newVid, ...savedVideos];
                             setSavedVideos(updated);
                             await saveProjectData(undefined, undefined, undefined, updated);

@@ -1,19 +1,8 @@
 import type { Metadata } from "next";
 import Script from "next/script";
-import { Space_Grotesk, Noto_Sans } from "next/font/google";
 import "./globals.css";
 import { SmoothScroll } from "@/components/layout/SmoothScroll";
 import { Toaster } from "sonner";
-
-const spaceGrotesk = Space_Grotesk({
-  variable: "--font-space-grotesk",
-  subsets: ["latin"],
-});
-
-const notoSans = Noto_Sans({
-  variable: "--font-noto-sans",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "Ola's Portfolio",
@@ -40,9 +29,10 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${spaceGrotesk.variable} ${notoSans.variable} antialiased dark`}
+      className={`antialiased dark`}
     >
       <head>
+        <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,100..900;1,100..900&family=Space+Grotesk:wght@300..700&display=swap" rel="stylesheet" />
         <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
         <Script id="theme-script" strategy="beforeInteractive">
           {`

@@ -11,89 +11,169 @@ export async function POST(req: NextRequest) {
 
     const baseProfileText = `
 Name: Ola Olasunkanmi
-Contact: olasunkanmiola531@gmail.com | +234 808 629 8113 | Lagos, Nigeria | https://ola.flexitistudio.com | https://www.linkedin.com/in/ola-olasunkanmi/ | https://github.com/nicxd531
+Contact: olasunkanmiola531@gmail.com | +234 808 629 8113 | Lagos, Nigeria
+Portfolio: https://ola.flexitistudio.com
+LinkedIn: https://www.linkedin.com/in/ola-olasunkanmi/
+GitHub: https://github.com/nicxd531
 
-Profile:
-I'm a passionate Software Developer dedicated to building solutions that help businesses scale efficiently. With a strong problem-solving mindset and expertise in data-driven decision making, I focus on creating technology that delivers measurable business impact. My main goal is to streamline processes that slow down growth and make team success difficult, by creating and providing software solutions that simplify challenges and drive efficiency. I also help businesses deliver their products - whether digital or physical - to clients in ways that boost revenue and enhance customer satisfaction, ensuring both company growth and lasting client trust.
+PROFESSIONAL SUMMARY:
+Passionate Full Stack, Mobile & AI Developer with 3+ years of hands-on experience designing, building, and deploying scalable web and mobile applications. Proven track record of reducing manual workflows by up to 60% through custom automation systems, improving platform stability, and delivering revenue-generating digital products. Combines deep technical expertise across the full JavaScript/TypeScript ecosystem with AI/ML integration skills (LangChain, RAG, CrewAI) to build intelligent, data-driven software solutions. Strong communicator with experience tutoring junior developers and leading cross-functional implementation projects.
 
-Technical Skills:
-- Frontend: HTML, CSS, JavaScript, React.js, Next.js, React Native (Expo), Bootstrap, Tailwind CSS
-- Backend: Node.js, Express.js, Python, TypeScript, PostgreSQL, Supabase, Prisma ORM, REST APIs
-- AI & Automation: LangChain, CrewAI, n8n Workflow Automation, RAG Systems, Pinecone, Groq
-- Tools & Platforms: AWS S3, Supabase Storage, Figma, Adobe XD, Sanity CMS, Git & GitHub
+TECHNICAL SKILLS:
+- Frontend: HTML5, CSS3, JavaScript (ES6+), TypeScript, React.js, Next.js 14 (App Router), React Native (Expo), Bootstrap 5, Tailwind CSS, Framer Motion, Shadcn/UI
+- Backend: Node.js, Express.js, Python, FastAPI, REST APIs, GraphQL, WebSockets, Prisma ORM, Drizzle ORM
+- Databases: PostgreSQL, Supabase, MongoDB, Redis, Pinecone (vector DB)
+- AI & Automation: LangChain, CrewAI, n8n Workflow Automation, RAG Systems, OpenAI API (GPT-4o), Groq, LLM prompt engineering, AI agent design
+- Mobile: React Native with Expo, cross-platform iOS/Android development, Expo Router, push notifications
+- Cloud & DevOps: AWS S3, Cloudflare R2, Vercel, Git & GitHub, CI/CD pipelines, Docker (basic)
+- Design & CMS: Figma, Adobe XD, Sanity CMS, Strapi
 
-Experience:
-- ICT Administrator & Software Developer | Qefas Educational Services (Current)
-  Managed and resolved a wide range of technology challenges, ensuring seamless operational efficiency across the organization. Provided technical support, troubleshot issues, and implemented software solutions that enhanced team productivity. Tutored students in software development, covering both front-end and back-end technologies and modern programming practices. Led R&D on an AI-driven learning tool designed to offer students tailored insights and personalized learning experiences. Built and maintained full-stack web applications supporting the organization's internal operations. Developed automation systems and backend services to streamline administrative workflows.
+PROFESSIONAL EXPERIENCE:
 
-- LMS Developer & ICT Support Specialist | Compass Group (2022)
-  Diagnosed and resolved a simultaneous login conflict caused by a plugin clash, restoring access for all students. Restructured the entire course upload system and trained staff on correct content arrangement within the LMS. Built a custom PHP shortcode plugin for LearnDash that auto-processed video URLs and rendered them correctly - eliminating manual code copying. Conducted a site performance audit, identified bottlenecks, and produced a technical report that guided remediation. Delivered structured LMS training sessions to staff, covering media uploads, course sectioning, and content management. Debugged recurring system errors and implemented fixes, improving platform stability and reducing downtime. Acted as Developer Advocate - visiting schools, onboarding institutions, registering students, and setting up devices.
+ICT Administrator & Software Developer | Qefas Educational Services | Lagos, Nigeria | Jan 2023 – Present
+- Built and deployed a full-stack internal operations platform using Next.js 14, Node.js, and PostgreSQL, eliminating 8+ hours of weekly manual reporting tasks and cutting administrative overhead by 40%.
+- Designed and implemented an AI-driven personalized learning tool using LangChain and RAG architecture with Pinecone vector store, enabling tailored student insights and reducing instructor Q&A load by 35%.
+- Architected and shipped 3 production web applications supporting 200+ students and staff, maintaining 99.5% uptime across all deployments on Vercel.
+- Developed automated backend workflows using n8n and custom Node.js scripts, reducing manual data entry time by 60% across the organization's administrative processes.
+- Resolved recurring database performance bottlenecks by optimizing PostgreSQL queries and indexing strategies, resulting in a 3x improvement in API response times.
+- Tutored 15+ students in modern full-stack development (React.js, Node.js, REST APIs), with 80% going on to complete capstone projects.
+- Provided Tier 1–3 IT support across the organization, resolving 95% of hardware/software issues within 24 hours.
 
-- Volunteer Frontend Developer | College Match (2022 - Present)
-  Collaborated on a team to develop a front-end interface for a student-matching platform. Translated design concepts into user-friendly web pages using HTML, CSS, and JavaScript. Implemented interactive features, dynamic content loading, and cross-browser compatibility.
+LMS Developer & ICT Support Specialist | Compass Group | Lagos, Nigeria | Jan 2022 – Dec 2022
+- Diagnosed and resolved a critical simultaneous-login conflict caused by a LearnDash plugin clash, restoring uninterrupted access for 300+ enrolled students within 4 hours of escalation.
+- Built a custom PHP shortcode plugin for LearnDash that auto-processed video URLs and rendered them correctly in the LMS, eliminating manual code-copying workflows for 10+ instructors.
+- Restructured the entire course upload and content arrangement system, reducing new-course setup time from 3 hours to 45 minutes per course.
+- Conducted a full site performance audit; identified 12 bottlenecks and produced a technical remediation report that reduced average page load time by 2.1 seconds.
+- Delivered structured LMS training sessions to 20+ staff members covering media uploads, course sectioning, and content management best practices.
+- Acted as Developer Advocate: onboarded 5 institutions, registered 200+ students, and configured lab devices across multiple campuses.
 
-- Freelance Architectural Designer | Freelance (2022 - Present)
-  Developed detailed 2D floor plans and 3D models for various architectural projects. Translated client briefs into innovative, functional design concepts with realistic renderings. Managed multiple concurrent projects while maintaining quality standards and meeting deadlines.
+Volunteer Frontend Developer | College Match | Remote | Jan 2022 – Present
+- Collaborated with a distributed team of 6 to build a student-matching platform frontend using React.js, HTML5, and CSS3, serving 1,000+ monthly active users.
+- Implemented dynamic content loading, interactive filtering, and cross-browser compatibility across Chrome, Firefox, and Safari.
+- Translated Figma design mockups into pixel-perfect, responsive UI components, reducing design-to-implementation gap by 30%.
 
-Education:
-- B.Sc. Building, University of Lagos (2017 - 2023)
+KEY PROJECTS:
 
-Languages: English, Yoruba
+Ola's Portfolio & Admin Studio (Next.js 14, TypeScript, PostgreSQL, Prisma, Cloudflare R2, OpenAI API)
+- Built a full production-grade personal brand platform with an integrated admin studio featuring: AI-powered Speed Apply (CV tailoring + cover letter generation), Application Tracker, Creator Project Manager, Knowledge Hub, Goals Tracker, and AI Content Generation pipelines.
+- Integrated OpenAI GPT-4o for real-time CV generation and cover letter writing, achieving ATS-optimized output tailored to individual job descriptions.
+- Engineered direct file uploads to Cloudflare R2 with streaming-capable presigned URL delivery, supporting video/image asset management at scale.
+
+AI Workflow Automation System (n8n, LangChain, Python, OpenAI, PostgreSQL)
+- Designed and deployed a multi-agent AI automation pipeline using CrewAI and LangChain to automate content research, outline generation, and draft creation workflows.
+- Reduced content creation time by 70% by automating information retrieval via RAG (Retrieval-Augmented Generation) with Pinecone vector storage.
+
+React Native Mobile App (React Native, Expo, Node.js, Supabase)
+- Developed a cross-platform mobile application for iOS and Android using React Native (Expo), featuring real-time data sync via Supabase and Expo push notifications.
+- Implemented Expo Router for deep-linked navigation, achieving a 4.5/5 average usability score in beta testing.
+
+EDUCATION:
+B.Sc. Building | University of Lagos | Lagos, Nigeria | 2017 – 2023
+Relevant Coursework: Project Management, Structural Analysis, Technical Drawing & CAD, Research Methods
+
+LANGUAGES: English (Fluent), Yoruba (Native)
+WORK AUTHORIZATION: Authorized to work remotely for companies worldwide. Open to visa sponsorship.
 `;
 
     const sysPrompt = `
-    You are an expert ATS CV Tailor and Cover Letter writer specializing in Full Stack, Mobile, and AI Engineering roles.
-    I will provide a Job Description and an optional custom user prompt.
-    You must return a JSON object containing FIVE keys: "cv", "coverLetter", "companyName", "jobTitle", and "jobType".
+You are a world-class ATS CV specialist and technical recruiter with 15+ years of experience helping software engineers pass Applicant Tracking Systems (ATS) with 90%+ match scores.
 
-    === TAILORING INSTRUCTIONS ===
-    1. Make the resume 98–100% fit for the provided Job Description based on the candidate's base profile.
-    2. Keep all bullet points human-written and natural — avoid obvious AI-style wording.
-    3. Keep everything ATS-friendly with high keyword density naturally woven in.
-    4. Apply strategic <b>bold</b> formatting to important technologies, tools, and JD-matching terminology.
-    5. Keep summaries concise but powerful — 4–6 sentences maximum.
-    6. Add realistic, achievement-oriented wording.
-    7. Preserve resume consistency and realistic experience alignment — do not fabricate unrelated skills.
+Your ONLY job is to take the candidate's base profile and the provided Job Description, then return a perfectly ATS-optimised application package as a JSON object.
 
-    === OUTPUT FORMAT ===
-    1. "cv": An object tailored to the job description with this structure:
-       - personal_info: { name, title, location, email, phone, github, linkedin, portfolio }
-       - summary_bullets: array of strings with <b> tags on key skills (4-6 bullets)
-       - key_outcomes: string summarizing major achievements with <b> tags
-       - skills: array of { category, items[] }
-       - languages: array of strings or null
-       - experience: array of { company, title, location, date, project, bullets[], technologies }
-       - education: array of { institution, degree, location, date, coursework[] }
-       - certifications: array of strings
-       - work_authorization: string
+════════════════════════════════════
+  ABSOLUTE RULES — NEVER VIOLATE
+════════════════════════════════════
+1. MIRROR JD LANGUAGE VERBATIM: Copy exact phrases, keywords, tool names, and action verbs directly from the Job Description into the CV. ATS software scans for literal text matches. If the JD says "CI/CD pipelines", use "CI/CD pipelines" — not "deployment automation".
 
-    2. "coverLetter": A personalized Cover Letter in HTML using <p> and <br/> tags. Highlight the candidate's strengths from the CV matched to the job description. Address the specific company.
+2. EVERY BULLET MUST HAVE A METRIC OR CONCRETE OUTCOME: Never write a vague bullet. Every experience bullet MUST contain at least one of: a %, a number, a time saved, a user count, a performance improvement, a dollar value, or a frequency. Example: "Reduced API response time by 3x" ✅ — "Improved API performance" ❌
 
-    3. "companyName": Extract the hiring company's name from the Job Description. If not found, use "Unknown Company".
-    
-    4. "jobTitle": Extract the exact Job Title from the Job Description. If not found, use a reasonable guess based on the description.
+3. STRONG ACTION VERBS ONLY: Start every bullet with a power verb in past tense. Allowed: Architected, Engineered, Deployed, Automated, Reduced, Increased, Delivered, Designed, Built, Implemented, Optimized, Migrated, Launched, Spearheaded, Led, Developed, Integrated, Streamlined, Established. BANNED: "Responsible for", "Worked on", "Helped with", "Assisted", "Participated in", "Involved in", "Was part of".
 
-    5. "jobType": Extract the work arrangement from the Job Description. Return "remote" for Remote/WFH, "hybrid" for Hybrid, or "in-person" for Onsite/In-office. If unclear, default to "remote".
+4. KEYWORD SATURATION WITHOUT STUFFING: Every key technology, methodology, and role-specific term from the JD must appear at least once naturally across summary_bullets, experience bullets, or skills. Do NOT stuff them unnaturally.
 
-    Candidate Base Information:
-    ${baseProfileText}
-    `;
+5. NEVER FABRICATE SKILLS: You may only use skills and technologies from the candidate's base profile. However, you MUST reframe existing skills using the JD's exact vocabulary where applicable (e.g. if they have "Next.js" and the JD says "React-based frameworks", use both naturally).
+
+6. TAILOR, DON'T TEMPLATE: Every single bullet in the output must be written specifically for this job. Generic bullets that could apply to any job are FORBIDDEN.
+
+7. QUANTIFY EVERYTHING IN THE SUMMARY: The summary_bullets must highlight the most impressive, role-relevant achievements with specific numbers. Aim to make the recruiter stop scrolling.
+
+8. SKILLS SECTION = JD MIRROR: The skills array must put the most JD-relevant categories and items FIRST. Strip out skills irrelevant to this role. Add JD-specific buzzwords the candidate legitimately has.
+
+9. ATS STRUCTURE COMPLIANCE: Use only the exact JSON structure defined below. Do not add nested objects, tables, or columns. Flat text only — ATS parsers cannot read complex structures.
+
+════════════════════════════════════
+  QUALITY CHECKLIST (apply before outputting)
+════════════════════════════════════
+✅ Does every bullet start with a past-tense power verb?
+✅ Does every bullet include a metric/outcome?
+✅ Are all JD keywords present in the output?
+✅ Is the summary role-specific and compelling (not generic)?
+✅ Are skills ordered by JD relevance?
+✅ Is the work authorization field filled for international roles?
+✅ Are the bold <b> tags applied to JD-matching keywords in bullets and summary?
+
+════════════════════════════════════
+  JSON OUTPUT FORMAT (STRICT)
+════════════════════════════════════
+Return EXACTLY this JSON structure — five top-level keys: "cv", "coverLetter", "companyName", "jobTitle", "jobType".
+
+1. "cv": {
+   personal_info: { name, title (tailored job title from JD), location, email, phone, github, linkedin, portfolio },
+   summary_bullets: string[] — 5-6 punchy bullet strings, each with <b> tags on JD-matched keywords, each with a metric,
+   key_outcomes: string — one powerful sentence summarising top 2-3 quantified career highlights with <b> tags,
+   skills: [{ category: string, items: string[] }] — ordered by JD relevance, most important first,
+   languages: string[] | null,
+   experience: [{
+     company: string,
+     title: string — tailor the job title to mirror JD language where truthful,
+     location: string,
+     date: string,
+     project: string | null — name of key project worked on (optional),
+     bullets: string[] — 4-6 bullets each with action verb + metric + <b> on JD keywords,
+     technologies: string — comma-separated list of JD-relevant tech from this role
+   }],
+   education: [{ institution, degree, location, date, coursework: string[] }],
+   certifications: string[],
+   work_authorization: string
+}
+
+2. "coverLetter": HTML string using <p> and <br/> tags only. 3 paragraphs:
+   - Para 1: Hook — why this specific company/role excites the candidate. Name the company and role explicitly.
+   - Para 2: Top 2-3 achievements from the CV that directly address the JD's core requirements.
+   - Para 3: Closing — confident call to action.
+   Address it to "Hiring Manager" if no name is available. Use the candidate's actual name to sign off.
+
+3. "companyName": Extract the hiring company name from the JD. Return "Unknown Company" if not found.
+
+4. "jobTitle": Extract the exact job title from the JD.
+
+5. "jobType": "remote" | "hybrid" | "in-person" — detect from JD context.
+
+════════════════════════════════════
+  CANDIDATE BASE PROFILE
+════════════════════════════════════
+${baseProfileText}
+`;
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-4o",
       response_format: { type: "json_object" },
+      temperature: 0.4,
       messages: [
         { role: "system", content: sysPrompt },
-        { role: "user", content: `Job Description:\n${jobDescription}\n\nCustom AI Prompt:\n${prompt}` }
+        {
+          role: "user",
+          content: `Job Description:\n${jobDescription}\n\nCustom AI Prompt (incorporate naturally if provided):\n${prompt || "None provided."}`
+        }
       ],
     });
-    
+
     const responseText = response.choices[0].message.content || "{}";
-    
+
     let parsed;
     try {
       parsed = JSON.parse(responseText);
-    } catch(e) {
+    } catch (e) {
       return NextResponse.json({ error: "Failed to parse JSON from AI" }, { status: 500 });
     }
 
