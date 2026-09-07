@@ -30,7 +30,8 @@ import {
   Sparkles,
   Loader2,
   GraduationCap,
-  Download
+  Download,
+  HelpCircle
 } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell, LineChart, Line } from 'recharts';
 import CvTailor from "@/components/admin/CvTailor";
@@ -51,9 +52,12 @@ import { Brain, Focus, PiggyBank, Landmark } from "lucide-react";
 import SpeedApplier from "@/components/task/SpeedApplier";
 import PurchaseAffordabilityCalculator from "@/components/admin/PurchaseAffordabilityCalculator";
 import SalaryBenchmarker from "@/components/admin/SalaryBenchmarker";
+import QuizzesManager from "@/components/admin/QuizzesManager";
 
 const SIDEBAR_ITEMS = [
   { id: "overview", label: "Overview", icon: LayoutDashboard, desc: "Main statistics" },
+  { id: "quizzes", label: "Quizzes", icon: HelpCircle, desc: "AI Question-to-Quiz Generator & Grading" },
+
   { id: "widget-updates", label: "Widget Updates", icon: Download, desc: "Desktop auto-updater" },
   { id: "speed-dashboard", label: "Speed Apply", icon: Zap, desc: "Personal Auto Applier" },
   { id: "career", label: "Career", icon: Compass, desc: "Career goals & profile" },
@@ -999,6 +1003,21 @@ export default function AdminDashboard() {
         </motion.div>
       );
     }
+
+    if (activeTab === "quizzes") {
+      return (
+        <motion.div
+          key="quizzes"
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -20 }}
+          className="flex flex-col"
+        >
+          <QuizzesManager />
+        </motion.div>
+      );
+    }
+
 
     return (
       <motion.div 

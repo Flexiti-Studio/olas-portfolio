@@ -582,3 +582,36 @@ model FinancialHistory {
 
   @@map("financial_history")
 }
+
+// -----------------------------------------------------------------------------
+// STANDALONE QUIZZES
+// -----------------------------------------------------------------------------
+
+model StandaloneQuiz {
+  id           String                  @id @default(cuid())
+  title        String
+  topic        String?
+  sourceText   String?                 @db.Text
+  questions    Json                    // Array of { id, question, options: string[], correctAnswer: string, explanation: string }
+  attempts     StandaloneQuizAttempt[]
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
+
+  @@map("standalone_quizzes")
+}
+
+model StandaloneQuizAttempt {
+  id           String         @id @default(cuid())
+  quizId       String
+  quiz         StandaloneQuiz @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  answers      Json           // Map of questionId -> selectedOption text
+  score        Int            // Score percentage (e.g. 80)
+  totalCount   Int
+  correctCount Int
+  passed       Boolean
+  completedAt  DateTime       @default(now())
+
+  @@index([quizId])
+  @@map("standalone_quiz_attempts")
+}
+
