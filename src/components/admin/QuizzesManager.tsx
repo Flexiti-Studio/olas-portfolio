@@ -109,13 +109,13 @@ export default function QuizzesManager() {
   // ── localStorage helpers for quiz progress ──────────────────────────────────
   const PROGRESS_KEY = (id: string) => `quiz_progress_${id}`;
 
-  const saveProgress = useCallback((quizId: string, answers: Record<string, string>, qIdx: number, secLeft: number | null) => {
+  const saveProgress = useCallback((quizId: string, answers: Record<string, string>, qIdx: number, secLeft: number | null, questionIds: string[] | null = null) => {
     try {
-      localStorage.setItem(PROGRESS_KEY(quizId), JSON.stringify({ answers, qIdx, secLeft, savedAt: Date.now() }));
+      localStorage.setItem(PROGRESS_KEY(quizId), JSON.stringify({ answers, qIdx, secLeft, savedAt: Date.now(), questionIds }));
     } catch {}
   }, []);
 
-  const loadProgress = (quizId: string): { answers: Record<string, string>; qIdx: number; secLeft: number | null } | null => {
+  const loadProgress = (quizId: string): { answers: Record<string, string>; qIdx: number; secLeft: number | null; questionIds?: string[] } | null => {
     try {
       const raw = localStorage.getItem(PROGRESS_KEY(quizId));
       if (!raw) return null;
@@ -149,7 +149,8 @@ export default function QuizzesManager() {
   // Save progress to localStorage whenever answers/idx change
   useEffect(() => {
     if (activeQuiz && !submissionResult) {
-      saveProgress(activeQuiz.id, userAnswers, currentQuestionIdx, timeRemaining);
+      const questionIds = activeQuiz.questions.map(q => q.id);
+      saveProgress(activeQuiz.id, userAnswers, currentQuestionIdx, timeRemaining, questionIds);
     }
   }, [userAnswers, currentQuestionIdx, timeRemaining, activeQuiz, submissionResult, saveProgress]);
 
@@ -236,10 +237,24 @@ export default function QuizzesManager() {
     }
   };
 
-  const launchQuiz = (quiz: Quiz, savedAnswers: Record<string, string>, savedIdx: number, savedTime: number | null) => {
+  const launchQuiz = (quiz: Quiz, savedAnswers: Record<string, string>, savedIdx: number, savedTime: number | null, savedQuestionIds?: string[]) => {
     // Stop any existing timer
     if (timerRef.current) clearInterval(timerRef.current);
-    setActiveQuiz(quiz);
+    
+    let finalQuestions = [...quiz.questions];
+
+    if (savedQuestionIds && savedQuestionIds.length === finalQuestions.length) {
+      // Restore previous shuffle order
+      const idToIndex = new Map(savedQuestionIds.map((id, i) => [id, i]));
+      finalQuestions.sort((a, b) => (idToIndex.get(a.id) ?? 0) - (idToIndex.get(b.id) ?? 0));
+    } else {
+      // Fresh start: shuffle questions
+      finalQuestions.sort(() => Math.random() - 0.5);
+    }
+
+    const shuffledQuiz = { ...quiz, questions: finalQuestions };
+
+    setActiveQuiz(shuffledQuiz);
     setCurrentQuestionIdx(savedIdx);
     setUserAnswers(savedAnswers);
     setSubmissionResult(null);
@@ -261,7 +276,7 @@ export default function QuizzesManager() {
       const limit = customTimeLimitMin > 0
         ? customTimeLimitMin * 60
         : quiz.questions.length * 60;
-      launchQuiz(quiz, {}, 0, limit);
+      launchQuiz(quiz, {}, 0, limit, undefined);
     }
   };
 
@@ -463,7 +478,8 @@ export default function QuizzesManager() {
                     onClick={() => {
                       // Save progress before exiting
                       if (activeQuiz && !submissionResult) {
-                        saveProgress(activeQuiz.id, userAnswers, currentQuestionIdx, timeRemaining);
+                        const questionIds = activeQuiz.questions.map(q => q.id);
+                        saveProgress(activeQuiz.id, userAnswers, currentQuestionIdx, timeRemaining, questionIds);
                         showToast("Progress saved! You can continue this quiz later.", "info");
                       }
                       if (timerRef.current) clearInterval(timerRef.current);
@@ -1287,7 +1303,7 @@ export default function QuizzesManager() {
                   <button
                     onClick={() => {
                       setShowResumeModal(false);
-                      if (saved) launchQuiz(pendingResumeQuiz, saved.answers, saved.qIdx, saved.secLeft);
+                      if (saved) launchQuiz(pendingResumeQuiz, saved.answers, saved.qIdx, saved.secLeft, saved.questionIds);
                     }}
                     className="w-full py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/25 transition-all"
                   >
@@ -1298,7 +1314,7 @@ export default function QuizzesManager() {
                       setShowResumeModal(false);
                       clearProgress(pendingResumeQuiz.id);
                       const limit = customTimeLimitMin > 0 ? customTimeLimitMin * 60 : pendingResumeQuiz.questions.length * 60;
-                      launchQuiz(pendingResumeQuiz, {}, 0, limit);
+                      launchQuiz(pendingResumeQuiz, {}, 0, limit, undefined);
                     }}
                     className="w-full py-3 rounded-2xl border border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white font-semibold text-sm flex items-center justify-center gap-2 transition-colors"
                   >
