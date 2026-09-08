@@ -109,13 +109,13 @@ export default function QuizzesManager() {
   // ── localStorage helpers for quiz progress ──────────────────────────────────
   const PROGRESS_KEY = (id: string) => `quiz_progress_${id}`;
 
-  const saveProgress = useCallback((quizId: string, answers: Record<string, string>, qIdx: number, secLeft: number | null, questionIds: string[] | null = null) => {
+  const saveProgress = useCallback((quizId: string, answers: Record<string, string>, qIdx: number, secLeft: number | null, questionIds: string[] | null = null, shuffledOptions: Record<string, string[]> | null = null) => {
     try {
-      localStorage.setItem(PROGRESS_KEY(quizId), JSON.stringify({ answers, qIdx, secLeft, savedAt: Date.now(), questionIds }));
+      localStorage.setItem(PROGRESS_KEY(quizId), JSON.stringify({ answers, qIdx, secLeft, savedAt: Date.now(), questionIds, shuffledOptions }));
     } catch {}
   }, []);
 
-  const loadProgress = (quizId: string): { answers: Record<string, string>; qIdx: number; secLeft: number | null; questionIds?: string[] } | null => {
+  const loadProgress = (quizId: string): { answers: Record<string, string>; qIdx: number; secLeft: number | null; questionIds?: string[]; shuffledOptions?: Record<string, string[]> } | null => {
     try {
       const raw = localStorage.getItem(PROGRESS_KEY(quizId));
       if (!raw) return null;
@@ -150,7 +150,11 @@ export default function QuizzesManager() {
   useEffect(() => {
     if (activeQuiz && !submissionResult) {
       const questionIds = activeQuiz.questions.map(q => q.id);
-      saveProgress(activeQuiz.id, userAnswers, currentQuestionIdx, timeRemaining, questionIds);
+      const shuffledOptions = activeQuiz.questions.reduce((acc, q) => {
+        acc[q.id] = q.options;
+        return acc;
+      }, {} as Record<string, string[]>);
+      saveProgress(activeQuiz.id, userAnswers, currentQuestionIdx, timeRemaining, questionIds, shuffledOptions);
     }
   }, [userAnswers, currentQuestionIdx, timeRemaining, activeQuiz, submissionResult, saveProgress]);
 
@@ -237,7 +241,7 @@ export default function QuizzesManager() {
     }
   };
 
-  const launchQuiz = (quiz: Quiz, savedAnswers: Record<string, string>, savedIdx: number, savedTime: number | null, savedQuestionIds?: string[]) => {
+  const launchQuiz = (quiz: Quiz, savedAnswers: Record<string, string>, savedIdx: number, savedTime: number | null, savedQuestionIds?: string[], savedShuffledOptions?: Record<string, string[]>) => {
     // Stop any existing timer
     if (timerRef.current) clearInterval(timerRef.current);
     
@@ -247,9 +251,23 @@ export default function QuizzesManager() {
       // Restore previous shuffle order
       const idToIndex = new Map(savedQuestionIds.map((id, i) => [id, i]));
       finalQuestions.sort((a, b) => (idToIndex.get(a.id) ?? 0) - (idToIndex.get(b.id) ?? 0));
+
+      // Restore options order if available
+      if (savedShuffledOptions) {
+        finalQuestions = finalQuestions.map(q => {
+          if (savedShuffledOptions[q.id]) {
+            return { ...q, options: savedShuffledOptions[q.id] };
+          }
+          return q;
+        });
+      }
     } else {
-      // Fresh start: shuffle questions
+      // Fresh start: shuffle questions and options
       finalQuestions.sort(() => Math.random() - 0.5);
+      finalQuestions = finalQuestions.map(q => ({
+        ...q,
+        options: [...q.options].sort(() => Math.random() - 0.5)
+      }));
     }
 
     const shuffledQuiz = { ...quiz, questions: finalQuestions };
@@ -276,7 +294,7 @@ export default function QuizzesManager() {
       const limit = customTimeLimitMin > 0
         ? customTimeLimitMin * 60
         : quiz.questions.length * 60;
-      launchQuiz(quiz, {}, 0, limit, undefined);
+      launchQuiz(quiz, {}, 0, limit, undefined, undefined);
     }
   };
 
@@ -479,7 +497,11 @@ export default function QuizzesManager() {
                       // Save progress before exiting
                       if (activeQuiz && !submissionResult) {
                         const questionIds = activeQuiz.questions.map(q => q.id);
-                        saveProgress(activeQuiz.id, userAnswers, currentQuestionIdx, timeRemaining, questionIds);
+                        const shuffledOptions = activeQuiz.questions.reduce((acc, q) => {
+                          acc[q.id] = q.options;
+                          return acc;
+                        }, {} as Record<string, string[]>);
+                        saveProgress(activeQuiz.id, userAnswers, currentQuestionIdx, timeRemaining, questionIds, shuffledOptions);
                         showToast("Progress saved! You can continue this quiz later.", "info");
                       }
                       if (timerRef.current) clearInterval(timerRef.current);
@@ -1303,7 +1325,7 @@ export default function QuizzesManager() {
                   <button
                     onClick={() => {
                       setShowResumeModal(false);
-                      if (saved) launchQuiz(pendingResumeQuiz, saved.answers, saved.qIdx, saved.secLeft, saved.questionIds);
+                      if (saved) launchQuiz(pendingResumeQuiz, saved.answers, saved.qIdx, saved.secLeft, saved.questionIds, saved.shuffledOptions);
                     }}
                     className="w-full py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/25 transition-all"
                   >
@@ -1314,7 +1336,7 @@ export default function QuizzesManager() {
                       setShowResumeModal(false);
                       clearProgress(pendingResumeQuiz.id);
                       const limit = customTimeLimitMin > 0 ? customTimeLimitMin * 60 : pendingResumeQuiz.questions.length * 60;
-                      launchQuiz(pendingResumeQuiz, {}, 0, limit, undefined);
+                      launchQuiz(pendingResumeQuiz, {}, 0, limit, undefined, undefined);
                     }}
                     className="w-full py-3 rounded-2xl border border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white font-semibold text-sm flex items-center justify-center gap-2 transition-colors"
                   >
