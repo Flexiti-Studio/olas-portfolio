@@ -5,100 +5,14 @@ import { motion, AnimatePresence } from "framer-motion";
 import { 
   Plus, 
   Trash2, 
-  Edit3, 
   Copy, 
-  Check, 
-  ChevronRight, 
-  ChevronLeft,
-  Sparkles, 
-  Type, 
-  FileText,
+  Check,
   Star,
   StarOff,
-  Loader2
+  Loader2,
+  AlertCircle,
+  Play
 } from "lucide-react";
-
-interface IconProps extends React.SVGProps<SVGSVGElement> {
-  size?: number | string;
-}
-
-const Youtube = ({ size = 24, className, ...props }: IconProps) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-    {...props}
-  >
-    <path d="M2.5 17a24.12 24.12 0 0 1 0-10 2 2 0 0 1 1.4-1.4 49.56 49.56 0 0 1 16.2 0A2 2 0 0 1 21.5 7a24.12 24.12 0 0 1 0 10 2 2 0 0 1-1.4 1.4 49.55 49.55 0 0 1-16.2 0A2 2 0 0 1 2.5 17z" />
-    <polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02" />
-  </svg>
-);
-
-const Instagram = ({ size = 24, className, ...props }: IconProps) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-    {...props}
-  >
-    <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
-    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
-    <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
-  </svg>
-);
-
-const Twitter = ({ size = 24, className, ...props }: IconProps) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-    {...props}
-  >
-    <path d="M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-18 11.6 2.2.1 4.4-.6 6-2C3 15.5.5 9.6 3 5c2.2 2.6 5.6 4.1 9 4-.9-4.2 4-6.6 7-3.8 1.1 0 3-1.2 3-1.2z" />
-  </svg>
-);
-
-const Linkedin = ({ size = 24, className, ...props }: IconProps) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-    {...props}
-  >
-    <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z" />
-    <rect width="4" height="12" x="2" y="9" />
-    <circle cx="4" cy="4" r="2" />
-  </svg>
-);
-
 
 interface SocialTemplate {
   id: string;
@@ -106,6 +20,7 @@ interface SocialTemplate {
   name: string;
   description: string | null;
   body: string;
+  imagePromptTemplate?: string | null;
   placeholders: string[];
   is_primary: boolean;
 }
@@ -113,31 +28,39 @@ interface SocialTemplate {
 export default function SocialTemplates() {
   const [templates, setTemplates] = useState<SocialTemplate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedPlatform, setSelectedPlatform] = useState<string>("all");
   
-  // Create / Edit State
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingTemplate, setEditingTemplate] = useState<SocialTemplate | null>(null);
-  const [formPlatform, setFormPlatform] = useState("youtube");
+  // Available platforms (fetched from DB + defaults)
+  const [availablePlatforms, setAvailablePlatforms] = useState<string[]>(["youtube", "tiktok", "instagram", "twitter", "linkedin", "threads"]);
+
+  // Editor State
+  const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null);
+  const [formPlatform, setFormPlatform] = useState("");
   const [formName, setFormName] = useState("");
   const [formDesc, setFormDesc] = useState("");
   const [formBody, setFormBody] = useState("");
-  const [formPlaceholderInput, setFormPlaceholderInput] = useState("");
-
-  // Interactive Generator State
-  const [activeGeneratorTemplate, setActiveGeneratorTemplate] = useState<SocialTemplate | null>(null);
-  const [placeholderValues, setPlaceholderValues] = useState<Record<string, string>>({});
-  const [generatedResult, setGeneratedResult] = useState("");
-  const [copiedGenerated, setCopiedGenerated] = useState(false);
-  const [copiedTemplateId, setCopiedTemplateId] = useState<string | null>(null);
-  const [settingPrimaryId, setSettingPrimaryId] = useState<string | null>(null);
+  const [formImagePrompt, setFormImagePrompt] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+
+  // Live Example State
+  const [samplePost, setSamplePost] = useState("");
+  const [testResult, setTestResult] = useState("");
+  const [imagePromptTestResult, setImagePromptTestResult] = useState("");
+  const [isTesting, setIsTesting] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
+
+  // Image Prompt Live Example State
+  const [sampleImagePost, setSampleImagePost] = useState("");
+  const [imagePromptTestResultOnly, setImagePromptTestResultOnly] = useState("");
+  const [isTestingImage, setIsTestingImage] = useState(false);
+  const [isCopiedImage, setIsCopiedImage] = useState(false);
+
+  // Modals / confirmations
   const [templateToDelete, setTemplateToDelete] = useState<SocialTemplate | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [templatePage, setTemplatePage] = useState(1);
 
   useEffect(() => {
     fetchTemplates();
+    fetchPlatforms();
   }, []);
 
   const fetchTemplates = async () => {
@@ -155,30 +78,103 @@ export default function SocialTemplates() {
     }
   };
 
-  const handleCopyTemplateText = (template: SocialTemplate) => {
-    navigator.clipboard.writeText(template.body);
-    setCopiedTemplateId(template.id);
-    setTimeout(() => setCopiedTemplateId(null), 2000);
+  const fetchPlatforms = async () => {
+    try {
+      const res = await fetch("/api/socials");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.socials && data.socials.length > 0) {
+          // merge with defaults
+          const merged = Array.from(new Set([...availablePlatforms, ...data.socials]));
+          setAvailablePlatforms(merged);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load platforms", err);
+    }
   };
 
-  const handleOpenCreate = () => {
-    setEditingTemplate(null);
-    setFormPlatform("youtube");
-    setFormName("");
-    setFormDesc("");
-    setFormBody("");
-    setFormPlaceholderInput("");
-    setIsModalOpen(true);
-  };
+  const activeTemplate = templates.find(t => t.id === activeTemplateId);
 
-  const handleOpenEdit = (template: SocialTemplate) => {
-    setEditingTemplate(template);
+  const handleSelectTemplate = (template: SocialTemplate) => {
+    setActiveTemplateId(template.id);
     setFormPlatform(template.platform);
     setFormName(template.name);
     setFormDesc(template.description || "");
     setFormBody(template.body);
-    setFormPlaceholderInput((template.placeholders || []).join(", "));
-    setIsModalOpen(true);
+    setFormImagePrompt(template.imagePromptTemplate || "");
+    setTestResult("");
+    setImagePromptTestResult("");
+  };
+
+  const handleCreateNew = () => {
+    setActiveTemplateId("new");
+    setFormPlatform(availablePlatforms[0]);
+    setFormName("New Template");
+    setFormDesc("");
+    setFormBody("Hook: {{hook}}\n\nBody: {{body}}\n\nCall to Action: {{cta}}\n\nHashtags: {{hashtags}}");
+    setFormImagePrompt("");
+    setTestResult("");
+    setImagePromptTestResult("");
+  };
+
+  const handleDuplicate = (template: SocialTemplate, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setActiveTemplateId("new");
+    setFormPlatform(template.platform);
+    setFormName(`${template.name} (Copy)`);
+    setFormDesc(template.description || "");
+    setFormBody(template.body);
+    setFormImagePrompt(template.imagePromptTemplate || "");
+    setTestResult("");
+    setImagePromptTestResult("");
+  };
+
+  const handleSave = async () => {
+    if (!formName || !formBody || !formPlatform) return;
+    setIsSaving(true);
+    
+    // Extract placeholders (e.g. {{hook}})
+    const placeholderMatches = formBody.match(/\{\{([^}]+)\}\}/g) || [];
+    const placeholders = placeholderMatches.map(p => p.replace(/[{}]/g, ''));
+
+    const payload = {
+      platform: formPlatform,
+      name: formName,
+      description: formDesc,
+      body: formBody,
+      imagePromptTemplate: formImagePrompt,
+      placeholders
+    };
+
+    try {
+      if (activeTemplateId && activeTemplateId !== "new") {
+        const res = await fetch(`/api/social-templates/${activeTemplateId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setTemplates(prev => prev.map(t => t.id === activeTemplateId ? { ...t, ...data.template } : t));
+        }
+      } else {
+        const res = await fetch("/api/social-templates", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setTemplates(prev => [data.template, ...prev]);
+          setActiveTemplateId(data.template.id);
+        }
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleConfirmDelete = async () => {
@@ -190,9 +186,8 @@ export default function SocialTemplates() {
       });
       if (res.ok) {
         setTemplates(prev => prev.filter(t => t.id !== templateToDelete.id));
-        if (activeGeneratorTemplate?.id === templateToDelete.id) {
-          setActiveGeneratorTemplate(null);
-          setGeneratedResult("");
+        if (activeTemplateId === templateToDelete.id) {
+          setActiveTemplateId(null);
         }
         setTemplateToDelete(null);
       }
@@ -203,461 +198,438 @@ export default function SocialTemplates() {
     }
   };
 
-  const handleSetPrimary = async (template: SocialTemplate) => {
-    if (template.is_primary) return; // already primary
-    setSettingPrimaryId(template.id);
+  const handleSetPrimary = async (template: SocialTemplate, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (template.is_primary) return;
     try {
-      const res = await fetch(`/api/social-templates/${template.id}`, {
-        method: "PATCH"
-      });
+      const res = await fetch(`/api/social-templates/${template.id}`, { method: "PATCH" });
       if (res.ok) {
-        // Update local state: unset all primary on same platform, set this one
-        setTemplates(prev =>
-          prev.map(t =>
-            t.platform === template.platform
-              ? { ...t, is_primary: t.id === template.id }
-              : t
-          )
-        );
+        setTemplates(prev => prev.map(t => 
+          t.platform === template.platform 
+            ? { ...t, is_primary: t.id === template.id } 
+            : t
+        ));
       }
     } catch (err) {
       console.error(err);
-    } finally {
-      setSettingPrimaryId(null);
     }
   };
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formName || !formBody || isSaving) return;
+  const handleCopy = () => {
+    const textToCopy = [
+      testResult && `Post Content:\n${testResult}`,
+      imagePromptTestResult && `Image Prompt:\n${imagePromptTestResult}`
+    ].filter(Boolean).join('\n\n');
+    
+    if (textToCopy) {
+      navigator.clipboard.writeText(textToCopy);
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
+    }
+  };
 
-    setIsSaving(true);
-    const placeholders = formPlaceholderInput
-      .split(",")
-      .map(p => p.trim())
-      .filter(p => p.length > 0);
+  const handleCopyImagePrompt = () => {
+    if (imagePromptTestResultOnly) {
+      navigator.clipboard.writeText(imagePromptTestResultOnly);
+      setIsCopiedImage(true);
+      setTimeout(() => setIsCopiedImage(false), 2000);
+    }
+  };
 
-    const payload = {
-      platform: formPlatform,
-      name: formName,
-      description: formDesc,
-      body: formBody,
-      placeholders
-    };
-
+  const handleTestImagePrompt = async () => {
+    if (!sampleImagePost.trim()) return;
+    setIsTestingImage(true);
+    setImagePromptTestResultOnly("");
+    
     try {
-      if (editingTemplate) {
-        const res = await fetch(`/api/social-templates/${editingTemplate.id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setTemplates(prev => prev.map(t => t.id === editingTemplate.id ? { ...t, ...data.template } : t));
-          setIsModalOpen(false);
-          if (activeGeneratorTemplate?.id === editingTemplate.id) {
-            setActiveGeneratorTemplate(data.template);
-          }
-        }
+      const res = await fetch("/api/social-templates/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          platform: formPlatform,
+          name: formName,
+          description: formDesc,
+          body: formBody,
+          imagePromptTemplate: formImagePrompt,
+          samplePost: sampleImagePost
+        })
+      });
+      const data = await res.json();
+      if (data.imagePrompt) {
+        setImagePromptTestResultOnly(data.imagePrompt);
       } else {
-        const res = await fetch("/api/social-templates", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setTemplates(prev => [data.template, ...prev]);
-          setIsModalOpen(false);
-        }
+        setImagePromptTestResultOnly("No image prompt generated. Ensure you have provided an Image Prompt Template and a Source Post.");
       }
     } catch (err) {
-      console.error(err);
+      console.error("Test failed:", err);
+      setImagePromptTestResultOnly("Failed to reach test server.");
     } finally {
-      setIsSaving(false);
+      setIsTestingImage(false);
     }
   };
 
-  // Generator engine
-  const handleSelectGenerator = (template: SocialTemplate) => {
-    setActiveGeneratorTemplate(template);
-    const initialVals: Record<string, string> = {};
-    template.placeholders.forEach(p => {
-      initialVals[p] = "";
-    });
-    setPlaceholderValues(initialVals);
-    setGeneratedResult(template.body);
-  };
-
-  const handlePlaceholderChange = (key: string, val: string) => {
-    const updated = { ...placeholderValues, [key]: val };
-    setPlaceholderValues(updated);
-
-    let tempResult = activeGeneratorTemplate?.body || "";
-    Object.entries(updated).forEach(([k, v]) => {
-      const regex = new RegExp(`\\[${k}\\]`, "gi");
-      tempResult = tempResult.replace(regex, v || `[${k}]`);
-    });
-    setGeneratedResult(tempResult);
-  };
-
-  const handleCopyGenerated = () => {
-    navigator.clipboard.writeText(generatedResult);
-    setCopiedGenerated(true);
-    setTimeout(() => setCopiedGenerated(false), 2000);
-  };
-
-  const getPlatformIcon = (platform: string) => {
-    switch (platform.toLowerCase()) {
-      case "youtube": return <Youtube className="w-5 h-5 text-red-500" />;
-      case "instagram": return <Instagram className="w-5 h-5 text-pink-500" />;
-      case "twitter": return <Twitter className="w-5 h-5 text-white" />;
-      case "linkedin": return <Linkedin className="w-5 h-5 text-blue-500" />;
-      default: return <Sparkles className="w-5 h-5 text-emerald-400" />;
+  const handleTestTemplate = async () => {
+    if (!samplePost.trim()) return;
+    setIsTesting(true);
+    setTestResult("");
+    setImagePromptTestResult("");
+    
+    try {
+      const res = await fetch("/api/social-templates/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          platform: formPlatform,
+          name: formName,
+          description: formDesc,
+          body: formBody,
+          imagePromptTemplate: formImagePrompt,
+          samplePost
+        })
+      });
+      const data = await res.json();
+      if (data.rewritten) {
+        setTestResult(data.rewritten);
+        if (data.imagePrompt) setImagePromptTestResult(data.imagePrompt);
+      } else {
+        setTestResult("Error generating test result.");
+      }
+    } catch (err) {
+      console.error("Test failed:", err);
+      setTestResult("Failed to reach test server.");
+    } finally {
+      setIsTesting(false);
     }
   };
 
-  const getPlatformClass = (platform: string) => {
-    switch (platform.toLowerCase()) {
-      case "youtube": return "border-red-500/20 bg-red-500/10 text-red-400";
-      case "instagram": return "border-pink-500/20 bg-pink-500/10 text-pink-400";
-      case "twitter": return "border-white/20 bg-white/5 text-white";
-      case "linkedin": return "border-blue-500/20 bg-blue-500/10 text-blue-400";
-      default: return "border-emerald-500/20 bg-emerald-500/10 text-emerald-400";
-    }
-  };
-
-  const filteredTemplates = selectedPlatform === "all" 
-    ? templates 
-    : templates.filter(t => t.platform.toLowerCase() === selectedPlatform);
-
-  // Group templates by platform for the primary summary
-  const primaryByPlatform = templates.reduce<Record<string, SocialTemplate>>((acc, t) => {
-    if (t.is_primary) acc[t.platform] = t;
+  // Group templates for sidebar
+  const templatesByPlatform = templates.reduce((acc, t) => {
+    if (!acc[t.platform]) acc[t.platform] = [];
+    acc[t.platform].push(t);
     return acc;
-  }, {});
+  }, {} as Record<string, SocialTemplate[]>);
 
   return (
-    <div className="flex flex-col space-y-6 text-slate-200">
-      <div className="flex justify-between items-start md:items-center flex-col md:flex-row gap-4 border-b border-zinc-800 pb-6">
-        <div>
-          <h1 className="text-3xl font-extrabold text-white">Social Media Templates</h1>
-          <p className="text-zinc-400 mt-2">Manage outline frameworks. Mark one per platform as <span className="text-amber-400 font-semibold">Primary</span> — the AI will use it when generating content.</p>
-        </div>
-        <button 
-          onClick={handleOpenCreate}
-          className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-5 py-2.5 rounded-xl transition-all shadow-lg shadow-emerald-500/20 flex items-center gap-2 hover:scale-105 active:scale-95 cursor-pointer"
-        >
-          <Plus size={16} /> New Template
-        </button>
-      </div>
-
-
-
-      {/* Platforms Filter Bar */}
-      <div className="flex flex-wrap gap-2">
-        {["all", "youtube", "tiktok", "instagram", "twitter", "linkedin"].map((platform) => (
-          <button
-            key={platform}
-            onClick={() => { setSelectedPlatform(platform); setTemplatePage(1); }}
-            className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer capitalize ${
-              selectedPlatform === platform
-                ? "bg-white text-black border-white shadow-md font-black"
-                : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-white"
-            }`}
-          >
-            {platform}
-          </button>
-        ))}
-      </div>
-
-      <div className="space-y-4">
-        {isLoading ? (
-          <div className="space-y-4 animate-pulse">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="bg-zinc-900/50 border border-zinc-800 rounded-2xl h-44" />
-            ))}
+    <div className="flex flex-col lg:flex-row gap-6 min-h-[800px] text-slate-200">
+      
+      {/* LEFT SIDEBAR: List */}
+      <div className="w-full lg:w-1/3 flex flex-col bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-xl">
+        <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
+          <div>
+            <h2 className="text-xl font-bold text-white">Templates</h2>
+            <p className="text-xs text-slate-400 mt-1">Select one as default per platform</p>
           </div>
-        ) : filteredTemplates.length > 0 ? (
-          (() => {
-            const TEMPLATES_PER_PAGE = 6;
-            const totalTemplatePages = Math.ceil(filteredTemplates.length / TEMPLATES_PER_PAGE);
-            const currentTemplates = filteredTemplates.slice((templatePage - 1) * TEMPLATES_PER_PAGE, templatePage * TEMPLATES_PER_PAGE);
+          <button 
+            onClick={handleCreateNew}
+            className="bg-emerald-600 hover:bg-emerald-500 text-white p-2 rounded-xl transition-colors shadow-lg shadow-emerald-500/20"
+          >
+            <Plus size={18} />
+          </button>
+        </div>
 
-            return (
-              <div className="flex flex-col justify-between min-h-[400px]">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {currentTemplates.map((template) => (
-                    <motion.div
-                      key={template.id}
-                      layoutId={template.id}
-                      className={`bg-zinc-900 border rounded-2xl p-5 hover:border-zinc-700 transition-all flex flex-col justify-between relative overflow-hidden group ${
-                        template.is_primary
-                          ? "border-amber-500/50 shadow-lg shadow-amber-500/10 ring-1 ring-amber-500/20"
-                          : "border-zinc-800"
+        <div className="overflow-y-auto flex-1 p-4 space-y-6">
+          {isLoading ? (
+            <div className="flex justify-center p-8"><Loader2 className="w-6 h-6 animate-spin text-emerald-500" /></div>
+          ) : Object.keys(templatesByPlatform).length === 0 ? (
+            <div className="text-center text-slate-500 p-8 text-sm">No templates found. Create one to get started!</div>
+          ) : (
+            Object.entries(templatesByPlatform).map(([platform, items]) => (
+              <div key={platform}>
+                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 pl-2">{platform}</h3>
+                <div className="space-y-2">
+                  {items.map(t => (
+                    <div 
+                      key={t.id}
+                      onClick={() => handleSelectTemplate(t)}
+                      className={`p-4 rounded-2xl cursor-pointer border transition-all relative group ${
+                        activeTemplateId === t.id 
+                          ? 'bg-slate-800 border-emerald-500/50 shadow-md' 
+                          : 'bg-slate-900 border-slate-800 hover:border-slate-700 hover:bg-slate-800/50'
                       }`}
                     >
-                      {/* Primary Crown Badge */}
-                      {template.is_primary && (
-                        <div className="absolute top-0 right-0 bg-amber-500 text-black text-[9px] font-black px-2.5 py-1 rounded-bl-xl flex items-center gap-1 uppercase tracking-wider">
-                          <Star size={9} className="fill-black" /> AI Primary
-                        </div>
-                      )}
-
-                      <div>
-                        <div className="flex justify-between items-start mb-3">
-                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wider ${getPlatformClass(template.platform)}`}>
-                            {template.platform}
-                          </span>
-                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button 
-                              onClick={() => handleOpenEdit(template)}
-                              className="p-1 text-zinc-400 hover:text-white transition-colors"
-                              title="Edit Template"
-                            >
-                              <Edit3 size={14} />
-                            </button>
-                            <button 
-                              onClick={() => setTemplateToDelete(template)}
-                              className="p-1 text-zinc-400 hover:text-red-400 transition-colors"
-                              title="Delete Template"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        </div>
-
-                        <h3 className="font-extrabold text-lg text-white mb-2 leading-tight group-hover:text-amber-400 transition-colors">
-                          {template.name}
-                        </h3>
-                        {template.description && (
-                          <p className="text-zinc-400 text-xs mb-4 line-clamp-2 leading-relaxed">
-                            {template.description}
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="pt-4 border-t border-zinc-800/80 mt-4 flex items-center justify-between gap-3 flex-wrap">
+                      <div className="flex justify-between items-start mb-1">
                         <div className="flex items-center gap-2">
-                          {/* Set Primary button */}
-                          <button
-                            onClick={() => handleSetPrimary(template)}
-                            disabled={template.is_primary || settingPrimaryId === template.id}
-                            title={template.is_primary ? "This is already the AI primary template" : "Set as AI primary template for this platform"}
-                            className={`text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer px-2.5 py-1 rounded-lg border ${
-                              template.is_primary
-                                ? "text-amber-400 border-amber-700/40 bg-amber-950/30 cursor-default"
-                                : "text-zinc-400 border-zinc-700/50 hover:text-amber-400 hover:border-amber-700/40 hover:bg-amber-950/20"
-                            }`}
-                          >
-                            {template.is_primary ? (
-                              <><Star size={11} className="fill-amber-400" /> Primary</>
-                            ) : settingPrimaryId === template.id ? (
-                              <>Setting...</>
-                            ) : (
-                              <><StarOff size={11} /> Set Primary</>
-                            )}
-                          </button>
-                          <button 
-                            onClick={() => handleCopyTemplateText(template)}
-                            className="text-zinc-400 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-                          >
-                            {copiedTemplateId === template.id ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
-                            {copiedTemplateId === template.id ? "Copied!" : "Copy"}
-                          </button>
+                          {t.is_primary && <Star className="w-3 h-3 text-amber-400 fill-amber-400" />}
+                          <h4 className="font-bold text-sm text-white">{t.name}</h4>
                         </div>
                       </div>
-                    </motion.div>
+                      <p className="text-xs text-slate-400 line-clamp-1 pr-12">{t.description || "No description"}</p>
+                      
+                      {/* Hover Actions */}
+                      <div className="absolute right-3 top-3 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                        <button 
+                          onClick={(e) => handleSetPrimary(t, e)}
+                          title="Set Default"
+                          className="p-1.5 text-slate-400 hover:text-amber-400 bg-slate-900 rounded-md border border-slate-700"
+                        >
+                          <Check size={12} />
+                        </button>
+                        <button 
+                          onClick={(e) => handleDuplicate(t, e)}
+                          title="Duplicate"
+                          className="p-1.5 text-slate-400 hover:text-blue-400 bg-slate-900 rounded-md border border-slate-700"
+                        >
+                          <Copy size={12} />
+                        </button>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); setTemplateToDelete(t); }}
+                          title="Delete"
+                          className="p-1.5 text-slate-400 hover:text-red-400 bg-slate-900 rounded-md border border-slate-700"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    </div>
                   ))}
                 </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
 
-                {/* Templates Pagination Controls */}
-                {totalTemplatePages > 1 && (
-                  <div className="mt-6 pt-4 border-t border-zinc-800 flex justify-between items-center text-sm">
-                    <button 
-                      onClick={() => setTemplatePage(prev => Math.max(1, prev - 1))}
-                      disabled={templatePage === 1}
-                      className="p-1.5 rounded-lg bg-zinc-800 text-zinc-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+      {/* RIGHT AREA: Editor & Live Panel */}
+      <div className="w-full lg:w-2/3 flex flex-col gap-6">
+        {!activeTemplateId ? (
+          <div className="flex-1 bg-slate-900 border border-slate-800 rounded-3xl flex flex-col items-center justify-center text-slate-500 shadow-xl">
+            <Plus className="w-12 h-12 mb-4 opacity-20" />
+            <p>Select a template to edit or create a new one.</p>
+          </div>
+        ) : (
+          <>
+            {/* Editor Top */}
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 blur-[100px] pointer-events-none" />
+              
+              <div className="flex justify-between items-center mb-6 relative z-10 border-b border-slate-800 pb-4">
+                <h2 className="text-xl font-bold text-white">
+                  {activeTemplateId === "new" ? "Create New Template" : "Edit Template"}
+                </h2>
+                <button 
+                  onClick={handleSave}
+                  disabled={isSaving}
+                  className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2 rounded-xl font-bold flex items-center gap-2 transition-colors disabled:opacity-50"
+                >
+                  {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                  Save Template
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-6 relative z-10">
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-400 mb-1.5">Platform</label>
+                    <select
+                      value={formPlatform}
+                      onChange={(e) => setFormPlatform(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors capitalize"
                     >
-                      <ChevronLeft className="w-4 h-4" />
-                    </button>
-                    <span className="text-zinc-500 font-medium">Page {templatePage} of {totalTemplatePages}</span>
-                    <button 
-                      onClick={() => setTemplatePage(prev => Math.min(totalTemplatePages, prev + 1))}
-                      disabled={templatePage === totalTemplatePages}
-                      className="p-1.5 rounded-lg bg-zinc-800 text-zinc-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                      {availablePlatforms.map(p => <option key={p} value={p}>{p}</option>)}
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-400 mb-1.5">Template Name</label>
+                    <input 
+                      value={formName}
+                      onChange={(e) => setFormName(e.target.value)}
+                      placeholder="e.g. High-Retention Reel"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-400 mb-1.5">Description & AI Rules</label>
+                    <textarea 
+                      value={formDesc}
+                      onChange={(e) => setFormDesc(e.target.value)}
+                      rows={5}
+                      placeholder="e.g. Tone should be exciting. Never use emojis. End with a question."
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-indigo-500 resize-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-4">
+                  <div className="flex-1 flex flex-col">
+                    <label className="block text-sm font-semibold text-slate-400 mb-1.5 flex justify-between">
+                      <span>Template Design</span>
+                      <span className="text-[10px] text-slate-500 font-normal">Use {"{{placeholder}}"} syntax</span>
+                    </label>
+                    <textarea 
+                      value={formBody}
+                      onChange={(e) => setFormBody(e.target.value)}
+                      className="w-full flex-1 bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm text-white font-mono focus:outline-none focus:border-indigo-500 resize-none custom-scrollbar leading-relaxed"
+                    />
+                  </div>
+                  <div className="h-40 flex flex-col">
+                    <label className="block text-sm font-semibold text-slate-400 mb-1.5 flex justify-between">
+                      <span>Image Prompt Template</span>
+                      <span className="text-[10px] text-slate-500 font-normal">Optional</span>
+                    </label>
+                    <textarea 
+                      value={formImagePrompt}
+                      onChange={(e) => setFormImagePrompt(e.target.value)}
+                      placeholder="e.g. High resolution photography, cinematic lighting..."
+                      className="w-full flex-1 bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm text-white font-mono focus:outline-none focus:border-indigo-500 resize-none custom-scrollbar leading-relaxed"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Live Example Panel */}
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl flex-1 flex flex-col">
+              <div className="flex items-center gap-2 mb-4">
+                <Play className="w-5 h-5 text-emerald-400 fill-emerald-400/20" />
+                <h3 className="text-lg font-bold text-white">Live Example Panel</h3>
+              </div>
+              <div className="grid grid-cols-2 gap-6 flex-1">
+                <div className="flex flex-col">
+                  <label className="text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wider">Sample Source Post</label>
+                  <textarea
+                    value={samplePost}
+                    onChange={(e) => setSamplePost(e.target.value)}
+                    placeholder="Paste a raw script or post here to test how the AI applies your template..."
+                    className="flex-1 w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm text-slate-300 focus:outline-none focus:border-emerald-500 resize-none mb-4"
+                  />
+                  <button 
+                    onClick={handleTestTemplate}
+                    disabled={isTesting || !samplePost.trim()}
+                    className="w-full bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 py-3 rounded-xl font-bold transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    {isTesting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Test Template"}
+                  </button>
+                </div>
+                <div className="flex flex-col">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">AI Output Preview</label>
+                    <button
+                      onClick={handleCopy}
+                      disabled={!testResult && !imagePromptTestResult}
+                      className="text-slate-400 hover:text-emerald-400 transition-colors disabled:opacity-50 flex items-center gap-1 text-xs font-medium disabled:cursor-not-allowed"
+                      title="Copy output"
                     >
-                      <ChevronRight className="w-4 h-4" />
+                      {isCopied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                      {isCopied ? <span className="text-emerald-400">Copied</span> : "Copy"}
                     </button>
                   </div>
-                )}
+                  <div className="flex-1 w-full bg-black border border-slate-800 rounded-xl p-4 text-sm text-slate-200 whitespace-pre-wrap overflow-y-auto custom-scrollbar flex flex-col gap-4">
+                    {testResult ? (
+                      <>
+                        <div>
+                          <div className="text-[10px] text-slate-500 font-bold mb-1 uppercase">Post Content</div>
+                          {testResult}
+                        </div>
+                        {imagePromptTestResult && (
+                          <div className="border-t border-slate-800 pt-3">
+                            <div className="text-[10px] text-slate-500 font-bold mb-1 uppercase">Image Prompt</div>
+                            {imagePromptTestResult}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-slate-600 italic">Click "Test Template" to see the simulated result here.</span>
+                    )}
+                  </div>
+                </div>
               </div>
-            );
-          })()
-        ) : (
-          <div className="text-center py-20 bg-zinc-900/50 border border-zinc-800 rounded-3xl flex flex-col items-center justify-center">
-            <Sparkles className="w-12 h-12 text-zinc-700 mb-3" />
-            <h3 className="text-lg font-bold text-zinc-400">No templates found</h3>
-            <p className="text-zinc-500 text-sm mt-1 max-w-sm">Create a new template for your social media content workflow.</p>
-          </div>
+            </div>
+
+            {/* Image Prompt Testing Panel */}
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl flex-1 flex flex-col mt-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Play className="w-5 h-5 text-indigo-400 fill-indigo-400/20" />
+                <h3 className="text-lg font-bold text-white">Image Prompt Live Example</h3>
+              </div>
+              <div className="grid grid-cols-2 gap-6 flex-1">
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-col flex-1">
+                    <label className="text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wider">Image Prompt Template</label>
+                    <textarea
+                      value={formImagePrompt}
+                      onChange={(e) => setFormImagePrompt(e.target.value)}
+                      placeholder="Paste or write your image prompt template here..."
+                      className="flex-1 w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm text-slate-300 focus:outline-none focus:border-indigo-500 resize-none"
+                    />
+                  </div>
+                  <div className="flex flex-col flex-1">
+                    <label className="text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wider">Sample Source Post</label>
+                    <textarea
+                      value={sampleImagePost}
+                      onChange={(e) => setSampleImagePost(e.target.value)}
+                      placeholder="Paste a raw script or post here to test the image prompt template..."
+                      className="flex-1 w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm text-slate-300 focus:outline-none focus:border-indigo-500 resize-none"
+                    />
+                  </div>
+                  <button 
+                    onClick={handleTestImagePrompt}
+                    disabled={isTestingImage || !sampleImagePost.trim()}
+                    className="w-full bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-400 border border-indigo-500/30 py-3 rounded-xl font-bold transition-colors flex items-center justify-center gap-2 disabled:opacity-50 shrink-0"
+                  >
+                    {isTestingImage ? <Loader2 className="w-4 h-4 animate-spin" /> : "Test Image Prompt"}
+                  </button>
+                </div>
+                <div className="flex flex-col">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Generated Image Prompt</label>
+                    <button
+                      onClick={handleCopyImagePrompt}
+                      disabled={!imagePromptTestResultOnly}
+                      className="text-slate-400 hover:text-indigo-400 transition-colors disabled:opacity-50 flex items-center gap-1 text-xs font-medium disabled:cursor-not-allowed"
+                      title="Copy output"
+                    >
+                      {isCopiedImage ? <Check className="w-4 h-4 text-indigo-400" /> : <Copy className="w-4 h-4" />}
+                      {isCopiedImage ? <span className="text-indigo-400">Copied</span> : "Copy"}
+                    </button>
+                  </div>
+                  <div className="flex-1 w-full bg-black border border-slate-800 rounded-xl p-4 text-sm text-slate-200 whitespace-pre-wrap overflow-y-auto custom-scrollbar flex flex-col gap-4">
+                    {imagePromptTestResultOnly ? (
+                      <div>
+                        {imagePromptTestResultOnly}
+                      </div>
+                    ) : (
+                      <span className="text-slate-600 italic">Click "Test Image Prompt" to see the simulated result here.</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>
         )}
       </div>
 
-      {/* Create / Edit Modal Popup */}
+      {/* Delete Confirmation Modal */}
       <AnimatePresence>
-        {isModalOpen && (
-          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}>
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-zinc-900 border border-zinc-800 rounded-3xl w-full max-w-lg p-6 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                <FileText className="w-5 h-5 text-indigo-400" />
-                {editingTemplate ? "Edit Social Template" : "Add Social Template"}
-              </h2>
-              
-              <form onSubmit={handleSave} className="space-y-4 overflow-y-auto pr-1 flex-1">
-                <div>
-                  <label className="block text-xs font-semibold text-zinc-400 mb-1">Platform *</label>
-                  <select
-                    value={formPlatform}
-                    onChange={(e) => setFormPlatform(e.target.value)}
-                    disabled={isSaving}
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <option value="youtube">YouTube</option>
-                    <option value="tiktok">TikTok</option>
-                    <option value="instagram">Instagram</option>
-                    <option value="twitter">Twitter / X</option>
-                    <option value="linkedin">LinkedIn</option>
-                    <option value="other">Other</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-zinc-400 mb-1">Template Name *</label>
-                  <input 
-                    type="text" 
-                    value={formName}
-                    onChange={(e) => setFormName(e.target.value)}
-                    disabled={isSaving}
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" 
-                    placeholder="e.g. Standard Video Description" 
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-zinc-400 mb-1">Description</label>
-                  <input 
-                    type="text" 
-                    value={formDesc}
-                    onChange={(e) => setFormDesc(e.target.value)}
-                    disabled={isSaving}
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" 
-                    placeholder="e.g. Best for informational/educational videos" 
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-zinc-400 mb-1">Template Body *</label>
-                  <textarea 
-                    rows={6}
-                    value={formBody}
-                    onChange={(e) => setFormBody(e.target.value)}
-                    disabled={isSaving}
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors font-mono resize-none disabled:opacity-50 disabled:cursor-not-allowed" 
-                    placeholder="Write body structure here. Use placeholders inside brackets like [hook], [cta]." 
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-zinc-400 mb-1">Placeholders (Comma separated)</label>
-                  <input 
-                    type="text" 
-                    value={formPlaceholderInput}
-                    onChange={(e) => setFormPlaceholderInput(e.target.value)}
-                    disabled={isSaving}
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" 
-                    placeholder="e.g. hook, value, cta" 
-                  />
-                  <p className="text-[10px] text-zinc-500 mt-1">Placeholders must match brackets used inside the template body exactly.</p>
-                </div>
-
-                <div className="flex justify-end gap-3 border-t border-zinc-800 pt-4 mt-6">
-                  <button 
-                    type="button"
-                    onClick={() => setIsModalOpen(false)}
-                    disabled={isSaving}
-                    className="px-5 py-2 text-zinc-400 hover:text-white transition-colors text-xs font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Cancel
-                  </button>
-                  <button 
-                    type="submit"
-                    disabled={isSaving}
-                    className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-bold transition-colors text-xs cursor-pointer shadow-lg shadow-indigo-600/10 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isSaving ? (
-                      <>
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        {editingTemplate ? "Saving Changes..." : "Creating Template..."}
-                      </>
-                    ) : (
-                      editingTemplate ? "Save Changes" : "Create Template"
-                    )}
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </div>
-        )}
-        {/* Delete Confirmation Modal */}
         {templateToDelete && (
-          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setTemplateToDelete(null)}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm" onClick={() => setTemplateToDelete(null)}>
             <motion.div 
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-zinc-900 border border-zinc-800 rounded-3xl w-full max-w-md p-6 shadow-2xl overflow-hidden flex flex-col"
+              className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md p-6 shadow-2xl flex flex-col"
               onClick={(e) => e.stopPropagation()}
             >
               <h2 className="text-lg font-bold text-white mb-2 flex items-center gap-2">
-                <Trash2 className="w-5 h-5 text-red-500" />
-                Delete Social Template
+                <AlertCircle className="w-5 h-5 text-red-500" />
+                Delete Template
               </h2>
-              <p className="text-zinc-400 text-sm mb-6 leading-relaxed">
-                Are you sure you want to delete <span className="text-white font-bold">"{templateToDelete.name}"</span>? This action cannot be undone.
+              <p className="text-slate-400 text-sm mb-6">
+                Are you sure you want to delete "{templateToDelete.name}"? This action cannot be undone.
               </p>
               
-              <div className="flex justify-end gap-3 pt-2">
+              <div className="flex justify-end gap-3">
                 <button 
-                  type="button"
                   onClick={() => setTemplateToDelete(null)}
-                  disabled={isDeleting}
-                  className="px-5 py-2 text-zinc-400 hover:text-white transition-colors text-xs font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-5 py-2.5 bg-slate-800 text-slate-300 hover:text-white rounded-xl font-bold transition-colors"
                 >
                   Cancel
                 </button>
                 <button 
-                  type="button"
                   onClick={handleConfirmDelete}
                   disabled={isDeleting}
-                  className="px-5 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg font-bold transition-colors text-xs cursor-pointer shadow-lg shadow-red-600/10 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-5 py-2.5 bg-red-600 hover:bg-red-500 text-white rounded-xl font-bold flex items-center gap-2 transition-colors disabled:opacity-50"
                 >
-                  {isDeleting ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      Deleting...
-                    </>
-                  ) : (
-                    "Delete"
-                  )}
+                  {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Delete"}
                 </button>
               </div>
             </motion.div>

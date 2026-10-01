@@ -77,7 +77,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { platform, name, description, body: templateBody, placeholders } = body;
+    const { platform, name, description, body: templateBody, placeholders, imagePromptTemplate } = body;
 
     if (!platform || !name || !templateBody) {
       return NextResponse.json({ success: false, error: "Missing required fields" }, { status: 400 });
@@ -89,6 +89,7 @@ export async function POST(req: NextRequest) {
         name,
         description,
         body: templateBody,
+        imagePromptTemplate,
         placeholders: placeholders || []
       }
     });

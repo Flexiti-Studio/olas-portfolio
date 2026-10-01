@@ -7,7 +7,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   try {
     const { id } = await params;
     const body = await req.json();
-    const { platform, name, description, body: templateBody, placeholders } = body;
+    const { platform, name, description, body: templateBody, placeholders, imagePromptTemplate } = body;
 
     const template = await prisma.socialTemplate.update({
       where: { id },
@@ -16,6 +16,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         name,
         description,
         body: templateBody,
+        imagePromptTemplate,
         placeholders: placeholders || []
       }
     });

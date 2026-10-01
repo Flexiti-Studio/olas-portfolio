@@ -31,7 +31,8 @@ import {
   Loader2,
   GraduationCap,
   Download,
-  HelpCircle
+  HelpCircle,
+  PenTool
 } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell, LineChart, Line } from 'recharts';
 import CvTailor from "@/components/admin/CvTailor";
@@ -159,6 +160,35 @@ export default function AdminDashboard() {
     }
   };
 
+  const [isQuickCreating, setIsQuickCreating] = useState(false);
+  const [isProjectSelectorOpen, setIsProjectSelectorOpen] = useState(false);
+  const [availableProjects, setAvailableProjects] = useState<any[]>([]);
+
+  const handleQuickCreatePost = async () => {
+    if (isProjectSelectorOpen) {
+      setIsProjectSelectorOpen(false);
+      return;
+    }
+    
+    setIsQuickCreating(true);
+    try {
+      const res = await fetch("/api/creators");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.projects && data.projects.length > 0) {
+          setAvailableProjects(data.projects);
+          setIsProjectSelectorOpen(true);
+        } else {
+          setActiveTab("creators-manager");
+        }
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsQuickCreating(false);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (code === "0806") {
@@ -242,7 +272,57 @@ export default function AdminDashboard() {
         >
           <div className="mb-4 border-b border-zinc-800 pb-6 flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold">Admin Overview</h1>
+              <div className="flex items-center gap-4">
+                <h1 className="text-3xl font-bold">Admin Overview</h1>
+                <div className="relative">
+                  <button
+                    onClick={handleQuickCreatePost}
+                    disabled={isQuickCreating}
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-1.5 rounded-lg text-sm font-bold flex items-center gap-2 transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-50"
+                  >
+                    {isQuickCreating ? <Loader2 className="w-4 h-4 animate-spin" /> : <PenTool className="w-4 h-4" />}
+                    Create Initial Post
+                  </button>
+                  
+                  <AnimatePresence>
+                    {isProjectSelectorOpen && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setIsProjectSelectorOpen(false)} />
+                        <motion.div 
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: 10 }}
+                          className="absolute top-full left-0 mt-3 w-72 bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl z-50 overflow-hidden"
+                        >
+                          <div className="p-3 border-b border-zinc-800 bg-zinc-950/50 flex justify-between items-center">
+                            <span className="font-bold text-xs text-zinc-400 uppercase tracking-wider">Select Project</span>
+                            <button onClick={() => setIsProjectSelectorOpen(false)} className="text-zinc-500 hover:text-white">
+                              <X size={14} />
+                            </button>
+                          </div>
+                          <div className="max-h-64 overflow-y-auto p-2 space-y-1">
+                            {availableProjects.map(proj => (
+                              <button 
+                                key={proj.id}
+                                onClick={() => window.location.href = `/admin/creators/${proj.id}?addContent=true`}
+                                className="w-full text-left px-3 py-2.5 rounded-lg text-sm text-zinc-400 hover:text-white hover:bg-zinc-800/80 transition-colors flex items-center gap-3 group"
+                              >
+                                <div className="w-8 h-8 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
+                                  <Users className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform" />
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="font-bold text-zinc-200 truncate">{proj.name}</div>
+                                  <div className="text-[10px] text-zinc-500 truncate mt-0.5">{proj.client} • {proj.creator}</div>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        </motion.div>
+                      </>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </div>
               <p className="text-zinc-400 mt-2">Real-time statistics across all Career Hub modules</p>
             </div>
             {statsLoading && <Loader2 className="animate-spin text-indigo-400" size={24} />}

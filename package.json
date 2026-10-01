@@ -39,9 +39,11 @@
     "recharts": "^3.9.2",
     "remark-gfm": "^4.0.1",
     "resend": "^6.17.2",
+    "rss-parser": "^3.13.0",
     "sanity": "^5.28.0",
     "sonner": "^2.0.8",
-    "unpdf": "^1.6.2"
+    "unpdf": "^1.6.2",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

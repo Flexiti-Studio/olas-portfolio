@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Loader2, DollarSign, Edit, Users, Calendar as CalendarIcon, CheckCircle2, FileText, Type, CalendarDays, Plus, ChevronLeft, ChevronRight, LayoutGrid, Upload, Copy, Check, Eye, Search, Filter, MoreVertical, Play, Image as ImageIcon, Link, Trash2, X, Video, Sparkles, Download } from "lucide-react";
 import { motion } from "framer-motion";
 import SocialTemplates from "@/components/admin/SocialTemplates";
-import CreateContentModal from "./components/CreateContentModal";
+import CreatePostModal from "./components/CreatePostModal";
 
 export default function CreatorProjectDetails() {
   const { id } = useParams();
@@ -95,9 +95,12 @@ export default function CreatorProjectDetails() {
   const [editProjectName, setEditProjectName] = useState("");
   const [editProjectClient, setEditProjectClient] = useState("");
   const [editProjectCreator, setEditProjectCreator] = useState("");
+  const [editProjectCreatorHandle, setEditProjectCreatorHandle] = useState("");
+  const [editProjectCreatorImage, setEditProjectCreatorImage] = useState("");
   const [editProjectStatus, setEditProjectStatus] = useState("");
   const [editProjectBudget, setEditProjectBudget] = useState("");
   const [isSavingProject, setIsSavingProject] = useState(false);
+  const [isUploadingCreatorImage, setIsUploadingCreatorImage] = useState(false);
 
   const getStatusColor = (status: string) => {
     switch(status) {
@@ -191,7 +194,8 @@ export default function CreatorProjectDetails() {
 ]`;
 
   // Content addition state
-  const [isAddingContent, setIsAddingContent] = useState(false);
+  const [contentsViewMode, setContentsViewMode] = useState<"grid" | "list">("grid");
+  const [isAddingPost, setIsAddingPost] = useState(false);
 
   // Titles Pagination Logic
   const TITLES_PER_PAGE = 7;
@@ -203,7 +207,7 @@ export default function CreatorProjectDetails() {
     if (typeof window !== "undefined") {
       const searchParams = new URLSearchParams(window.location.search);
       if (searchParams.get("addContent") === "true") {
-        setIsAddingContent(true);
+        setIsAddingPost(true);
       }
     }
   }, [id]);
@@ -306,7 +310,8 @@ export default function CreatorProjectDetails() {
 
   const getContentsForDate = (dateObj: { day: number; isCurrentMonth: boolean }) => {
     if (!dateObj.isCurrentMonth) return [];
-    return contents.filter((c: any) => {
+    
+    const oldContents = (contents || []).filter((c: any) => {
       if (!c.date) return false;
       const cDate = new Date(c.date);
       return (
@@ -315,6 +320,62 @@ export default function CreatorProjectDetails() {
         cDate.getFullYear() === currentDate.getFullYear()
       );
     });
+
+    const postContents = (project?.posts || []).filter((p: any) => {
+      if (!p.createdAt) return false;
+      const pDate = new Date(p.createdAt);
+      return (
+        pDate.getDate() === dateObj.day &&
+        pDate.getMonth() === currentDate.getMonth() &&
+        pDate.getFullYear() === currentDate.getFullYear()
+      );
+    }).map((p: any) => ({
+      id: p.id,
+      title: p.name || `${p.sourceSocialId} Post`,
+      status: "Published",
+      isPost: true
+    }));
+
+    return [...oldContents, ...postContents];
+  };
+
+  const calculateStreak = () => {
+    const oldDates = (contents || []).map((c: any) => c.date);
+    const postDates = (project?.posts || []).map((p: any) => p.createdAt);
+    const allDates = [...oldDates, ...postDates].filter(Boolean);
+
+    if (allDates.length === 0) return 0;
+    
+    const datesWithContent = new Set<string>();
+    allDates.forEach((dateStr: string) => {
+      const d = new Date(dateStr);
+      datesWithContent.add(new Date(d.getFullYear(), d.getMonth(), d.getDate()).toISOString());
+    });
+
+    let streak = 0;
+    let currDate = new Date();
+    currDate.setHours(0,0,0,0);
+
+    if (datesWithContent.has(currDate.toISOString())) {
+      streak++;
+    } else {
+      currDate.setDate(currDate.getDate() - 1);
+      if (datesWithContent.has(currDate.toISOString())) {
+        streak++;
+      } else {
+        return 0;
+      }
+    }
+
+    while (true) {
+      currDate.setDate(currDate.getDate() - 1);
+      if (datesWithContent.has(currDate.toISOString())) {
+        streak++;
+      } else {
+        break;
+      }
+    }
+    return streak;
   };
 
   const toggleTimeline = (milestoneId: number) => {
@@ -595,7 +656,12 @@ export default function CreatorProjectDetails() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200">
-      <div className="max-w-5xl mx-auto space-y-6">
+      <CreatePostModal 
+        isOpen={isAddingPost} 
+        onClose={() => setIsAddingPost(false)} 
+        projectId={id as string} 
+      />
+      <div className="w-[95%] mx-auto space-y-6 py-6">
         
         {/* Header Navigation */}
         <button 
@@ -613,35 +679,40 @@ export default function CreatorProjectDetails() {
           
           <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
             <div className="flex items-center gap-6">
-              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-3xl font-extrabold shadow-lg">
-                {project.creator.charAt(0).toUpperCase()}
-              </div>
+              {project.creatorImage ? (
+                <img src={project.creatorImage} alt={project.creator} className="w-20 h-20 rounded-2xl object-cover shadow-lg border border-slate-700 shrink-0" />
+              ) : (
+                <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-3xl font-extrabold shadow-lg shrink-0">
+                  {project.creator.charAt(0).toUpperCase()}
+                </div>
+              )}
               <div>
                 <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20 mb-3 inline-block">
                   {project.status}
                 </span>
                 <h1 className="text-4xl font-extrabold text-white mb-2 tracking-tight">{project.name}</h1>
-                <p className="text-lg text-slate-400">{project.client} • {project.creator}</p>
+                <p className="text-lg text-slate-400">
+                  {project.client} • {project.creator} {project.creatorHandle && <span className="text-blue-400 ml-1">({project.creatorHandle})</span>}
+                </p>
               </div>
             </div>
             
             <div className="flex flex-wrap gap-3 mt-4 md:mt-0">
-              <button onClick={() => setIsAddingContent(true)} className="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-lg shadow-emerald-500/20 flex items-center gap-2 hover:scale-105 active:scale-95">
-                <Plus className="w-4 h-4" />
-                Create Content
-              </button>
               <button 
-                onClick={() => router.push(`/admin/creators/${project.id}/contents`)}
-                className="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-lg shadow-blue-500/20 flex items-center gap-2 hover:scale-105 active:scale-95"
+                onClick={() => setIsAddingPost(true)} 
+                className="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-lg shadow-emerald-500/20 flex items-center gap-2 hover:scale-105 active:scale-95"
               >
-                <LayoutGrid className="w-4 h-4" />
-                All Contents
+                <Plus className="w-4 h-4" />
+                Add post
               </button>
+
               <button 
                 onClick={() => {
                   setEditProjectName(project.name || "");
                   setEditProjectClient(project.client || "");
                   setEditProjectCreator(project.creator || "");
+                  setEditProjectCreatorHandle(project.creatorHandle || "");
+                  setEditProjectCreatorImage(project.creatorImage || "");
                   setEditProjectStatus(project.status || "");
                   setEditProjectBudget(project.budget || "");
                   setShowEditProject(true);
@@ -685,6 +756,7 @@ export default function CreatorProjectDetails() {
         <div className="flex border-b border-slate-800 mb-6 mt-4 overflow-x-auto">
           {[
             { id: 'home', label: 'Home' },
+            { id: 'contents', label: 'All Contents' },
             { id: 'titles', label: 'Titles' },
             { id: 'videos', label: 'Videos' },
             { id: 'images', label: 'Images' },
@@ -785,6 +857,88 @@ export default function CreatorProjectDetails() {
             </div>
           </div>
         </div>
+        )}
+
+        {/* Tab: CONTENTS (All Contents) */}
+        {activeProjectTab === 'contents' && (
+          <div className="space-y-6">
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                  <LayoutGrid className="w-5 h-5 text-blue-500" />
+                  All Contents
+                </h2>
+                <div className="flex items-center gap-2 bg-slate-950 p-1 rounded-lg border border-slate-800">
+                  <button 
+                    onClick={() => setContentsViewMode('grid')}
+                    className={`p-1.5 rounded-md transition-colors ${contentsViewMode === 'grid' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
+                  >
+                    <LayoutGrid className="w-4 h-4" />
+                  </button>
+                  <button 
+                    onClick={() => setContentsViewMode('list')}
+                    className={`p-1.5 rounded-md transition-colors ${contentsViewMode === 'list' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
+                  >
+                    <Filter className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+              
+              <div className="space-y-8">
+                {(() => {
+                  const sortedPosts = [...(project?.posts || [])].sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+                  const postsByDate = sortedPosts.reduce((acc: any, post: any) => {
+                    const dateObj = new Date(post.createdAt);
+                    const dateStr = dateObj.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+                    if (!acc[dateStr]) acc[dateStr] = [];
+                    acc[dateStr].push(post);
+                    return acc;
+                  }, {});
+                  
+                  if (Object.keys(postsByDate).length === 0) {
+                    return (
+                      <div className="flex flex-col items-center justify-center py-20 text-slate-500 bg-slate-950/50 border border-dashed border-slate-800 rounded-xl">
+                        <FileText className="w-12 h-12 mb-4 text-slate-600" />
+                        <p className="font-medium text-slate-400">No posts created yet.</p>
+                        <p className="text-sm mt-1">Use the Add Post button to generate your first social post.</p>
+                      </div>
+                    );
+                  }
+
+                  return Object.entries(postsByDate).map(([dateStr, postsForDate]: [string, any]) => (
+                    <div key={dateStr}>
+                      <h3 className="text-sm font-bold text-slate-400 mb-4 border-b border-slate-800 pb-2">{dateStr}</h3>
+                      <div className={contentsViewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" : "space-y-3"}>
+                        {postsForDate.map((post: any) => (
+                          <div 
+                            key={post.id} 
+                            onClick={() => router.push(`/admin/creators/${project.id}/posts/${post.id}`)}
+                            className={`bg-slate-950 border border-slate-800 rounded-xl cursor-pointer hover:border-blue-500/50 transition-all hover:scale-[1.01] ${contentsViewMode === 'grid' ? 'p-5 flex flex-col h-40' : 'p-4 flex items-center justify-between'}`}
+                          >
+                            <div className={contentsViewMode === 'grid' ? 'mb-3 overflow-hidden flex-1' : 'flex items-center gap-4 flex-1 overflow-hidden'}>
+                              <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center shrink-0">
+                                <FileText className="w-5 h-5 text-blue-400" />
+                              </div>
+                              <div className={contentsViewMode === 'grid' ? 'mt-3 flex-1 overflow-hidden' : 'flex-1 overflow-hidden'}>
+                                <h4 className="text-white font-medium line-clamp-1 capitalize">{post.name || `${post.sourceSocialId} Source Post`}</h4>
+                                <p className="text-xs text-slate-500 mt-1 line-clamp-2">{post.originalContent}</p>
+                              </div>
+                            </div>
+                            <div className={contentsViewMode === 'grid' ? 'mt-auto flex justify-between items-center pt-3 border-t border-slate-800/50 shrink-0' : 'flex items-center gap-4 shrink-0 pl-4 border-l border-slate-800/50'}>
+                              <span className="text-xs font-bold px-2 py-1 bg-slate-900 text-slate-400 rounded-md">
+                                {post.versions?.length || 0} Platform Versions
+                              </span>
+                              <ChevronRight className="w-4 h-4 text-slate-500" />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ));
+                })()}
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Tab: TITLES (Potential Content Titles) */}
@@ -1940,6 +2094,11 @@ export default function CreatorProjectDetails() {
             <h2 className="text-xl font-bold text-white flex items-center gap-2">
               <CalendarDays className="w-5 h-5 text-purple-500" />
               Content Calendar
+              {calculateStreak() > 0 && (
+                <span className="ml-4 text-xs font-medium px-2.5 py-1 rounded-full bg-orange-500/10 text-orange-400 border border-orange-500/20 flex items-center gap-1">
+                  🔥 {calculateStreak()} Day Streak
+                </span>
+              )}
             </h2>
             <div className="flex items-center gap-3">
               <button onClick={handlePrevMonth} className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors">
@@ -1970,13 +2129,14 @@ export default function CreatorProjectDetails() {
                 <div 
                   key={i} 
                   onClick={() => setSelectedDate(dateObj)}
-                  className={`bg-slate-950 p-2 h-28 md:h-36 border border-slate-900/50 hover:bg-slate-900 transition-colors relative group cursor-pointer ${
+                  className={`p-2 h-28 md:h-36 border border-slate-900/50 hover:bg-slate-900/80 transition-colors relative group cursor-pointer ${
                     !dateObj.isCurrentMonth ? 'opacity-30' : ''
-                  }`}
+                  } ${dateObj.isCurrentMonth && dayContents.length > 0 ? 'bg-emerald-950/20 border-emerald-900/30' : 'bg-slate-950'}`}
                 >
                   <div className="flex justify-between items-center mb-1">
-                    <span className="text-xs font-medium text-slate-500">
+                    <span className="text-xs font-medium text-slate-500 flex items-center gap-1">
                       {dateObj.day}
+                      {dateObj.isCurrentMonth && (dayContents.length > 0 ? <CheckCircle2 className="w-3 h-3 text-emerald-500" /> : <X className="w-3 h-3 text-red-500/50" />)}
                     </span>
                   </div>
                   
@@ -1984,11 +2144,7 @@ export default function CreatorProjectDetails() {
                     {dayContents.map((contentItem: any) => (
                       <div
                         key={contentItem.id}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          router.push(`/admin/creators/${id}/contents/${contentItem.id}`);
-                        }}
-                        className={`text-[10px] px-1.5 py-0.5 rounded border truncate cursor-pointer transition-all hover:scale-105 active:scale-95 ${getStatusColor(contentItem.status)}`}
+                        className={`text-[10px] px-1.5 py-0.5 rounded border truncate transition-all ${getStatusColor(contentItem.status)}`}
                         title={`${contentItem.title} (${contentItem.status})`}
                       >
                         {contentItem.title}
@@ -2600,31 +2756,35 @@ export default function CreatorProjectDetails() {
               </button>
             </div>
             
-            <div className="space-y-4 mb-6 min-h-[150px]">
-              {selectedDate.isCurrentMonth && selectedDate.day === 12 ? (
-                <div className="bg-slate-950/50 border border-blue-500/30 rounded-xl p-4">
-                  <div className="flex justify-between items-start mb-2">
-                    <span className="px-2 py-1 bg-blue-500/20 text-blue-400 text-[10px] font-bold rounded uppercase">Draft Due</span>
-                    <span className="text-xs text-slate-500">10:00 AM</span>
-                  </div>
-                  <h4 className="text-white font-medium">I Survived 50 Hours in the Metaverse</h4>
-                  <p className="text-sm text-slate-400 mt-1">First rough cut review with the editing team.</p>
-                </div>
-              ) : selectedDate.isCurrentMonth && selectedDate.day === 18 ? (
-                <div className="bg-slate-950/50 border border-purple-500/30 rounded-xl p-4">
-                  <div className="flex justify-between items-start mb-2">
-                    <span className="px-2 py-1 bg-purple-500/20 text-purple-400 text-[10px] font-bold rounded uppercase">Go Live</span>
-                    <span className="text-xs text-slate-500">4:00 PM</span>
-                  </div>
-                  <h4 className="text-white font-medium">Testing the World's Most Expensive Setup</h4>
-                  <p className="text-sm text-slate-400 mt-1">Scheduled for simultaneous release on YouTube and TikTok.</p>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center h-full text-slate-500 py-8">
-                  <p className="text-sm mb-2">No content scheduled for this date.</p>
-                  <p className="text-xs opacity-60">Click the button below to assign a title.</p>
-                </div>
-              )}
+            <div className="space-y-4 mb-6 min-h-[150px] max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+              {(() => {
+                const dayContents = getContentsForDate(selectedDate);
+                if (dayContents.length > 0) {
+                  return dayContents.map((item: any) => (
+                    <div 
+                      key={item.id} 
+                      onClick={() => router.push(`/admin/creators/${id}/posts/${item.id}`)}
+                      className="bg-slate-950/50 border border-slate-800 rounded-xl p-4 cursor-pointer hover:bg-slate-900 transition-colors group"
+                    >
+                      <div className="flex justify-between items-start mb-2">
+                        <span className={`px-2 py-1 text-[10px] font-bold rounded uppercase ${getStatusColor(item.status)}`}>{item.status}</span>
+                        <span className="text-xs text-slate-500 flex items-center gap-1 group-hover:text-blue-400 transition-colors">
+                          {item.type} <ChevronRight size={12} className="opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
+                        </span>
+                      </div>
+                      <h4 className="text-white font-medium group-hover:text-blue-400 transition-colors">{item.title}</h4>
+                      <p className="text-sm text-slate-400 mt-1 line-clamp-2">Generated content</p>
+                    </div>
+                  ));
+                } else {
+                  return (
+                    <div className="flex flex-col items-center justify-center h-full text-slate-500 py-8">
+                      <p className="text-sm mb-2">No content scheduled for this date.</p>
+                      <p className="text-xs opacity-60">Click the button below to assign a title.</p>
+                    </div>
+                  );
+                }
+              })()}
             </div>
 
             <div className="flex justify-end border-t border-slate-800 pt-4">
@@ -2636,17 +2796,7 @@ export default function CreatorProjectDetails() {
         </div>
       )}
 
-      {/* Add New Content Modal */}
-      <CreateContentModal 
-        isOpen={isAddingContent}
-        onClose={() => setIsAddingContent(false)}
-        projectId={id as string}
-        onSaveContent={async (item) => {
-          const updatedContents = [...contents, item];
-          setContents(updatedContents);
-          await saveProjectData(undefined, undefined, updatedContents);
-        }}
-      />
+
 
       {/* Delete Video Confirmation Modal */}
       {videoToDelete && (
@@ -3721,6 +3871,59 @@ export default function CreatorProjectDetails() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Creator Handle</label>
+                  <input
+                    type="text"
+                    value={editProjectCreatorHandle}
+                    onChange={e => setEditProjectCreatorHandle(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500 transition-colors"
+                    placeholder="e.g. @ola"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Profile Photo URL</label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={editProjectCreatorImage}
+                      onChange={e => setEditProjectCreatorImage(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-4 pr-12 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500 transition-colors"
+                      placeholder="https://..."
+                    />
+                    <label className={`absolute right-2 top-1/2 -translate-y-1/2 flex items-center justify-center p-1.5 rounded-lg cursor-pointer transition-colors ${isUploadingCreatorImage ? 'opacity-50 pointer-events-none' : 'hover:bg-slate-800 text-slate-400 hover:text-white'}`}>
+                      {isUploadingCreatorImage ? <Loader2 className="w-4 h-4 animate-spin text-blue-400" /> : <Upload className="w-4 h-4" />}
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        className="hidden" 
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          setIsUploadingCreatorImage(true);
+                          try {
+                            const formData = new FormData();
+                            formData.append("file", file);
+                            const res = await fetch("/api/uploads", {
+                              method: "POST",
+                              body: formData,
+                            });
+                            const data = await res.json();
+                            if (data.url) {
+                              setEditProjectCreatorImage(data.url);
+                            }
+                          } catch (err) {
+                            console.error("Upload failed", err);
+                          } finally {
+                            setIsUploadingCreatorImage(false);
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
                   <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Status</label>
                   <select
                     value={editProjectStatus}
@@ -3768,6 +3971,8 @@ export default function CreatorProjectDetails() {
                         name: editProjectName,
                         client: editProjectClient,
                         creator: editProjectCreator,
+                        creatorHandle: editProjectCreatorHandle,
+                        creatorImage: editProjectCreatorImage,
                         status: editProjectStatus,
                         budget: editProjectBudget,
                         timeline,
@@ -3777,7 +3982,7 @@ export default function CreatorProjectDetails() {
                         images: savedImages,
                       })
                     });
-                    setProject({ ...project, name: editProjectName, client: editProjectClient, creator: editProjectCreator, status: editProjectStatus, budget: editProjectBudget });
+                    setProject({ ...project, name: editProjectName, client: editProjectClient, creator: editProjectCreator, creatorHandle: editProjectCreatorHandle, creatorImage: editProjectCreatorImage, status: editProjectStatus, budget: editProjectBudget });
                     setShowEditProject(false);
                     showToast("Project details updated!");
                   } catch (err) {

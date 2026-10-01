@@ -509,6 +509,8 @@ model CreatorProject {
   name      String
   client    String?
   creator   String
+  creatorHandle String?
+  creatorImage  String?
   status    String   @default("Planning") // Planning, In Progress, Review, Completed
   budget    String?
   createdAt DateTime @default(now())
@@ -519,6 +521,7 @@ model CreatorProject {
   contents  Json?    @default("[]")
   videos    Json?    @default("[]")
   images    Json?    @default("[]")
+  posts     Post[]
 }
 
 // -----------------------------------------------------------------------------
@@ -548,6 +551,7 @@ model SocialTemplate {
   name        String
   description String?
   body        String
+  imagePromptTemplate String?
   placeholders Json?    @default("[]")
   is_primary  Boolean  @default(false)
   createdAt   DateTime @default(now())
@@ -615,3 +619,165 @@ model StandaloneQuizAttempt {
   @@map("standalone_quiz_attempts")
 }
 
+model NewsEvent {
+  id               String       @id @default(uuid())
+  ticker           String
+  catalystType     CatalystType
+  headline         String
+  summary          String
+  novelty          Novelty
+  sentiment        String?
+  confirmingSignal Boolean      @default(false)
+  hasLiquidity     Boolean      @default(false)
+  isGoodSession    Boolean      @default(false)
+  score            Float
+  sourceUrl        String
+  createdAt        DateTime     @default(now())
+
+  @@unique([ticker, createdAt])
+}
+
+enum CatalystType {
+  PARTNERSHIP
+  PROTOCOL_UPGRADE
+  INSTITUTIONAL_ADOPTION
+  NETWORK_ACTIVITY
+  MARKET_WIDE
+  HACK_EXPLOIT
+  REGULATORY
+}
+
+enum Novelty {
+  NEW
+  RECYCLED
+}
+
+model WatchlistItem {
+  id        String   @id @default(uuid())
+  ticker    String   @unique
+  addedAt   DateTime @default(now())
+  notes     String?
+}
+
+model JournalEntry {
+  strategyId String?
+  strategy   TradingStrategy? @relation(fields: [strategyId], references: [id])
+  notes      String?
+  title      String?
+  images     String?
+  id         String   @id @default(uuid())
+  date       DateTime
+  ticker     String?
+  analysis   String
+  entryPlan  String
+  exitPlan   String
+  plannedEntry Float?
+  stopLoss     Float?
+  takeProfit   Float?
+  positionSize Float?
+  riskPercent  Float?
+  actualEntry  Float?
+  actualExit   Float?
+  realizedPnL  Float?
+  followedPlan Boolean?
+  emotionalState  String?
+  confidenceLevel String?
+  lessonLearned   String?
+  wouldRepeat     Boolean?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([date])
+  @@index([ticker])
+}
+
+
+model MT5Trade {
+  id           String   @id @default(uuid())
+  ticket       String   @unique
+  symbol       String
+  type         String
+  volume       Float
+  openPrice    Float
+  closePrice   Float?
+  profit       Float
+  openTime     DateTime
+  closeTime    DateTime?
+  magicNumber  String?
+  comment      String?
+  ingestedAt   DateTime @default(now())
+}
+
+
+model Post {
+  id              String        @id @default(cuid())
+  creatorId       String
+  sourceSocialId  String
+  name            String?       
+  originalContent String        @db.Text
+  imagePrompt     String?       @db.Text
+  createdAt       DateTime      @default(now())
+
+  creator         CreatorProject @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  versions        PostVersion[]
+
+  @@map("posts")
+}
+
+model PostVersion {
+  id          String   @id @default(cuid())
+  postId      String
+  socialId    String
+  templateId  String?
+  content     Json     @default("[]")
+  imagePrompt String?  @db.Text
+  imageUrl    String?  @db.Text
+  status      String   @default("pending")
+  isEdited    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  post        Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@map("post_versions")
+}
+model TradingStrategy {
+  id              String   @id @default(uuid())
+  name            String
+  status          String   @default("testing")
+  
+  targetCondition String?
+  edge            String?
+  instruments     String?
+  timeframes      String?
+  timeframeBias   String?
+  checklist       String?
+  
+  requiredStructure String?
+  confirmingSignals String?
+  fundamentalBackdrop String?
+  skipChecklist     String?
+  
+  triggerCondition  String?
+  entryMethod       String?
+  
+  stopLossLogic     String?
+  takeProfitLogic   String?
+  invalidation      String?
+  
+  maxRiskPerTrade   Float?
+  maxConcurrent     Int?
+  correlationRules  String?
+  
+  sampleSize        Int?
+  winRate           Float?
+  averageR          Float?
+  expectancy        Float?
+  weaknesses        String?
+  images            String?
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  journalEntries    JournalEntry[]
+}

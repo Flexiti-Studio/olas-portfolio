@@ -14,7 +14,8 @@ export async function GET(req: Request, { params }: { params: any }) {
     let project = null;
     try {
       project = await prisma.creatorProject.findUnique({
-        where: { id }
+        where: { id },
+        include: { posts: { include: { versions: true } } }
       });
     } catch (dbError) {
       console.warn("Database unavailable, falling back to dummy data for GET", dbError);
@@ -67,12 +68,14 @@ export async function PUT(req: Request, { params }: { params: any }) {
     const resolvedParams = await params;
     const { id } = resolvedParams;
     const body = await req.json();
-    const { name, client, creator, status, budget, timeline, titles, contents, videos, images } = body;
+    const { name, client, creator, creatorHandle, creatorImage, status, budget, timeline, titles, contents, videos, images } = body;
 
     const updateData = {
         name,
         client,
         creator,
+        creatorHandle,
+        creatorImage,
         status,
         budget,
         timeline: timeline || [],

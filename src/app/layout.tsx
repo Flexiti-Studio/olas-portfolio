@@ -34,8 +34,9 @@ export default function RootLayout({
       <head>
         <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,100..900;1,100..900&family=Space+Grotesk:wght@300..700&display=swap" rel="stylesheet" />
         <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
-        <Script id="theme-script" strategy="beforeInteractive">
-          {`
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
             try {
               if (localStorage.theme === 'light') {
                 document.documentElement.classList.remove('dark');
@@ -43,8 +44,9 @@ export default function RootLayout({
                 document.documentElement.classList.add('dark');
               }
             } catch (_) {}
-          `}
-        </Script>
+          `,
+          }}
+        />
       </head>
       <body suppressHydrationWarning className="min-h-screen flex flex-col overflow-x-hidden">
         <SmoothScroll />

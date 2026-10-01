@@ -60,6 +60,10 @@ export default function SpeedApplier() {
   const [jobTitle, setJobTitle] = useState<string>("");
   const [allApplications, setAllApplications] = useState<any[]>([]);
 
+  // Rename Modal State
+  const [showRenameModal, setShowRenameModal] = useState(false);
+  const [tempCompanyName, setTempCompanyName] = useState("");
+
   // Fetch all apps on mount to prevent double applying
   useEffect(() => {
     fetchAllApps();
@@ -624,8 +628,17 @@ export default function SpeedApplier() {
                 </div>
 
                 {isAlreadyApplied && (
-                  <div className="mb-1 text-red-500 text-sm font-medium text-center bg-red-500/10 py-2 rounded-lg border border-red-500/20">
-                    You have already applied to {companyName}. Application blocked.
+                  <div className="mb-1 text-red-500 text-sm font-medium text-center bg-red-500/10 py-3 px-4 rounded-lg border border-red-500/20 flex flex-col gap-2">
+                    <span>You have already applied to <strong>{companyName}</strong>. Application blocked.</span>
+                    <button 
+                      onClick={() => {
+                        setTempCompanyName(companyName);
+                        setShowRenameModal(true);
+                      }}
+                      className="bg-red-500 hover:bg-red-600 text-white font-bold py-1.5 px-4 rounded-lg text-xs transition-colors mx-auto shadow-md shadow-red-500/20"
+                    >
+                      Change Company Name & Allow
+                    </button>
                   </div>
                 )}
 
@@ -662,6 +675,54 @@ export default function SpeedApplier() {
 
       </div>
       <AnimatePresence>
+        {showRenameModal && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 max-w-sm w-full shadow-2xl flex flex-col"
+            >
+              <h3 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                <AlertCircle className="text-amber-400" size={20} />
+                Override Block
+              </h3>
+              <p className="text-xs text-zinc-400 mb-5 leading-relaxed">
+                You have already applied to this company. Enter a slightly different name (e.g., add the department or role) to bypass the block.
+              </p>
+              
+              <input 
+                type="text" 
+                value={tempCompanyName}
+                onChange={(e) => setTempCompanyName(e.target.value)}
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-indigo-500 mb-6"
+                placeholder="Company Name..."
+                autoFocus
+              />
+
+              <div className="flex justify-end gap-3">
+                <button 
+                  onClick={() => setShowRenameModal(false)}
+                  className="px-4 py-2 text-zinc-400 hover:text-white text-sm font-semibold transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={() => {
+                    if (tempCompanyName.trim()) {
+                      setCompanyName(tempCompanyName.trim());
+                      setShowRenameModal(false);
+                    }
+                  }}
+                  className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2 rounded-xl text-sm font-bold shadow-lg shadow-indigo-500/20 transition-colors"
+                >
+                  Save & Allow
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
         {showSkillsModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
             <motion.div
