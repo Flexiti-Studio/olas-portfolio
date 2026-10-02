@@ -85,10 +85,23 @@ export async function POST(req: Request, { params }: { params: any }) {
 
       let instructions = platformRules[platform.toLowerCase()] || "Infer sensible rules from template description.";
       let hasTemplate = false;
+      let ytTemplates = null;
 
       if (template) {
         hasTemplate = true;
-        instructions += `\nFollow this template:\nTemplate Name: ${template.name}\nDescription: ${template.description || ''}\nStructure: ${template.body}`;
+        let structure = template.body;
+        
+        if (platform === "youtube") {
+          try {
+            const parsed = JSON.parse(template.body);
+            if (parsed.__youtubeTemplate) {
+              structure = parsed.script;
+              ytTemplates = parsed;
+            }
+          } catch(e) {}
+        }
+        
+        instructions += `\nFollow this template:\nTemplate Name: ${template.name}\nDescription: ${template.description || ''}\nStructure: ${structure}`;
       }
 
       return {
@@ -96,7 +109,8 @@ export async function POST(req: Request, { params }: { params: any }) {
         instructions,
         hasTemplate,
         templateId: template?.id || null,
-        imagePromptTemplate: template?.imagePromptTemplate || null
+        imagePromptTemplate: template?.imagePromptTemplate || null,
+        ytTemplates
       };
     }));
 
@@ -162,6 +176,7 @@ ${platformInstructions.map(p => `--- PLATFORM: ${p.platform} ---\n${p.instructio
     }
 
     const generatedImagePrompts: Record<string, string> = {};
+    const generatedYtPrompts: Record<string, any> = {};
 
     for (const p of platformInstructions) {
       if (p.imagePromptTemplate) {
@@ -218,6 +233,52 @@ ${p.imagePromptTemplate}`;
           console.error(`Image prompt generation failed for ${p.platform}:`, err);
         }
       }
+
+      if (p.platform === "youtube" && p.ytTemplates) {
+        try {
+          const ytPrompts: any = {};
+          
+          if (p.ytTemplates.sceneBreakdown) {
+            const sceneCompletion = await openai.chat.completions.create({
+              model: "gpt-4o-mini",
+              messages: [
+                { role: "system", content: `You are a scene breakdown director. Given a template for scene breakdown and a sample post/script, generate the exact scene breakdown for this content.\n\nTEMPLATE:\n${p.ytTemplates.sceneBreakdown}\n\nFill in any {{placeholders}} using content from the post provided. Return only the final ready-to-use scene breakdown.` },
+                { role: "user", content: `ORIGINAL POST:\n"""\n${post.originalContent}\n"""` }
+              ],
+              temperature: 0.6,
+            });
+            ytPrompts.sceneBreakdown = sceneCompletion.choices[0]?.message?.content || "";
+          }
+
+          if (p.ytTemplates.voicePrompt) {
+            const voiceCompletion = await openai.chat.completions.create({
+              model: "gpt-4o-mini",
+              messages: [
+                { role: "system", content: `You are a voice narration director. Given a template for voice/TTS generation instructions and a sample post/script, generate the exact voice direction prompt for this content.\n\nTEMPLATE:\n${p.ytTemplates.voicePrompt}\n\nFill in any {{placeholders}} using content from the post provided. Return only the final ready-to-use voice prompt.` },
+                { role: "user", content: `ORIGINAL POST:\n"""\n${post.originalContent}\n"""` }
+              ],
+              temperature: 0.6,
+            });
+            ytPrompts.voicePrompt = voiceCompletion.choices[0]?.message?.content || "";
+          }
+
+          if (p.ytTemplates.videoPrompt) {
+            const videoCompletion = await openai.chat.completions.create({
+              model: "gpt-4o-mini",
+              messages: [
+                { role: "system", content: `You are a video prompt engineer. Given a template for AI video generation and a sample post/script, produce the exact video generation prompt for this content.\n\nTEMPLATE:\n${p.ytTemplates.videoPrompt}\n\nFill in any {{placeholders}} using content from the post provided. Return only the final ready-to-use video prompt.` },
+                { role: "user", content: `ORIGINAL POST:\n"""\n${post.originalContent}\n"""` }
+              ],
+              temperature: 0.6,
+            });
+            ytPrompts.videoPrompt = videoCompletion.choices[0]?.message?.content || "";
+          }
+          
+          generatedYtPrompts[p.platform] = ytPrompts;
+        } catch (err) {
+          console.error(`YouTube extra prompts generation failed:`, err);
+        }
+      }
     }
 
     // Save versions and enforce character limits
@@ -229,7 +290,16 @@ ${p.imagePromptTemplate}`;
       let status = "failed";
 
       if (generated) {
-        finalContent = generated.content;
+        if (p.platform === "youtube" && p.ytTemplates) {
+          finalContent = {
+            script: generated.content,
+            sceneBreakdown: generatedYtPrompts[p.platform]?.sceneBreakdown || "",
+            voicePrompt: generatedYtPrompts[p.platform]?.voicePrompt || "",
+            videoPrompt: generatedYtPrompts[p.platform]?.videoPrompt || "",
+          };
+        } else {
+          finalContent = generated.content;
+        }
         status = "ready";
 
         // Check character limits

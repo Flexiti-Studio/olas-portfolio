@@ -2,16 +2,21 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
 import { 
   Plus, 
   Trash2, 
   Copy, 
   Check,
   Star,
-  StarOff,
   Loader2,
   AlertCircle,
-  Play
+  Play,
+  Film,
+  Mic,
+  Image as ImageIcon,
+  Scissors,
+  FileText
 } from "lucide-react";
 
 interface SocialTemplate {
@@ -48,6 +53,23 @@ export default function SocialTemplates() {
   const [isTesting, setIsTesting] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
 
+  // YouTube-specific state
+  const [ytScript, setYtScript] = useState("");
+  const [ytSceneBreakdown, setYtSceneBreakdown] = useState("");
+  const [ytImagePrompt, setYtImagePrompt] = useState("");
+  const [ytVoicePrompt, setYtVoicePrompt] = useState("");
+  const [ytVideoPrompt, setYtVideoPrompt] = useState("");
+
+  // YouTube live test state
+  const [ytSamplePost, setYtSamplePost] = useState("");
+  const [ytIsTestingAll, setYtIsTestingAll] = useState(false);
+  const [ytScriptResult, setYtScriptResult] = useState("");
+  const [ytSceneResult, setYtSceneResult] = useState("");
+  const [ytImageResult, setYtImageResult] = useState("");
+  const [ytVoiceResult, setYtVoiceResult] = useState("");
+  const [ytVideoResult, setYtVideoResult] = useState("");
+  const [copiedSections, setCopiedSections] = useState<Record<string, boolean>>({});
+
   // Image Prompt Live Example State
   const [sampleImagePost, setSampleImagePost] = useState("");
   const [imagePromptTestResultOnly, setImagePromptTestResultOnly] = useState("");
@@ -57,6 +79,9 @@ export default function SocialTemplates() {
   // Modals / confirmations
   const [templateToDelete, setTemplateToDelete] = useState<SocialTemplate | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  
+  const [settingPrimaryId, setSettingPrimaryId] = useState<string | null>(null);
+  const [isDuplicatingId, setIsDuplicatingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchTemplates();
@@ -103,8 +128,47 @@ export default function SocialTemplates() {
     setFormDesc(template.description || "");
     setFormBody(template.body);
     setFormImagePrompt(template.imagePromptTemplate || "");
+    if (template.platform === "youtube") {
+      loadYouTubeFields(template.body);
+    }
     setTestResult("");
     setImagePromptTestResult("");
+  };
+
+  // Helpers to parse/serialize YouTube template body
+  const parseYouTubeBody = (bodyStr: string) => {
+    try {
+      const parsed = JSON.parse(bodyStr);
+      if (parsed.__youtubeTemplate) return parsed;
+    } catch {}
+    return null;
+  };
+
+  const serializeYouTubeBody = () => JSON.stringify({
+    __youtubeTemplate: true,
+    script: ytScript,
+    sceneBreakdown: ytSceneBreakdown,
+    imagePrompt: ytImagePrompt,
+    voicePrompt: ytVoicePrompt,
+    videoPrompt: ytVideoPrompt
+  });
+
+  const loadYouTubeFields = (bodyStr: string) => {
+    const parsed = parseYouTubeBody(bodyStr);
+    if (parsed) {
+      setYtScript(parsed.script || "");
+      setYtSceneBreakdown(parsed.sceneBreakdown || "");
+      setYtImagePrompt(parsed.imagePrompt || "");
+      setYtVoicePrompt(parsed.voicePrompt || "");
+      setYtVideoPrompt(parsed.videoPrompt || "");
+    } else {
+      // Legacy body â€” put it in script field
+      setYtScript(bodyStr || "");
+      setYtSceneBreakdown("");
+      setYtImagePrompt("");
+      setYtVoicePrompt("");
+      setYtVideoPrompt("");
+    }
   };
 
   const handleCreateNew = () => {
@@ -118,31 +182,59 @@ export default function SocialTemplates() {
     setImagePromptTestResult("");
   };
 
-  const handleDuplicate = (template: SocialTemplate, e: React.MouseEvent) => {
+  const handleDuplicate = async (template: SocialTemplate, e: React.MouseEvent) => {
     e.stopPropagation();
-    setActiveTemplateId("new");
-    setFormPlatform(template.platform);
-    setFormName(`${template.name} (Copy)`);
-    setFormDesc(template.description || "");
-    setFormBody(template.body);
-    setFormImagePrompt(template.imagePromptTemplate || "");
-    setTestResult("");
-    setImagePromptTestResult("");
+    setIsDuplicatingId(template.id);
+    const toastId = toast.loading("Duplicating template...");
+    try {
+      const payload = {
+        platform: template.platform,
+        name: `${template.name} (Copy)`,
+        description: template.description || "",
+        body: template.body,
+        imagePromptTemplate: template.imagePromptTemplate || "",
+        placeholders: template.placeholders
+      };
+
+      const res = await fetch("/api/social-templates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setTemplates(prev => [data.template, ...prev]);
+        toast.success("Template duplicated successfully", { id: toastId });
+      } else {
+        toast.error("Failed to duplicate", { id: toastId });
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Error duplicating template", { id: toastId });
+    } finally {
+      setIsDuplicatingId(null);
+    }
   };
 
   const handleSave = async () => {
-    if (!formName || !formBody || !formPlatform) return;
+    if (!formName || !formPlatform) return;
     setIsSaving(true);
-    
+
+    let bodyToSave = formBody;
+    if (formPlatform === "youtube") {
+      bodyToSave = serializeYouTubeBody();
+    }
+
     // Extract placeholders (e.g. {{hook}})
-    const placeholderMatches = formBody.match(/\{\{([^}]+)\}\}/g) || [];
+    const placeholderMatches = bodyToSave.match(/\{\{([^}]+)\}\}/g) || [];
     const placeholders = placeholderMatches.map(p => p.replace(/[{}]/g, ''));
 
     const payload = {
       platform: formPlatform,
       name: formName,
       description: formDesc,
-      body: formBody,
+      body: bodyToSave,
       imagePromptTemplate: formImagePrompt,
       placeholders
     };
@@ -200,7 +292,9 @@ export default function SocialTemplates() {
 
   const handleSetPrimary = async (template: SocialTemplate, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (template.is_primary) return;
+    if (template.is_primary || settingPrimaryId) return;
+    setSettingPrimaryId(template.id);
+    const toastId = toast.loading("Setting default template...");
     try {
       const res = await fetch(`/api/social-templates/${template.id}`, { method: "PATCH" });
       if (res.ok) {
@@ -209,9 +303,54 @@ export default function SocialTemplates() {
             ? { ...t, is_primary: t.id === template.id } 
             : t
         ));
+        toast.success("Default template set successfully", { id: toastId });
+      } else {
+        toast.error("Failed to set default template", { id: toastId });
       }
     } catch (err) {
       console.error(err);
+      toast.error("Error setting default template", { id: toastId });
+    } finally {
+      setSettingPrimaryId(null);
+    }
+  };
+
+  const handleCopySection = (content: string, template: string, key: string) => {
+    const textToCopy = content.trim() ? content : template;
+    navigator.clipboard.writeText(textToCopy);
+    setCopiedSections(prev => ({ ...prev, [key]: true }));
+    setTimeout(() => setCopiedSections(prev => ({ ...prev, [key]: false })), 2000);
+  };
+
+  const handleTestYouTube = async () => {
+    if (!ytSamplePost.trim()) return;
+    setYtIsTestingAll(true);
+    setYtScriptResult(""); setYtSceneResult(""); setYtImageResult(""); setYtVoiceResult(""); setYtVideoResult("");
+    try {
+      const body = serializeYouTubeBody();
+      const res = await fetch("/api/social-templates/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          platform: "youtube",
+          name: formName,
+          description: formDesc,
+          body: ytScript,
+          samplePost: ytSamplePost,
+          imagePromptTemplate: ytImagePrompt,
+          voicePromptTemplate: ytVoicePrompt,
+          videoPromptTemplate: ytVideoPrompt
+        })
+      });
+      const data = await res.json();
+      if (data.rewritten) setYtScriptResult(data.rewritten);
+      if (data.imagePrompt) setYtImageResult(data.imagePrompt);
+      if (data.voicePrompt) setYtVoiceResult(data.voicePrompt);
+      if (data.videoPrompt) setYtVideoResult(data.videoPrompt);
+    } catch (err) {
+      console.error("YouTube test failed:", err);
+    } finally {
+      setYtIsTestingAll(false);
     }
   };
 
@@ -362,14 +501,14 @@ export default function SocialTemplates() {
                           title="Set Default"
                           className="p-1.5 text-slate-400 hover:text-amber-400 bg-slate-900 rounded-md border border-slate-700"
                         >
-                          <Check size={12} />
+                          {settingPrimaryId === t.id ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
                         </button>
                         <button 
                           onClick={(e) => handleDuplicate(t, e)}
                           title="Duplicate"
                           className="p-1.5 text-slate-400 hover:text-blue-400 bg-slate-900 rounded-md border border-slate-700"
                         >
-                          <Copy size={12} />
+                          {isDuplicatingId === t.id ? <Loader2 size={12} className="animate-spin" /> : <Copy size={12} />}
                         </button>
                         <button 
                           onClick={(e) => { e.stopPropagation(); setTemplateToDelete(t); }}
@@ -383,6 +522,7 @@ export default function SocialTemplates() {
                   ))}
                 </div>
               </div>
+
             ))
           )}
         </div>
@@ -415,41 +555,245 @@ export default function SocialTemplates() {
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-6 relative z-10">
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-400 mb-1.5">Platform</label>
-                    <select
-                      value={formPlatform}
-                      onChange={(e) => setFormPlatform(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors capitalize"
-                    >
-                      {availablePlatforms.map(p => <option key={p} value={p}>{p}</option>)}
-                      <option value="other">Other</option>
-                    </select>
+              {/* YouTube-specific editor OR standard editor */}
+              {formPlatform === "youtube" ? (
+                <div className="grid grid-cols-1 gap-5 relative z-10">
+                  {/* Row 1: Name + Desc */}
+                  <div className="grid grid-cols-2 gap-5">
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-400 mb-1.5">Template Name</label>
+                      <input 
+                        value={formName}
+                        onChange={(e) => setFormName(e.target.value)}
+                        placeholder="e.g. YouTube Long-Form Story Script"
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-red-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-400 mb-1.5">Description & AI Rules</label>
+                      <input
+                        value={formDesc}
+                        onChange={(e) => setFormDesc(e.target.value)}
+                        placeholder="e.g. Educational tone, no filler words..."
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-red-500"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-400 mb-1.5">Template Name</label>
-                    <input 
-                      value={formName}
-                      onChange={(e) => setFormName(e.target.value)}
-                      placeholder="e.g. High-Retention Reel"
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-indigo-500"
+                  
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const promptText = `You are a senior video-systems prompt engineer. Your job is to reverse-engineer a reference video's style and output a complete set of 5 reusable prompt templates that let an AI reproduce that style on any new topic.
+
+INPUTS
+- Reference video URL: {{reference_url}}
+- Reference transcript: {{transcript}}
+- Visual notes (what the footage/graphics/colors/text cards look like): {{visual_notes}}
+- Voice & audio notes (voice type, pace, music, sound design): {{voice_notes}}
+- Niche / audience: {{niche}}
+- Things to change vs the reference (optional): {{overrides}}
+
+STEP 1 - STYLE DNA (internal analysis, also returned in output)
+Extract and summarise:
+1. Hook mechanic (how the first 5 seconds work)
+2. Narrative arc (acts/sections and what each does)
+3. Tone & vocabulary (including banned words)
+4. Sentence rhythm and average scene length
+5. Visual language (palette with hex codes, lighting, composition, typography, recurring visual types)
+6. Voice profile and pause behaviour
+7. Motion language (camera moves, subject motion, forbidden motion)
+8. Consistency elements (color temperature, grain, contrast, fps)
+Mark anything you inferred rather than observed with "(inferred)".
+
+STEP 2 - BUILD THE 5 TEMPLATES
+Create exactly these five, in this order, each with: name, description_rules, template.
+
+1. script_template - full video script prompt (tone, structure, rhythm, banned words, output format)
+2. scene_breakdown - splits the script into timed scenes, returns strict JSON
+3. image_prompt - one image prompt per scene (style lock + creative freedom + per-visual-type rules + negative prompt)
+4. voice_prompt - TTS-ready narration per scene (voice profile, pause rules, JSON output)
+5. video_prompt - one video-generation prompt per scene (motion rules + consistency lock)
+
+TEMPLATE RULES
+- Name format: "<Style Name> (<CODE>-0N)", e.g. "Cinematic Documentary Script (CDSA-01)".
+- description_rules: 2-3 sentences max, plain text. What the template does and its key constraints.
+- Each template must contain: role line, inputs block, LOCKED rules (never change), CREATIVE FREEDOM (what the AI may vary per scene or topic), and OUTPUT FORMAT.
+- Lock the style (palette, lighting, tone, motion) but never lock subjects or metaphors. Every new scene must be creative, not a copy of the reference.
+- Be specific and measurable: hex colors, seconds, word counts, camera speeds. Avoid vague words like "nice", "engaging", "professional".
+- Include negative rules (what to avoid) in every template.
+
+PLACEHOLDER CONTRACT (use these exact names, do not invent new ones)
+- Script: {{topic}}, {{duration_minutes}}, {{audience}}
+- Scene breakdown: {{script}}
+- Image: {{voiceover}}, {{visual_type}}, {{visual_intent}}, {{key_text}}
+- Voice: {{voiceover}}, {{scene_number}}, {{total_scenes}}, {{act}}
+- Video: {{voiceover}}, {{visual_type}}, {{image_prompt}}, {{duration_seconds}}
+- Scene breakdown JSON must contain: scene_number, act, voiceover, duration_seconds, visual_type, visual_intent, transition.
+
+STEP 3 - SELF-CHECK before answering
+- Do all five templates use only the allowed placeholders?
+- Is the style lock identical in image, video and voice templates (no contradictions)?
+- Does scene_breakdown enforce the max scene duration and the visual types used by the image template?
+- Would two different topics produce visibly different imagery while still looking like the same channel?
+Fix anything that fails.
+
+OUTPUT: valid JSON only, no markdown fences, no commentary.
+{
+  "style_dna": { "hook": "", "arc": "", "tone": "", "rhythm": "", "visual": "", "voice": "", "motion": "", "consistency": "" },
+  "templates": {
+    "script_template":  { "name": "", "description_rules": "", "template": "" },
+    "scene_breakdown":  { "name": "", "description_rules": "", "template": "" },
+    "image_prompt":     { "name": "", "description_rules": "", "template": "" },
+    "voice_prompt":     { "name": "", "description_rules": "", "template": "" },
+    "video_prompt":     { "name": "", "description_rules": "", "template": "" }
+  }
+}`;
+                        navigator.clipboard.writeText(promptText);
+                        toast.success("AI Prompt Generator copied to clipboard!");
+                      }}
+                      className="text-xs font-bold text-red-400 hover:text-red-300 flex items-center gap-1 bg-red-500/10 hover:bg-red-500/20 px-3 py-1.5 rounded-lg transition-colors"
+                    >
+                      <Copy className="w-3 h-3" />
+                      Copy System Prompt Generator
+                    </button>
+                  </div>
+
+                  {/* Section 1: Script */}
+                  <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-5">
+                    <div className="flex items-center gap-2 mb-3">
+                      <FileText className="w-4 h-4 text-red-400" />
+                      <label className="text-sm font-bold text-white">1. Script Template</label>
+                      <span className="text-[10px] text-slate-500">The full video script prompt / structure</span>
+                      <button onClick={() => handleCopySection(ytScriptResult, ytScript, 'yt-script')} className="ml-auto flex items-center gap-1 text-[10px] text-slate-400 hover:text-red-400 transition-colors" title={ytScriptResult ? 'Copy test result' : 'Copy template'}>
+                        {copiedSections['yt-script'] ? <Check className="w-3 h-3 text-red-400" /> : <Copy className="w-3 h-3" />}
+                        {copiedSections['yt-script'] ? 'Copied!' : ytScriptResult ? 'Copy Result' : 'Copy Template'}
+                      </button>
+                    </div>
+                    <textarea
+                      value={ytScript}
+                      onChange={(e) => setYtScript(e.target.value)}
+                      rows={5}
+                      placeholder={`e.g. Full video script prompt (tone, structure, rhythm, banned words, output format)\n\nLOCKED RULES: ...\nCREATIVE FREEDOM: ...\nOUTPUT FORMAT: ...`}
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl p-4 text-sm text-white font-mono focus:outline-none focus:border-red-500 resize-none leading-relaxed"
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-400 mb-1.5">Description & AI Rules</label>
-                    <textarea 
-                      value={formDesc}
-                      onChange={(e) => setFormDesc(e.target.value)}
-                      rows={5}
-                      placeholder="e.g. Tone should be exciting. Never use emojis. End with a question."
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-indigo-500 resize-none"
+
+                  {/* Section 2: Scene Breakdown */}
+                  <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-5">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Scissors className="w-4 h-4 text-orange-400" />
+                      <label className="text-sm font-bold text-white">2. Scene Breakdown Prompt</label>
+                      <span className="text-[10px] text-slate-500">How AI should split the script into scenes</span>
+                      <button onClick={() => handleCopySection(ytSceneResult, ytSceneBreakdown, 'yt-scene')} className="ml-auto flex items-center gap-1 text-[10px] text-slate-400 hover:text-orange-400 transition-colors" title={ytSceneResult ? 'Copy test result' : 'Copy template'}>
+                        {copiedSections['yt-scene'] ? <Check className="w-3 h-3 text-orange-400" /> : <Copy className="w-3 h-3" />}
+                        {copiedSections['yt-scene'] ? 'Copied!' : ytSceneResult ? 'Copy Result' : 'Copy Template'}
+                      </button>
+                    </div>
+                    <textarea
+                      value={ytSceneBreakdown}
+                      onChange={(e) => setYtSceneBreakdown(e.target.value)}
+                      rows={4}
+                      placeholder={`e.g. Splits the script into timed scenes, returns strict JSON\n\nJSON must contain: scene_number, act, voiceover, duration_seconds, visual_type, visual_intent, transition.`}
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl p-4 text-sm text-white font-mono focus:outline-none focus:border-orange-500 resize-none leading-relaxed"
+                    />
+                  </div>
+
+                  {/* Section 3: Image Prompt per Scene */}
+                  <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-5">
+                    <div className="flex items-center gap-2 mb-3">
+                      <ImageIcon className="w-4 h-4 text-blue-400" />
+                      <label className="text-sm font-bold text-white">3. Image Prompt per Scene</label>
+                      <span className="text-[10px] text-slate-500">How AI should generate a visual for each scene</span>
+                      <button onClick={() => handleCopySection(ytImageResult, ytImagePrompt, 'yt-image')} className="ml-auto flex items-center gap-1 text-[10px] text-slate-400 hover:text-blue-400 transition-colors" title={ytImageResult ? 'Copy test result' : 'Copy template'}>
+                        {copiedSections['yt-image'] ? <Check className="w-3 h-3 text-blue-400" /> : <Copy className="w-3 h-3" />}
+                        {copiedSections['yt-image'] ? 'Copied!' : ytImageResult ? 'Copy Result' : 'Copy Template'}
+                      </button>
+                    </div>
+                    <textarea
+                      value={ytImagePrompt}
+                      onChange={(e) => setYtImagePrompt(e.target.value)}
+                      rows={4}
+                      placeholder={`e.g. One image prompt per scene (style lock + creative freedom + per-visual-type rules + negative prompt)\n\nInclude negative rules (what to avoid).`}
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl p-4 text-sm text-white font-mono focus:outline-none focus:border-blue-500 resize-none leading-relaxed"
+                    />
+                  </div>
+
+                  {/* Section 4: Voice Prompt per Scene */}
+                  <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-5">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Mic className="w-4 h-4 text-emerald-400" />
+                      <label className="text-sm font-bold text-white">4. Voice Prompt per Scene</label>
+                      <span className="text-[10px] text-slate-500">TTS / AI voice generation instructions per scene</span>
+                      <button onClick={() => handleCopySection(ytVoiceResult, ytVoicePrompt, 'yt-voice')} className="ml-auto flex items-center gap-1 text-[10px] text-slate-400 hover:text-emerald-400 transition-colors" title={ytVoiceResult ? 'Copy test result' : 'Copy template'}>
+                        {copiedSections['yt-voice'] ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                        {copiedSections['yt-voice'] ? 'Copied!' : ytVoiceResult ? 'Copy Result' : 'Copy Template'}
+                      </button>
+                    </div>
+                    <textarea
+                      value={ytVoicePrompt}
+                      onChange={(e) => setYtVoicePrompt(e.target.value)}
+                      rows={4}
+                      placeholder={`e.g. TTS-ready narration per scene (voice profile, pause rules, JSON output)\n\nLock the style (tone) but be creative per scene.`}
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl p-4 text-sm text-white font-mono focus:outline-none focus:border-emerald-500 resize-none leading-relaxed"
+                    />
+                  </div>
+
+                  {/* Section 5: Video Prompt per Scene */}
+                  <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-5">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Film className="w-4 h-4 text-purple-400" />
+                      <label className="text-sm font-bold text-white">5. Video Prompt per Scene</label>
+                      <span className="text-[10px] text-slate-500">AI video generation instructions per scene</span>
+                      <button onClick={() => handleCopySection(ytVideoResult, ytVideoPrompt, 'yt-video')} className="ml-auto flex items-center gap-1 text-[10px] text-slate-400 hover:text-purple-400 transition-colors" title={ytVideoResult ? 'Copy test result' : 'Copy template'}>
+                        {copiedSections['yt-video'] ? <Check className="w-3 h-3 text-purple-400" /> : <Copy className="w-3 h-3" />}
+                        {copiedSections['yt-video'] ? 'Copied!' : ytVideoResult ? 'Copy Result' : 'Copy Template'}
+                      </button>
+                    </div>
+                    <textarea
+                      value={ytVideoPrompt}
+                      onChange={(e) => setYtVideoPrompt(e.target.value)}
+                      rows={4}
+                      placeholder={`e.g. One video-generation prompt per scene (motion rules + consistency lock)\n\nBe specific and measurable: camera speeds, motion language.`}
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl p-4 text-sm text-white font-mono focus:outline-none focus:border-purple-500 resize-none leading-relaxed"
                     />
                   </div>
                 </div>
-
-                <div className="flex flex-col gap-4">
+              ) : (
+                <div className="grid grid-cols-2 gap-6 relative z-10">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-400 mb-1.5">Platform</label>
+                      <select
+                        value={formPlatform}
+                        onChange={(e) => setFormPlatform(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors capitalize"
+                      >
+                        {availablePlatforms.map(p => <option key={p} value={p}>{p}</option>)}
+                        <option value="other">Other</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-400 mb-1.5">Template Name</label>
+                      <input 
+                        value={formName}
+                        onChange={(e) => setFormName(e.target.value)}
+                        placeholder="e.g. High-Retention Reel"
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-400 mb-1.5">Description &amp; AI Rules</label>
+                      <textarea 
+                        value={formDesc}
+                        onChange={(e) => setFormDesc(e.target.value)}
+                        rows={5}
+                        placeholder="e.g. Tone should be exciting. Never use emojis. End with a question."
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-indigo-500 resize-none"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-4">
                   <div className="flex-1 flex flex-col">
                     <label className="block text-sm font-semibold text-slate-400 mb-1.5 flex justify-between">
                       <span>Template Design</span>
@@ -475,6 +819,7 @@ export default function SocialTemplates() {
                   </div>
                 </div>
               </div>
+              )}
             </div>
 
             {/* Live Example Panel */}
@@ -594,6 +939,78 @@ export default function SocialTemplates() {
                 </div>
               </div>
             </div>
+
+            {/* YouTube All-In-One Live Test Panel */}
+            {formPlatform === "youtube" && (
+              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl flex-1 flex flex-col mt-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <Film className="w-5 h-5 text-red-400 fill-red-400/20" />
+                  <h3 className="text-lg font-bold text-white">YouTube Live Test</h3>
+                  <span className="text-xs text-slate-500 ml-2">Tests all 5 YouTube prompt sections at once</span>
+                </div>
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="flex flex-col">
+                    <label className="text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wider">Sample Video Topic / Script</label>
+                    <textarea
+                      value={ytSamplePost}
+                      onChange={(e) => setYtSamplePost(e.target.value)}
+                      placeholder="Paste a raw topic, idea, or script here to test how all 5 YouTube prompts apply..."
+                      className="flex-1 w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm text-slate-300 focus:outline-none focus:border-red-500 resize-none mb-4 min-h-[120px]"
+                    />
+                    <button
+                      onClick={handleTestYouTube}
+                      disabled={ytIsTestingAll || !ytSamplePost.trim()}
+                      className="w-full bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 py-3 rounded-xl font-bold transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                      {ytIsTestingAll ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 fill-current" />}
+                      {ytIsTestingAll ? "Testing all prompts..." : "Test All YouTube Prompts"}
+                    </button>
+                  </div>
+                  <div className="flex flex-col gap-3 overflow-y-auto max-h-[500px] custom-scrollbar pr-1">
+                    {/* Script Result */}
+                    <div className="bg-black border border-slate-800 rounded-xl p-3">
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-1.5"><FileText className="w-3 h-3 text-red-400" /><span className="text-[10px] text-slate-500 font-bold uppercase">Script Output</span></div>
+                        <button onClick={() => handleCopySection(ytScriptResult, ytScript, 'yt-script-result')} className="text-[10px] text-slate-400 hover:text-red-400 flex items-center gap-1 transition-colors">
+                          {copiedSections['yt-script-result'] ? <><Check className="w-3 h-3 text-red-400" />Copied!</> : <><Copy className="w-3 h-3" />Copy</>}
+                        </button>
+                      </div>
+                      <div className="text-xs text-slate-300 whitespace-pre-wrap">{ytScriptResult || <span className="text-slate-600 italic">Script output will appear here...</span>}</div>
+                    </div>
+                    {/* Image Result */}
+                    <div className="bg-black border border-slate-800 rounded-xl p-3">
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-1.5"><ImageIcon className="w-3 h-3 text-blue-400" /><span className="text-[10px] text-slate-500 font-bold uppercase">Image Prompt Output</span></div>
+                        <button onClick={() => handleCopySection(ytImageResult, ytImagePrompt, 'yt-image-result')} className="text-[10px] text-slate-400 hover:text-blue-400 flex items-center gap-1 transition-colors">
+                          {copiedSections['yt-image-result'] ? <><Check className="w-3 h-3 text-blue-400" />Copied!</> : <><Copy className="w-3 h-3" />Copy</>}
+                        </button>
+                      </div>
+                      <div className="text-xs text-slate-300 whitespace-pre-wrap">{ytImageResult || <span className="text-slate-600 italic">Image prompt output will appear here...</span>}</div>
+                    </div>
+                    {/* Voice Result */}
+                    <div className="bg-black border border-slate-800 rounded-xl p-3">
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-1.5"><Mic className="w-3 h-3 text-emerald-400" /><span className="text-[10px] text-slate-500 font-bold uppercase">Voice Prompt Output</span></div>
+                        <button onClick={() => handleCopySection(ytVoiceResult, ytVoicePrompt, 'yt-voice-result')} className="text-[10px] text-slate-400 hover:text-emerald-400 flex items-center gap-1 transition-colors">
+                          {copiedSections['yt-voice-result'] ? <><Check className="w-3 h-3 text-emerald-400" />Copied!</> : <><Copy className="w-3 h-3" />Copy</>}
+                        </button>
+                      </div>
+                      <div className="text-xs text-slate-300 whitespace-pre-wrap">{ytVoiceResult || <span className="text-slate-600 italic">Voice prompt output will appear here...</span>}</div>
+                    </div>
+                    {/* Video Result */}
+                    <div className="bg-black border border-slate-800 rounded-xl p-3">
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-1.5"><Film className="w-3 h-3 text-purple-400" /><span className="text-[10px] text-slate-500 font-bold uppercase">Video Prompt Output</span></div>
+                        <button onClick={() => handleCopySection(ytVideoResult, ytVideoPrompt, 'yt-video-result')} className="text-[10px] text-slate-400 hover:text-purple-400 flex items-center gap-1 transition-colors">
+                          {copiedSections['yt-video-result'] ? <><Check className="w-3 h-3 text-purple-400" />Copied!</> : <><Copy className="w-3 h-3" />Copy</>}
+                        </button>
+                      </div>
+                      <div className="text-xs text-slate-300 whitespace-pre-wrap">{ytVideoResult || <span className="text-slate-600 italic">Video prompt output will appear here...</span>}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>

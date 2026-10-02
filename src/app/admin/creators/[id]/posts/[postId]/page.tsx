@@ -33,6 +33,18 @@ export default function PostPreviewPage() {
   const [uploadingStates, setUploadingStates] = useState<Record<string, boolean>>({});
   const [savingStates, setSavingStates] = useState<Record<string, boolean>>({});
 
+  type YtStep = { id: string; label: string; status: 'pending' | 'processing' | 'done' | 'error' };
+  const ytInitialSteps: YtStep[] = [
+    { id: 'script', label: 'Generating Script & Storyline...', status: 'pending' },
+    { id: 'sceneBreakdown', label: 'Extracting Scene Breakdown...', status: 'pending' },
+    { id: 'voicePrompt', label: 'Crafting Voice Prompts...', status: 'pending' },
+    { id: 'videoPrompt', label: 'Engineering Video Prompts...', status: 'pending' },
+    { id: 'imagePrompt', label: 'Designing Image Prompt...', status: 'pending' },
+  ];
+  
+  const [isYtGenerating, setIsYtGenerating] = useState(false);
+  const [ytSteps, setYtSteps] = useState<YtStep[]>(ytInitialSteps);
+
   useEffect(() => {
     fetchPost();
   }, [postId]);
@@ -61,7 +73,67 @@ export default function PostPreviewPage() {
     }
   };
 
+  const generateYouTubeSequentially = async () => {
+    setIsYtGenerating(true);
+    setYtSteps(ytInitialSteps);
+    
+    let generatedResults: any = { script: "", sceneBreakdown: "", voicePrompt: "", videoPrompt: "" };
+    let imageResult = "";
+
+    try {
+      for (let i = 0; i < ytInitialSteps.length; i++) {
+        const step = ytInitialSteps[i];
+        
+        setYtSteps(prev => prev.map(s => s.id === step.id ? { ...s, status: 'processing' } : s));
+        
+        const res = await fetch(`/api/posts/${postId}/generate-youtube`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ step: step.id })
+        });
+        
+        if (!res.ok) throw new Error(`Failed at ${step.label}`);
+        
+        const data = await res.json();
+        
+        if (step.id === 'imagePrompt') {
+          imageResult = data.result;
+        } else {
+          generatedResults[step.id] = data.result;
+        }
+        
+        setYtSteps(prev => prev.map(s => s.id === step.id ? { ...s, status: 'done' } : s));
+      }
+
+      setYtSteps(prev => [...prev, { id: 'saving', label: 'Saving to Database...', status: 'processing' }]);
+      
+      const saveRes = await fetch(`/api/posts/${postId}/generate-youtube`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ step: "save", generatedResults, imageResult })
+      });
+      
+      if (!saveRes.ok) throw new Error("Failed to save YouTube version");
+      
+      setYtSteps(prev => prev.map(s => s.id === 'saving' ? { ...s, status: 'done' } : s));
+      
+      setTimeout(() => {
+        setIsYtGenerating(false);
+        fetchPost();
+      }, 1000);
+
+    } catch (err) {
+      console.error(err);
+      toast.error("YouTube sequential generation failed.");
+      setIsYtGenerating(false);
+    }
+  };
+
   const handleGeneratePlatform = async (platform?: string) => {
+    if (platform === "youtube") {
+      await generateYouTubeSequentially();
+      return;
+    }
     const payload: any = {};
     if (platform) {
       payload.targetSocials = [platform];
@@ -111,8 +183,38 @@ export default function PostPreviewPage() {
     }
   };
 
-  const handleCopy = (text: string, id: string) => {
-    navigator.clipboard.writeText(text);
+  const formatSocialText = (rawText: any) => {
+    if (!rawText) return "";
+    let text = Array.isArray(rawText) ? rawText.join('\n\n') : String(rawText);
+    const boldMap: Record<string, string> = {
+      'A':'𝗔','B':'𝗕','C':'𝗖','D':'𝗗','E':'𝗘','F':'𝗙','G':'𝗚','H':'𝗛','I':'𝗜','J':'𝗝','K':'𝗞','L':'𝗟','M':'𝗠','N':'𝗡','O':'𝗢','P':'𝗣','Q':'𝗤','R':'𝗥','S':'𝗦','T':'𝗧','U':'𝗨','V':'𝗩','W':'𝗪','X':'𝗫','Y':'𝗬','Z':'𝗭',
+      'a':'𝗮','b':'𝗯','c':'𝗰','d':'𝗱','e':'𝗲','f':'𝗳','g':'𝗴','h':'𝗵','i':'𝗶','j':'𝗷','k':'𝗸','l':'𝗹','m':'𝗺','n':'𝗻','o':'𝗼','p':'𝗽','q':'𝗾','r':'𝗿','s':'𝘀','t':'𝘁','u':'𝘂','v':'𝘃','w':'𝘄','x':'𝘅','y':'𝘆','z':'𝘇',
+      '0':'𝟬','1':'𝟭','2':'𝟮','3':'𝟯','4':'𝟰','5':'𝟱','6':'𝟲','7':'𝟳','8':'𝟴','9':'𝟵'
+    };
+    const italicMap: Record<string, string> = {
+      'A':'𝘈','B':'𝘉','C':'𝘊','D':'𝘋','E':'𝘌','F':'𝘍','G':'𝘎','H':'𝘏','I':'𝘐','J':'𝘑','K':'𝘒','L':'𝘓','M':'𝘔','N':'𝘕','O':'𝘖','P':'𝘗','Q':'𝘘','R':'𝘙','S':'𝘚','T':'𝘛','U':'𝘜','V':'𝘝','W':'𝘞','X':'𝘟','Y':'𝘠','Z':'𝘡',
+      'a':'𝘢','b':'𝘣','c':'𝘤','d':'𝘥','e':'𝘦','f':'𝘧','g':'𝘨','h':'𝘩','i':'𝘪','j':'𝘫','k':'𝘬','l':'𝘭','m':'𝘮','n':'𝘯','o':'𝘰','p':'𝘱','q':'𝘲','r':'𝘳','s':'𝘴','t':'𝘵','u':'𝘶','v':'𝘷','w':'𝘸','x':'𝘹','y':'𝘺','z':'𝘻'
+    };
+    let formatted = text.replace(/\*\*(.*?)\*\*/g, (match, p1) => {
+      return p1.split('').map((c: string) => boldMap[c] || c).join('');
+    });
+    formatted = formatted.replace(/\*(.*?)\*/g, (match, p1) => {
+      return p1.split('').map((c: string) => italicMap[c] || c).join('');
+    });
+    return formatted;
+  };
+
+  const handleCopy = (text: string, id: string, platform?: string) => {
+    let textToCopy = formatSocialText(text);
+    
+    // LinkedIn and Instagram collapse blank lines when pasting.
+    // Insert a zero-width space on each blank line to preserve paragraph gaps.
+    const richTextPlatforms = ['linkedin', 'in', 'instagram', 'ig'];
+    if (platform && richTextPlatforms.includes(platform)) {
+      textToCopy = textToCopy.replace(/\r?\n\r?\n/g, '\n\u200B\n');
+    }
+    
+    navigator.clipboard.writeText(textToCopy);
     setCopiedStates((prev) => ({ ...prev, [id]: true }));
     setTimeout(() => {
       setCopiedStates((prev) => ({ ...prev, [id]: false }));
@@ -279,7 +381,7 @@ export default function PostPreviewPage() {
                     />
                   ) : (
                     <>
-                      <div className="whitespace-pre-wrap mb-3 text-[15px]">{tweet}</div>
+                      <div className="whitespace-pre-wrap mb-3 text-[15px]">{formatSocialText(tweet)}</div>
                       {idx === 0 && version.imageUrl && (
                         <div className="mb-3 rounded-xl overflow-hidden border border-slate-800">
                           <img src={version.imageUrl} alt="Post Attachment" className="w-full h-auto object-cover max-h-96" />
@@ -318,7 +420,8 @@ export default function PostPreviewPage() {
 
     // Instagram Preview
     if (platform === "instagram" || platform === "ig") {
-      const contentStr = isEditing ? editValues[version.id] : version.content;
+      const rawContent = isEditing ? editValues[version.id] : version.content;
+      const contentStr = Array.isArray(rawContent) ? rawContent.join('\n\n') : String(rawContent);
       const isOverLimit = limit && contentStr.length > limit;
 
       return (
@@ -349,7 +452,7 @@ export default function PostPreviewPage() {
                 rows={8}
               />
             ) : (
-              <div className="text-sm whitespace-pre-wrap"><span className="font-bold mr-2">{post.creator?.creatorHandle?.replace('@', '') || "creator_username"}</span>{contentStr}</div>
+              <div className="text-sm whitespace-pre-wrap"><span className="font-bold mr-2">{post.creator?.creatorHandle?.replace('@', '') || "creator_username"}</span>{formatSocialText(contentStr)}</div>
             )}
             
             <div className="flex items-center justify-between mt-2">
@@ -357,7 +460,7 @@ export default function PostPreviewPage() {
                   {contentStr.length} / {limit}
                </span>
                <button 
-                  onClick={() => handleCopy(contentStr, 'ig-copy')}
+                  onClick={() => handleCopy(contentStr, 'ig-copy', platform)}
                   className="text-xs font-bold text-blue-400"
                >
                   {copiedStates['ig-copy'] ? "Copied!" : "Copy Caption"}
@@ -370,7 +473,8 @@ export default function PostPreviewPage() {
 
     // LinkedIn Preview
     if (platform === "linkedin" || platform === "in") {
-      const contentStr = isEditing ? editValues[version.id] : version.content;
+      const rawContent = isEditing ? editValues[version.id] : version.content;
+      const contentStr = Array.isArray(rawContent) ? rawContent.join('\n\n') : String(rawContent);
       const isOverLimit = limit && contentStr.length > limit;
       const displayContent = isEditing ? contentStr : (contentStr.length > 250 ? contentStr.substring(0, 250) + "... see more" : contentStr);
 
@@ -400,12 +504,12 @@ export default function PostPreviewPage() {
                <div className="text-sm whitespace-pre-wrap leading-relaxed">
                  {contentStr.length > 250 && !expandedPrompt ? (
                    <>
-                     {contentStr.substring(0, 250)}...
+                     {formatSocialText(contentStr.substring(0, 250))}...
                      <button onClick={() => setExpandedPrompt(true)} className="text-slate-500 hover:text-blue-600 font-semibold ml-1 cursor-pointer hover:underline focus:outline-none">see more</button>
                    </>
                  ) : (
                    <>
-                     {contentStr}
+                     {formatSocialText(contentStr)}
                      {contentStr.length > 250 && (
                        <button onClick={() => setExpandedPrompt(false)} className="text-slate-500 hover:text-blue-600 font-semibold ml-1 mt-2 block cursor-pointer hover:underline focus:outline-none">see less</button>
                      )}
@@ -433,12 +537,54 @@ export default function PostPreviewPage() {
                 {contentStr.length} / {limit}
              </span>
              <button 
-                onClick={() => handleCopy(contentStr, 'in-copy')}
+                onClick={() => handleCopy(contentStr, 'in-copy', platform)}
                 className="text-xs font-bold text-blue-600"
              >
                 {copiedStates['in-copy'] ? "Copied!" : "Copy Post"}
              </button>
           </div>
+        </div>
+      );
+    }
+
+    // YouTube Preview
+    if (platform === "youtube") {
+      const isContentObject = version.content && typeof version.content === 'object' && !Array.isArray(version.content);
+      const defaultYtData = isContentObject ? version.content : { script: String(version.content || "") };
+      const ytData = isEditing && editValues[version.id] ? editValues[version.id] : defaultYtData;
+      
+      const renderSection = (title: string, value: string, fieldKey: string, copyKey: string) => (
+        <div className="bg-black border border-slate-800 rounded-xl p-4 mb-4">
+          <div className="flex justify-between items-center mb-2">
+            <h4 className="text-sm font-bold text-slate-300">{title}</h4>
+            {!isEditing && value && (
+              <button onClick={() => handleCopy(value, copyKey, platform)} className="text-xs font-bold text-red-400 hover:text-red-300 transition-colors">
+                {copiedStates[copyKey] ? "Copied!" : "Copy"}
+              </button>
+            )}
+          </div>
+          {isEditing ? (
+            <textarea
+              value={value || ""}
+              onChange={(e) => setEditValues((prev) => ({ 
+                ...prev, 
+                [version.id]: { ...(prev[version.id] || defaultYtData), [fieldKey]: e.target.value } 
+              }))}
+              className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white focus:outline-none focus:border-red-500 text-sm"
+              rows={6}
+            />
+          ) : (
+            <div className="text-sm whitespace-pre-wrap text-slate-400 leading-relaxed">{formatSocialText(value) || <span className="italic">Not generated</span>}</div>
+          )}
+        </div>
+      );
+
+      return (
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-xl">
+          {renderSection("Script / Storyline", ytData.script, "script", "yt-script")}
+          {renderSection("Scene Breakdown", ytData.sceneBreakdown, "sceneBreakdown", "yt-scene")}
+          {renderSection("Voice Prompt", ytData.voicePrompt, "voicePrompt", "yt-voice")}
+          {renderSection("Video Prompt", ytData.videoPrompt, "videoPrompt", "yt-video")}
         </div>
       );
     }
@@ -457,7 +603,7 @@ export default function PostPreviewPage() {
             rows={10}
           />
         ) : (
-          <div className="whitespace-pre-wrap text-slate-200 text-sm leading-relaxed">{contentStr}</div>
+          <div className="whitespace-pre-wrap text-slate-200 text-sm leading-relaxed">{formatSocialText(contentStr)}</div>
         )}
 
         <div className="mt-6 pt-4 border-t border-slate-800 flex items-center justify-between">
@@ -482,6 +628,40 @@ export default function PostPreviewPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 p-4 md:p-8">
+      {isYtGenerating && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-md shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-48 h-48 bg-blue-500/10 blur-[60px] pointer-events-none" />
+            <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+              <RefreshCw className="w-5 h-5 text-blue-400 animate-spin" />
+              YouTube Data Processing
+            </h3>
+            <div className="space-y-4 relative z-10">
+              {ytSteps.map((step, idx) => (
+                <div key={idx} className="flex items-center gap-3">
+                  {step.status === 'pending' && <div className="w-5 h-5 rounded-full border-2 border-slate-700 shrink-0" />}
+                  {step.status === 'processing' && <Loader2 className="w-5 h-5 text-blue-500 animate-spin shrink-0" />}
+                  {step.status === 'done' && <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />}
+                  {step.status === 'error' && <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />}
+                  
+                  <span className={`text-sm font-bold ${
+                    step.status === 'processing' ? 'text-blue-400' :
+                    step.status === 'done' ? 'text-emerald-400' :
+                    step.status === 'error' ? 'text-red-400' :
+                    'text-slate-500'
+                  }`}>
+                    {step.label}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-slate-500 mt-6 text-center font-medium italic">
+              Sending requests sequentially to prevent rate limits...
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-7xl mx-auto space-y-6">
         
         {/* Header Navigation */}
@@ -521,7 +701,7 @@ export default function PostPreviewPage() {
                 </button>
               </div>
               <div className="text-slate-300 text-sm whitespace-pre-wrap leading-relaxed max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                {post.originalContent}
+                {formatSocialText(post.originalContent)}
               </div>
             </div>
           </div>
@@ -701,6 +881,34 @@ export default function PostPreviewPage() {
             )}
           </div>
         </div>
+        {/* Resources & Attachments Area - Only for YouTube */}
+        {activeTab === 'youtube' && (
+          <div className="mt-12 bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 blur-[100px] pointer-events-none" />
+            <div className="flex justify-between items-center mb-6 relative z-10">
+              <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-400"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+                Project Resources & Attachments
+              </h3>
+              <div className="flex gap-3">
+                <button className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></svg>
+                  New Folder
+                </button>
+                <button className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+                  Upload File
+                </button>
+              </div>
+            </div>
+            
+            <div className="flex flex-col items-center justify-center py-12 text-slate-500 relative z-10 border-2 border-dashed border-slate-800 rounded-2xl bg-slate-950/50">
+              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="mb-4 opacity-50"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+              <h4 className="text-white font-semibold mb-1">No attachments yet</h4>
+              <p className="text-sm max-w-sm text-center">Add videos, audio, images, and other resources regarding this particular post. You can arrange them in folders.</p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
   try {
-    const { platform, name, description, body, samplePost, imagePromptTemplate } = await req.json();
+    const { platform, name, description, body, samplePost, imagePromptTemplate, voicePromptTemplate, videoPromptTemplate } = await req.json();
 
     if (!samplePost) {
       return NextResponse.json({ error: "Sample post is required" }, { status: 400 });
@@ -72,7 +72,7 @@ OUTPUT RULES
 - Output ONLY the final image prompt as plain text. No preamble, no explanation, no markdown headings, no quotes around it.
 - Write the prompt as a clear description of the finished image: canvas, titles, each panel or section, style, palette, and a final "Do not include" line.
 - Put any text the image must render in "double quotes" so the image model spells it exactly.
-- If the post does not seem to fit the template's structure perfectly, BE CREATIVE. Re-interpret or extrapolate elements from the post to fit the template's structure. You must creatively adapt the post concepts into the required visual layout instead of failing.
+- If the post does not seem to fit the template's structure perfectly, BE CREATIVE.
 
 TEMPLATE:
 ${imagePromptTemplate}`;
@@ -89,7 +89,47 @@ ${imagePromptTemplate}`;
       imagePromptResult = imageCompletion.choices[0]?.message?.content || "";
     }
 
-    return NextResponse.json({ success: true, rewritten, imagePrompt: imagePromptResult });
+    let voicePromptResult = "";
+    if (voicePromptTemplate && voicePromptTemplate.trim() !== "") {
+      const voiceSystemPrompt = `You are a voice narration director. Given a template for voice/TTS generation instructions and a sample post/script, generate the exact voice direction prompt for this content.
+
+TEMPLATE:
+${voicePromptTemplate}
+
+Fill in any {{placeholders}} using content from the post provided. Return only the final ready-to-use voice prompt.`;
+
+      const voiceCompletion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: voiceSystemPrompt },
+          { role: "user", content: userPrompt }
+        ],
+        temperature: 0.6,
+      });
+      voicePromptResult = voiceCompletion.choices[0]?.message?.content || "";
+    }
+
+    let videoPromptResult = "";
+    if (videoPromptTemplate && videoPromptTemplate.trim() !== "") {
+      const videoSystemPrompt = `You are a video prompt engineer. Given a template for AI video generation and a sample post/script, produce the exact video generation prompt for this content.
+
+TEMPLATE:
+${videoPromptTemplate}
+
+Fill in any {{placeholders}} using content from the post provided. Return only the final ready-to-use video prompt.`;
+
+      const videoCompletion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: videoSystemPrompt },
+          { role: "user", content: userPrompt }
+        ],
+        temperature: 0.6,
+      });
+      videoPromptResult = videoCompletion.choices[0]?.message?.content || "";
+    }
+
+    return NextResponse.json({ success: true, rewritten, imagePrompt: imagePromptResult, voicePrompt: voicePromptResult, videoPrompt: videoPromptResult });
   } catch (error: any) {
     console.error("Error testing template:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
