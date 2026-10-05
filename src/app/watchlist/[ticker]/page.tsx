@@ -7,7 +7,7 @@ import { computeBias } from '@/lib/news/computeBias';
 import { WatchlistRemoveButton } from '../WatchlistRemoveButton';
 import { WatchlistAddButton } from '@/app/trading/WatchlistAddButton';
 import { StrategyNote } from '@/components/StrategyNote';
-import { JournalEntryForm } from '@/components/JournalEntryForm';
+import { JournalEntryModalWrapper } from '@/components/JournalEntryModalWrapper';
 import { MiniCalendar } from '@/app/journal/MiniCalendar';
 
 function getScoreBadgeColor(score: number) {
@@ -215,7 +215,7 @@ export default async function WatchlistTickerDetailsPage({
       </div>
 
       <div className="w-[98%] mx-auto mt-8">
-        <JournalEntryForm
+        <JournalEntryModalWrapper
           ticker={ticker}
           dateStr={new Date().toISOString().split('T')[0]}
           initialData={existingJournal}

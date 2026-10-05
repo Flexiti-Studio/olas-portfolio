@@ -5,6 +5,8 @@ import { prisma } from '@/lib/prisma';
 import { format } from 'date-fns';
 import { EditStrategyModal } from '@/components/EditStrategyModal';
 import { StrategyImageGallery } from '@/components/StrategyImageGallery';
+import { ExpandableSectionBlock as SectionBlock } from '@/components/ExpandableSectionBlock';
+import { ExpandableText } from '@/components/ExpandableText';
 
 export default async function StrategyDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -15,21 +17,12 @@ export default async function StrategyDetailPage({ params }: { params: Promise<{
   });
   if (!strategy) return notFound();
 
-  let tickers: string[] = [];
-  try { if (strategy.instruments) tickers = JSON.parse(strategy.instruments); } catch(e) {}
+  let rawTickers: any[] = [];
+  try { if (strategy.instruments) rawTickers = JSON.parse(strategy.instruments); } catch(e) {}
+  
+  // Backward compatibility: map strings to {name, link} objects
+  const tickers = rawTickers.map(t => typeof t === 'string' ? { name: t, link: '' } : t);
   const isGeneral = tickers.length === 0;
-
-  const SectionBlock = ({ title, icon, content, section }: { title: string, icon: string, content?: string | null, section?: 'identity' | 'instruments' | 'thesis' | 'criteria' | 'execution' | 'risk' | 'performance' }) => (
-    <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 h-full">
-      <h2 className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-2 mb-4">
-        <span className={`material-symbols-outlined text-[16px]`}>{icon}</span>
-        {title}
-      </h2>
-      <p className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap">
-        {content || <span className="text-gray-600 italic">Not specified</span>}
-      </p>
-    </div>
-  );
 
   const ListSectionBlock = ({ title, icon, content, section }: { title: string, icon: string, content?: string | null, section?: 'identity' | 'instruments' | 'thesis' | 'criteria' | 'execution' | 'risk' | 'performance' }) => {
     let items: string[] = [];
@@ -43,9 +36,11 @@ export default async function StrategyDetailPage({ params }: { params: Promise<{
         {items.length > 0 ? (
           <ul className="space-y-3 text-gray-300 text-sm">
             {items.map((item, i) => (
-              <li key={i} className="flex gap-3 items-start">
+              <li key={i} className="flex gap-3 items-start min-w-0">
                 <input type="checkbox" className="mt-1 w-4 h-4 rounded border-gray-700 bg-gray-900 focus:ring-blue-500 focus:ring-offset-gray-900 cursor-pointer accent-blue-600 shrink-0" />
-                <span className="leading-relaxed pt-0.5">{item}</span>
+                <div className="leading-relaxed pt-0.5 flex-1 min-w-0">
+                  <ExpandableText content={item} title={title} icon={icon} />
+                </div>
               </li>
             ))}
           </ul>
@@ -136,7 +131,9 @@ export default async function StrategyDetailPage({ params }: { params: Promise<{
                           <li key={tf} className="flex gap-3 items-start bg-gray-950/50 p-3 rounded-lg border border-gray-800/50">
                             <input type="checkbox" className="mt-1 w-4 h-4 rounded border-gray-700 bg-gray-900 focus:ring-blue-500 focus:ring-offset-gray-900 cursor-pointer accent-blue-600 shrink-0" />
                             <span className="inline-block bg-blue-900/40 text-blue-400 border border-blue-800/50 px-2 py-0.5 rounded text-[10px] font-bold shrink-0">{tf}</span>
-                            <span className="text-gray-300 text-sm leading-relaxed pt-0.5">{parsedBiases[tf]}</span>
+                            <div className="text-gray-300 text-sm leading-relaxed pt-0.5 flex-1 min-w-0">
+                              <ExpandableText content={parsedBiases[tf]} title="Time Frame Bias" icon="history_toggle_off" />
+                            </div>
                           </li>
                         ))}
                       </ul>
@@ -195,11 +192,18 @@ export default async function StrategyDetailPage({ params }: { params: Promise<{
               {isGeneral ? (
                 <span className="bg-gray-800 text-gray-400 px-3 py-1.5 rounded-full text-sm font-medium">General / Any</span>
               ) : (
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-3">
                   {tickers.map(t => (
-                    <Link key={t} href={`/watchlist/${t}`} className="bg-blue-900/40 border border-blue-800/50 text-blue-300 hover:bg-blue-800/60 px-3 py-1.5 rounded-full text-sm font-bold transition-colors flex items-center gap-1.5">
-                      <span className="material-symbols-outlined text-[14px]">monitoring</span> {t}
-                    </Link>
+                    <div key={t.name} className="flex flex-col gap-1 items-start">
+                      <a href={`/watchlist/${t.name}`} className="bg-blue-900/40 border border-blue-800/50 text-blue-300 hover:bg-blue-800/60 px-3 py-1.5 rounded-full text-sm font-bold transition-colors flex items-center gap-1.5">
+                        <span className="material-symbols-outlined text-[14px]">monitoring</span> {t.name}
+                      </a>
+                      {t.link && (
+                        <a href={t.link} target="_blank" rel="noopener noreferrer" className="text-[11px] font-bold text-purple-400 hover:text-purple-300 pl-2 flex items-center gap-1 transition-colors">
+                          <span className="material-symbols-outlined text-[12px]">public</span> External Chart
+                        </a>
+                      )}
+                    </div>
                   ))}
                 </div>
               )}
@@ -222,7 +226,9 @@ export default async function StrategyDetailPage({ params }: { params: Promise<{
                 </li>
                 <li>
                   <div className="text-xs text-gray-500 mb-1">Correlation Rules</div>
-                  <div className="text-sm font-medium">{strategy.correlationRules || '—'}</div>
+                  <div className="text-sm font-medium">
+                    <ExpandableText content={strategy.correlationRules || ''} title="Correlation Rules" icon="account_tree" />
+                  </div>
                 </li>
               </ul>
             </div>
@@ -253,7 +259,9 @@ export default async function StrategyDetailPage({ params }: { params: Promise<{
               </div>
               <div className="border-t border-gray-800 pt-4 mt-2">
                 <div className="text-xs text-gray-500 mb-1">Known Weaknesses</div>
-                <div className="text-sm text-gray-300">{strategy.weaknesses || '—'}</div>
+                <div className="text-sm text-gray-300">
+                  <ExpandableText content={strategy.weaknesses || ''} title="Known Weaknesses" icon="warning" />
+                </div>
               </div>
             </div>
 

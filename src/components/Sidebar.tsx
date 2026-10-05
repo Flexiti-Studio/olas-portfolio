@@ -8,10 +8,12 @@ export function Sidebar() {
 
   const links = [
     { name: 'Dashboard', href: '/trading', icon: 'dashboard' },
+    { name: 'Pairs', href: '/pairs', icon: 'monitoring' },
     { name: 'Watchlist', href: '/watchlist', icon: 'star' },
     { name: 'Strategy', href: '/trading/strategy', icon: 'auto_graph' },
     { name: 'Journal', href: '/journal', icon: 'calendar_month' },
-    { name: 'Trade History', href: '/mt5-history', icon: 'history' }
+    { name: 'Trade History', href: '/mt5-history', icon: 'history' },
+    { name: 'Trade Manager', href: '/trade-manager', icon: 'manage_accounts' }
   ];
 
   return (

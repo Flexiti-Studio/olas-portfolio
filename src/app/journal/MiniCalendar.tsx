@@ -8,25 +8,34 @@ import {
 } from 'date-fns';
 import { JournalEntry } from '@prisma/client';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { JournalEntryForm } from '@/components/JournalEntryForm';
 
-// Helper to safely extract a preview string from the analysis JSON checklist
 function getAnalysisPreview(analysisStr: string) {
-  if (!analysisStr) return "No analysis provided.";
+  if (!analysisStr || analysisStr === '[]' || analysisStr === '"{}"') return "No analysis provided.";
   try {
     const parsed = JSON.parse(analysisStr);
-    if (Array.isArray(parsed) && parsed.length > 0) {
-      if (typeof parsed[0] === 'string') return parsed[0];
-      if (parsed[0].text) return parsed[0].text;
+    if (Array.isArray(parsed)) {
+      if (parsed.length > 0) {
+        if (typeof parsed[0] === 'string') return parsed[0];
+        if (parsed[0].text) return parsed[0].text;
+      }
+      return "No analysis provided.";
     }
   } catch(e) {}
   return analysisStr;
 }
 
 export function MiniCalendar({ entries }: { entries: JournalEntry[] }) {
+  const router = useRouter();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [editingGeneralEntry, setEditingGeneralEntry] = useState<JournalEntry | null>(null);
+  const [loadingEntryId, setLoadingEntryId] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    setLoadingEntryId(null);
+  }, [selectedDay]);
 
   const prevMonth = () => setCurrentMonth(subMonths(currentMonth, 1));
   const nextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
@@ -111,7 +120,7 @@ export function MiniCalendar({ entries }: { entries: JournalEntry[] }) {
           <div className="bg-gray-900 border border-gray-800 rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
             <div className="flex justify-between items-center p-6 border-b border-gray-800 sticky top-0 bg-gray-900 z-10">
               <h2 className="text-2xl font-bold">Journal Entries: {format(selectedDay, 'MMM d, yyyy')}</h2>
-              <button onClick={() => { setSelectedDay(null); setEditingGeneralEntry(null); }} className="text-gray-400 hover:text-white">
+              <button onClick={() => { setSelectedDay(null); setEditingGeneralEntry(null); setLoadingEntryId(null); }} className="text-gray-400 hover:text-white">
                 <span className="material-symbols-outlined">close</span>
               </button>
             </div>
@@ -123,7 +132,7 @@ export function MiniCalendar({ entries }: { entries: JournalEntry[] }) {
                     <span className="material-symbols-outlined text-[16px]">arrow_back</span> Back to list
                   </button>
                   <JournalEntryForm 
-                    ticker={undefined} 
+                    ticker={editingGeneralEntry.ticker || undefined} 
                     dateStr={format(selectedDay, 'yyyy-MM-dd')}
                     initialData={editingGeneralEntry as any}
                   />
@@ -132,27 +141,34 @@ export function MiniCalendar({ entries }: { entries: JournalEntry[] }) {
                 selectedDayEntries.map((entry: any) => (
                   <div key={entry.id} className="bg-gray-950 border border-gray-800 rounded-lg p-4 flex flex-col gap-3">
                     <div className="flex justify-between items-start">
-                      <div className="flex items-center gap-3">
-                        <span className="font-bold text-lg text-blue-400">{entry.ticker || "General Note"}</span>
-                        {entry.realizedPnL !== null && entry.realizedPnL !== undefined && (
-                          <span className={`px-2 py-0.5 rounded text-xs font-bold ${entry.realizedPnL > 0 ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
-                            {entry.realizedPnL > 0 ? '+' : ''}{entry.realizedPnL} P&L
-                          </span>
-                        )}
-                        {entry.emotionalState && (
-                          <span className="px-2 py-0.5 rounded bg-purple-500/20 text-purple-400 text-xs font-bold">{entry.emotionalState}</span>
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-3">
+                          <span className="font-bold text-lg text-blue-400">{entry.ticker || "General Note"}</span>
+                          {entry.realizedPnL !== null && entry.realizedPnL !== undefined && (
+                            <span className={`px-2 py-0.5 rounded text-xs font-bold ${entry.realizedPnL > 0 ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                              {entry.realizedPnL > 0 ? '+' : ''}{entry.realizedPnL} P&L
+                            </span>
+                          )}
+                          {entry.emotionalState && (
+                            <span className="px-2 py-0.5 rounded bg-purple-500/20 text-purple-400 text-xs font-bold">{entry.emotionalState}</span>
+                          )}
+                        </div>
+                        {entry.title && (
+                          <span className="text-sm font-medium text-gray-300">{entry.title}</span>
                         )}
                       </div>
                       
-                      {entry.ticker ? (
-                        <Link href={`/watchlist/${entry.ticker}`} className="px-3 py-1 bg-gray-800 hover:bg-gray-700 rounded text-sm font-medium transition-colors">
-                          Open full entry
-                        </Link>
-                      ) : (
-                        <button onClick={() => setEditingGeneralEntry(entry)} className="px-3 py-1 bg-gray-800 hover:bg-gray-700 rounded text-sm font-medium transition-colors">
-                          Edit Note
-                        </button>
-                      )}
+                      <Link 
+                        href={`/journal/${entry.id}`}
+                        onClick={() => setLoadingEntryId(entry.id)}
+                        className={`px-3 py-1 bg-gray-800 hover:bg-gray-700 rounded text-sm font-medium transition-colors flex items-center gap-2 ${loadingEntryId === entry.id ? 'opacity-50 pointer-events-none' : ''}`}
+                      >
+                        {loadingEntryId === entry.id ? (
+                          <><span className="material-symbols-outlined animate-spin text-[16px]">progress_activity</span> Opening...</>
+                        ) : (
+                          <><span className="material-symbols-outlined text-[16px]">open_in_new</span> Open Entry</>
+                        )}
+                      </Link>
                     </div>
                     <p className="text-gray-400 text-sm italic truncate">
                       "{getAnalysisPreview(entry.analysis)}"

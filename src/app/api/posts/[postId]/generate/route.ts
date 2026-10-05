@@ -116,7 +116,8 @@ export async function POST(req: Request, { params }: { params: any }) {
 
     const systemPrompt = `You are a world-class social media manager.
 Your task is to rewrite the original post for several specific social media platforms.
-Keep the same message, facts, and tone as the original. DO NOT invent claims, stats, or links.
+Ensure the writing sounds highly human, readable, clear, and is genuinely interesting to read. Avoid robotic or overly formal phrasing.
+Keep the same message, facts, tone, and structural flow as the original. DO NOT invent claims, stats, or links.
 
 You must return your response as a strictly valid JSON object matching this schema:
 {
@@ -131,7 +132,7 @@ You must return your response as a strictly valid JSON object matching this sche
 }
 `;
 
-    const userPrompt = `ORIGINAL POST:
+    const userPrompt = `ORIGINAL POST (Source: ${post.sourceSocialId || 'Unknown'}):
 """
 ${post.originalContent}
 """
@@ -224,7 +225,7 @@ ${p.imagePromptTemplate}`;
             model: "gpt-4o-mini",
             messages: [
               { role: "system", content: imageSystemPrompt },
-              { role: "user", content: `ORIGINAL POST:\n"""\n${post.originalContent}\n"""` }
+              { role: "user", content: `ORIGINAL POST (Source: ${post.sourceSocialId || 'Unknown'}):\n"""\n${post.originalContent}\n"""` }
             ],
             temperature: 0.7,
           });
@@ -243,7 +244,7 @@ ${p.imagePromptTemplate}`;
               model: "gpt-4o-mini",
               messages: [
                 { role: "system", content: `You are a scene breakdown director. Given a template for scene breakdown and a sample post/script, generate the exact scene breakdown for this content.\n\nTEMPLATE:\n${p.ytTemplates.sceneBreakdown}\n\nFill in any {{placeholders}} using content from the post provided. Return only the final ready-to-use scene breakdown.` },
-                { role: "user", content: `ORIGINAL POST:\n"""\n${post.originalContent}\n"""` }
+                { role: "user", content: `ORIGINAL POST (Source: ${post.sourceSocialId || 'Unknown'}):\n"""\n${post.originalContent}\n"""` }
               ],
               temperature: 0.6,
             });
@@ -255,7 +256,7 @@ ${p.imagePromptTemplate}`;
               model: "gpt-4o-mini",
               messages: [
                 { role: "system", content: `You are a voice narration director. Given a template for voice/TTS generation instructions and a sample post/script, generate the exact voice direction prompt for this content.\n\nTEMPLATE:\n${p.ytTemplates.voicePrompt}\n\nFill in any {{placeholders}} using content from the post provided. Return only the final ready-to-use voice prompt.` },
-                { role: "user", content: `ORIGINAL POST:\n"""\n${post.originalContent}\n"""` }
+                { role: "user", content: `ORIGINAL POST (Source: ${post.sourceSocialId || 'Unknown'}):\n"""\n${post.originalContent}\n"""` }
               ],
               temperature: 0.6,
             });
@@ -267,7 +268,7 @@ ${p.imagePromptTemplate}`;
               model: "gpt-4o-mini",
               messages: [
                 { role: "system", content: `You are a video prompt engineer. Given a template for AI video generation and a sample post/script, produce the exact video generation prompt for this content.\n\nTEMPLATE:\n${p.ytTemplates.videoPrompt}\n\nFill in any {{placeholders}} using content from the post provided. Return only the final ready-to-use video prompt.` },
-                { role: "user", content: `ORIGINAL POST:\n"""\n${post.originalContent}\n"""` }
+                { role: "user", content: `ORIGINAL POST (Source: ${post.sourceSocialId || 'Unknown'}):\n"""\n${post.originalContent}\n"""` }
               ],
               temperature: 0.6,
             });

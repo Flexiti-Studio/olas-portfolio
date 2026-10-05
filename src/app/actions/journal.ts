@@ -26,6 +26,7 @@ export async function upsertJournalEntry(data: {
   notes?: string | null;
   wouldRepeat?: boolean | null;
   images?: string | null;
+  strategyId?: string | null;
 }) {
   try {
     const targetDate = new Date(data.dateStr);
@@ -58,6 +59,7 @@ export async function upsertJournalEntry(data: {
       notes: data.notes ?? null,
       wouldRepeat: data.wouldRepeat ?? null,
       images: data.images ?? null,
+      strategyId: data.strategyId ?? null,
     };
 
     if (existing) {

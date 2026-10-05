@@ -15,6 +15,14 @@ const MT5TradeSchema = z.object({
     const num = Number(val);
     return isNaN(num) || num === 0 ? null : num;
   }),
+  sl: z.union([z.number(), z.string()]).nullable().optional().transform(val => {
+    const num = Number(val);
+    return isNaN(num) || num === 0 ? null : num;
+  }),
+  tp: z.union([z.number(), z.string()]).nullable().optional().transform(val => {
+    const num = Number(val);
+    return isNaN(num) || num === 0 ? null : num;
+  }),
   profit: z.number(),
   openTime: z.string().datetime(),
   closeTime: z.string().nullable().optional().transform(val => {
@@ -85,6 +93,8 @@ export async function POST(request: Request) {
           volume: trade.volume,
           openPrice: trade.openPrice,
           closePrice: trade.closePrice,
+          sl: trade.sl,
+          tp: trade.tp,
           profit: trade.profit,
           openTime: new Date(trade.openTime),
           closeTime: trade.closeTime ? new Date(trade.closeTime) : null,
@@ -98,6 +108,8 @@ export async function POST(request: Request) {
           volume: trade.volume,
           openPrice: trade.openPrice,
           closePrice: trade.closePrice,
+          sl: trade.sl,
+          tp: trade.tp,
           profit: trade.profit,
           openTime: new Date(trade.openTime),
           closeTime: trade.closeTime ? new Date(trade.closeTime) : null,

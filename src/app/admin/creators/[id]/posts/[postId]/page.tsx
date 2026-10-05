@@ -695,7 +695,7 @@ export default function PostPreviewPage() {
               <div className="flex justify-between items-start mb-4 mt-2">
                 <h3 className="text-lg font-bold text-white">Original Post</h3>
                 <button 
-                  onClick={() => handleCopy(post.originalContent, 'original-post')}
+                  onClick={() => handleCopy(post.originalContent, 'original-post', post.sourceSocialId?.toLowerCase())}
                   className="text-slate-400 hover:text-white transition-colors" title="Copy Original Post">
                   {copiedStates['original-post'] ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
                 </button>

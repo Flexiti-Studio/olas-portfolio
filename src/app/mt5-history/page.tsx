@@ -1,13 +1,15 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, MT5Trade } from '@prisma/client';
 import React from 'react';
 import RefreshButton from './RefreshButton';
 import Link from 'next/link';
+import FiltersUI from './FiltersUI';
+import ChartsDashboard from './ChartsDashboard';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 const prisma = new PrismaClient();
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 10;
 
 function isLiveTrade(t: { closeTime: Date | null }) {
   return !t.closeTime || t.closeTime.getFullYear() <= 1970;
@@ -16,73 +18,132 @@ function isLiveTrade(t: { closeTime: Date | null }) {
 export default async function MT5HistoryPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<{ page?: string; type?: string; symbol?: string; outcome?: string }>;
 }) {
   const params = await searchParams;
   const page = Math.max(1, parseInt(params.page ?? '1', 10));
+  
+  const filterType = params.type || undefined;
+  const filterSymbol = params.symbol || undefined;
+  const filterOutcome = params.outcome || undefined;
 
-  // Fetch live trades (always show all, usually few)
-  const liveTrades = await prisma.mT5Trade.findMany({
-    where: {
-      OR: [
-        { closeTime: null },
-        { closeTime: { lt: new Date('1971-01-01') } },
-      ],
-    },
-    orderBy: { openTime: 'desc' },
-  });
+  const getQueryString = (overridePage: number) => {
+    const q = new URLSearchParams();
+    q.set('page', overridePage.toString());
+    if (filterType) q.set('type', filterType);
+    if (filterSymbol) q.set('symbol', filterSymbol);
+    if (filterOutcome) q.set('outcome', filterOutcome);
+    return `?${q.toString()}`;
+  };
 
-  // Fetch paginated closed trades
-  const totalClosed = await prisma.mT5Trade.count({
-    where: {
-      AND: [
-        { closeTime: { not: null } },
-        { closeTime: { gte: new Date('1971-01-01') } },
-      ],
-    },
-  });
+  const baseWhere: any = {};
+  if (filterType) baseWhere.type = filterType;
+  if (filterSymbol) baseWhere.symbol = filterSymbol;
+  if (filterOutcome === 'win') baseWhere.profit = { gt: 0 };
+  if (filterOutcome === 'loss') baseWhere.profit = { lt: 0 };
 
-  const closedTrades = await prisma.mT5Trade.findMany({
-    where: {
-      AND: [
-        { closeTime: { not: null } },
-        { closeTime: { gte: new Date('1971-01-01') } },
-      ],
-    },
-    orderBy: { closeTime: 'desc' },
-    skip: (page - 1) * PAGE_SIZE,
-    take: PAGE_SIZE,
-  });
+  let liveTrades: MT5Trade[] = [];
+  let closedTrades: MT5Trade[] = [];
+  let totalClosed = 0;
+  let totalPages = 0;
+  let totalClosedCount = 0;
+  let totalProfit = 0;
+  let winRate = '0.0';
+  let averageProfit = 0;
+  let openPnL = 0;
+  let chartData: { closeTime: Date; profit: number; symbol: string; type: string }[] = [];
 
-  const totalPages = Math.ceil(totalClosed / PAGE_SIZE);
+  let allSymbols: string[] = [];
 
-  // Stats (always computed over all closed trades for accuracy)
-  const allClosedStats = await prisma.mT5Trade.aggregate({
-    where: {
-      AND: [
-        { closeTime: { not: null } },
-        { closeTime: { gte: new Date('1971-01-01') } },
-      ],
-    },
-    _sum: { profit: true },
-    _count: { id: true },
-  });
+  try {
+    const symbolsRes = await prisma.mT5Trade.findMany({ select: { symbol: true }, distinct: ['symbol'] });
+    allSymbols = symbolsRes.map(s => s.symbol).filter(Boolean).sort();
 
-  const winningCount = await prisma.mT5Trade.count({
-    where: {
-      AND: [
-        { closeTime: { not: null } },
-        { closeTime: { gte: new Date('1971-01-01') } },
-        { profit: { gt: 0 } },
-      ],
-    },
-  });
+    // Fetch live trades (always show all, usually few)
+    liveTrades = await prisma.mT5Trade.findMany({
+      where: {
+        ...baseWhere,
+        OR: [
+          { closeTime: null },
+          { closeTime: { lt: new Date('1971-01-01') } },
+        ],
+      },
+      orderBy: { openTime: 'desc' },
+    });
 
-  const totalClosedCount = allClosedStats._count.id;
-  const totalProfit = allClosedStats._sum.profit ?? 0;
-  const winRate = totalClosedCount > 0 ? ((winningCount / totalClosedCount) * 100).toFixed(1) : '0.0';
-  const averageProfit = totalClosedCount > 0 ? totalProfit / totalClosedCount : 0;
-  const openPnL = liveTrades.reduce((acc, t) => acc + t.profit, 0);
+    // Fetch paginated closed trades
+    totalClosed = await prisma.mT5Trade.count({
+      where: {
+        ...baseWhere,
+        AND: [
+          { closeTime: { not: null } },
+          { closeTime: { gte: new Date('1971-01-01') } },
+        ],
+      },
+    });
+
+    closedTrades = await prisma.mT5Trade.findMany({
+      where: {
+        ...baseWhere,
+        AND: [
+          { closeTime: { not: null } },
+          { closeTime: { gte: new Date('1971-01-01') } },
+        ],
+      },
+      orderBy: { closeTime: 'desc' },
+      skip: (page - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
+    });
+
+    totalPages = Math.ceil(totalClosed / PAGE_SIZE);
+
+    // Stats (always computed over all closed trades for accuracy)
+    const allClosedStats = await prisma.mT5Trade.aggregate({
+      where: {
+        ...baseWhere,
+        AND: [
+          { closeTime: { not: null } },
+          { closeTime: { gte: new Date('1971-01-01') } },
+        ],
+      },
+      _sum: { profit: true },
+      _count: { id: true },
+    });
+
+    const winningCount = await prisma.mT5Trade.count({
+      where: {
+        ...baseWhere,
+        AND: [
+          { closeTime: { not: null } },
+          { closeTime: { gte: new Date('1971-01-01') } },
+          { profit: { gt: 0 } },
+        ],
+      },
+    });
+
+    totalClosedCount = allClosedStats._count.id;
+    totalProfit = allClosedStats._sum.profit ?? 0;
+    winRate = totalClosedCount > 0 ? ((winningCount / totalClosedCount) * 100).toFixed(1) : '0.0';
+    averageProfit = totalClosedCount > 0 ? totalProfit / totalClosedCount : 0;
+    openPnL = liveTrades.reduce((acc, t) => acc + t.profit, 0);
+
+    // Fetch lightweight data for the cumulative profit chart
+    const rawChartData = await prisma.mT5Trade.findMany({
+      where: {
+        ...baseWhere,
+        AND: [
+          { closeTime: { not: null } },
+          { closeTime: { gte: new Date('1971-01-01') } },
+        ],
+      },
+      select: { closeTime: true, profit: true, symbol: true, type: true },
+      orderBy: { closeTime: 'asc' },
+    });
+    // @ts-ignore - Prisma returns Date | null because of the schema, but we filtered for not null
+    chartData = rawChartData;
+  } catch (e) {
+    console.warn("Prisma warning fetching MT5 trades:", (e as Error).message);
+  }
 
   const PaginationBar = () => (
     <div className="flex items-center justify-between mt-4 text-sm text-gray-400">
@@ -92,7 +153,15 @@ export default async function MT5HistoryPage({
       <div className="flex gap-2">
         {page > 1 && (
           <Link
-            href={`?page=${page - 1}`}
+            href={getQueryString(1)}
+            className="px-3 py-1.5 rounded border border-gray-700 hover:bg-gray-800 transition-colors"
+          >
+            « First
+          </Link>
+        )}
+        {page > 1 && (
+          <Link
+            href={getQueryString(page - 1)}
             className="px-3 py-1.5 rounded border border-gray-700 hover:bg-gray-800 transition-colors"
           >
             ← Prev
@@ -104,7 +173,7 @@ export default async function MT5HistoryPage({
           return p <= totalPages ? (
             <Link
               key={p}
-              href={`?page=${p}`}
+              href={getQueryString(p)}
               className={`px-3 py-1.5 rounded border transition-colors ${
                 p === page
                   ? 'border-blue-500 bg-blue-500/20 text-blue-400'
@@ -117,7 +186,7 @@ export default async function MT5HistoryPage({
         })}
         {page < totalPages && (
           <Link
-            href={`?page=${page + 1}`}
+            href={getQueryString(page + 1)}
             className="px-3 py-1.5 rounded border border-gray-700 hover:bg-gray-800 transition-colors"
           >
             Next →
@@ -166,6 +235,7 @@ export default async function MT5HistoryPage({
               <th className="px-6 py-4 font-medium">Symbol</th>
               <th className="px-6 py-4 font-medium">Type</th>
               <th className="px-6 py-4 font-medium">Volume</th>
+              <th className="px-6 py-4 font-medium">SL / TP</th>
               <th className="px-6 py-4 font-medium">Open / Close Price</th>
               <th className="px-6 py-4 font-medium">Open / Close Time (UTC)</th>
               <th className="px-6 py-4 font-medium">Profit</th>
@@ -189,6 +259,10 @@ export default async function MT5HistoryPage({
                   </span>
                 </td>
                 <td className="px-6 py-4 font-medium">{trade.volume.toFixed(2)}</td>
+                <td className="px-6 py-4 text-xs font-mono">
+                  <div className="text-red-400">SL: {trade.sl ? trade.sl.toFixed(5) : '—'}</div>
+                  <div className="text-blue-400">TP: {trade.tp ? trade.tp.toFixed(5) : '—'}</div>
+                </td>
                 <td className="px-6 py-4 text-gray-300">
                   <div>{trade.openPrice.toFixed(5)}</div>
                   <div className="text-xs text-gray-500">
@@ -214,7 +288,7 @@ export default async function MT5HistoryPage({
             ))}
             {trades.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-6 py-12 text-center text-gray-500 text-lg">
+                <td colSpan={9} className="px-6 py-12 text-center text-gray-500 text-lg">
                   No {title.toLowerCase()} found.
                 </td>
               </tr>
@@ -234,6 +308,8 @@ export default async function MT5HistoryPage({
         </div>
         <RefreshButton />
       </div>
+
+      <FiltersUI symbols={allSymbols} />
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-10">
@@ -275,6 +351,10 @@ export default async function MT5HistoryPage({
         startIndex={(page - 1) * PAGE_SIZE}
       />
       <PaginationBar />
+
+      {chartData.length > 0 && (
+        <ChartsDashboard trades={chartData} />
+      )}
     </div>
   );
 }

@@ -17,25 +17,39 @@ function formatEnum(val: string) {
 }
 
 export default async function WatchlistPage() {
-  const watchlist = await prisma.watchlistItem.findMany({
-    orderBy: { addedAt: 'desc' }
-  });
+  let watchlistWithNews: any[] = [];
+  let errorMsg = null;
 
-  const watchlistWithNews = await Promise.all(
-    watchlist.map(async (item) => {
-      const recentNews = await prisma.newsEvent.findFirst({
-        where: { ticker: item.ticker },
-        orderBy: { createdAt: 'desc' }
-      });
-      return { ...item, recentNews };
-    })
-  );
+  try {
+    const watchlist = await prisma.watchlistItem.findMany({
+      orderBy: { addedAt: 'desc' }
+    });
+
+    watchlistWithNews = await Promise.all(
+      watchlist.map(async (item) => {
+        const recentNews = await prisma.newsEvent.findFirst({
+          where: { ticker: item.ticker },
+          orderBy: { createdAt: 'desc' }
+        });
+        return { ...item, recentNews };
+      })
+    );
+  } catch (err: any) {
+    console.error("Failed to load watchlist:", err);
+    errorMsg = err.message || "Failed to load watchlist data.";
+  }
 
   return (
     <div className="p-8">
       <h1 className="text-3xl font-bold mb-6 text-white">Your Watchlist</h1>
       
-      {watchlistWithNews.length === 0 ? (
+      {errorMsg ? (
+        <div className="text-red-400 mt-8 p-8 border border-red-800/50 rounded-lg text-center bg-red-900/20">
+          <p className="text-lg font-bold">Database Connection Error</p>
+          <p className="mt-2 text-sm max-w-2xl mx-auto">{errorMsg}</p>
+          <p className="mt-4 text-xs text-gray-400">If you are seeing a connection pool timeout, try restarting your Next.js dev server.</p>
+        </div>
+      ) : watchlistWithNews.length === 0 ? (
         <div className="text-gray-400 mt-8 p-8 border border-gray-800 rounded-lg text-center bg-gray-900/50">
           <p className="text-lg">Your watchlist is empty.</p>
           <p className="mt-2 text-sm">Add coins from the trading dashboard to track them here.</p>

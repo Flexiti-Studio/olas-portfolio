@@ -78,12 +78,13 @@ export async function POST(req: Request, { params }: { params: any }) {
         const scriptPrompt = `You are a world-class YouTube scriptwriter.
 Rewrite the original post into a YouTube script following this exact structure:
 ${templateData}
+Make sure the script sounds highly human, is readable, clear, and very interesting to listen to.
 Return ONLY the final ready-to-use script text.`;
         const scriptRes = await openai.chat.completions.create({
           model: "gpt-4o",
           messages: [
             { role: "system", content: scriptPrompt },
-            { role: "user", content: `ORIGINAL POST:\n"""\n${originalContent}\n"""` }
+            { role: "user", content: `ORIGINAL POST (Source: ${post.sourceSocialId || 'Unknown'}):\n"""\n${originalContent}\n"""` }
           ],
         });
         result = scriptRes.choices[0]?.message?.content || "";
@@ -98,7 +99,7 @@ Fill in any {{placeholders}} using content from the post provided. Return only t
           model: "gpt-4o-mini",
           messages: [
             { role: "system", content: scenePrompt },
-            { role: "user", content: `ORIGINAL POST:\n"""\n${originalContent}\n"""` }
+            { role: "user", content: `ORIGINAL POST (Source: ${post.sourceSocialId || 'Unknown'}):\n"""\n${originalContent}\n"""` }
           ],
           temperature: 0.6,
         });
@@ -114,7 +115,7 @@ Fill in any {{placeholders}} using content from the post provided. Return only t
           model: "gpt-4o-mini",
           messages: [
             { role: "system", content: voicePrompt },
-            { role: "user", content: `ORIGINAL POST:\n"""\n${originalContent}\n"""` }
+            { role: "user", content: `ORIGINAL POST (Source: ${post.sourceSocialId || 'Unknown'}):\n"""\n${originalContent}\n"""` }
           ],
           temperature: 0.6,
         });
@@ -130,7 +131,7 @@ Fill in any {{placeholders}} using content from the post provided. Return only t
           model: "gpt-4o-mini",
           messages: [
             { role: "system", content: videoPrompt },
-            { role: "user", content: `ORIGINAL POST:\n"""\n${originalContent}\n"""` }
+            { role: "user", content: `ORIGINAL POST (Source: ${post.sourceSocialId || 'Unknown'}):\n"""\n${originalContent}\n"""` }
           ],
           temperature: 0.6,
         });
@@ -150,7 +151,7 @@ ${templateData}`;
           model: "gpt-4o-mini",
           messages: [
             { role: "system", content: imagePrompt },
-            { role: "user", content: `ORIGINAL POST:\n"""\n${originalContent}\n"""` }
+            { role: "user", content: `ORIGINAL POST (Source: ${post.sourceSocialId || 'Unknown'}):\n"""\n${originalContent}\n"""` }
           ],
           temperature: 0.7,
         });

@@ -23,8 +23,9 @@ export function StrategyForm({
   const [strategyStatus, setStrategyStatus] = useState(initialData?.status || 'testing');
 
   // Ticker Picker (Instruments)
-  const initialInstruments = initialData?.instruments ? JSON.parse(initialData.instruments) : [];
-  const [selectedTickers, setSelectedTickers] = useState<string[]>(initialInstruments);
+  const initialInstrumentsRaw = initialData?.instruments ? JSON.parse(initialData.instruments) : [];
+  const initialInstruments = initialInstrumentsRaw.map((item: any) => typeof item === 'string' ? { name: item, link: '' } : item);
+  const [selectedTickers, setSelectedTickers] = useState<{name: string, link: string}[]>(initialInstruments);
   const [tickers, setTickers] = useState<{watchlisted: string[], others: string[]}>({watchlisted: [], others: []});
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [pickerSearch, setPickerSearch] = useState('');
@@ -158,7 +159,7 @@ export function StrategyForm({
   const watchlistedMatches = tickers.watchlisted.filter(t => t.toLowerCase().includes(pickerSearch.toLowerCase()));
   const otherMatches = tickers.others.filter(t => t.toLowerCase().includes(pickerSearch.toLowerCase()));
 
-  const toggleTicker = (t: string) => setSelectedTickers(prev => prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t]);
+  const toggleTicker = (t: string) => setSelectedTickers(prev => prev.some(x => x.name === t) ? prev.filter(x => x.name !== t) : [...prev, { name: t, link: '' }]);
   const isCustomTickerNew = pickerSearch.trim() !== '' && !tickers.watchlisted.some(t => t.toLowerCase() === pickerSearch.toLowerCase()) && !tickers.others.some(t => t.toLowerCase() === pickerSearch.toLowerCase());
 
   const SectionHeading = ({ icon, text }: { icon: string, text: string }) => (
@@ -201,47 +202,118 @@ export function StrategyForm({
 
       {/* Instruments */}
       {(!focusSection || focusSection === 'instruments' || isCompact) && (
-        <div className="mb-2 relative" ref={pickerRef}>
-        <p className="text-xs text-gray-400 mb-1">Instruments / Pairs</p>
-        <button onClick={() => setIsPickerOpen(!isPickerOpen)} className="w-full flex items-center justify-between bg-gray-950 border border-gray-800 rounded px-3 py-2.5 text-sm font-medium hover:border-gray-600 transition-colors">
-          <span className={selectedTickers.length > 0 ? "text-blue-400" : "text-gray-500"}>
-            {selectedTickers.length > 0 ? selectedTickers.join(", ") : "Select multiple pairs..."}
-          </span>
-          <span className="material-symbols-outlined text-[18px]">expand_more</span>
-        </button>
-        {isPickerOpen && (
-          <div className="absolute top-full left-0 mt-1 w-full max-w-sm bg-gray-950 border border-gray-800 rounded-lg shadow-xl z-50 max-h-64 overflow-y-auto">
-            <div className="p-2 sticky top-0 bg-gray-950 border-b border-gray-800 z-10">
-              <input type="text" value={pickerSearch} onChange={e => setPickerSearch(e.target.value)} placeholder="Search or create..." className="w-full bg-gray-900 border border-gray-800 rounded p-1.5 text-xs text-white focus:outline-none" />
+        <div className="mb-6 relative" ref={pickerRef}>
+          <p className="text-xs text-gray-400 mb-2">Instruments / Pairs</p>
+          
+          <div className="flex gap-2 mb-3">
+            <div className="relative flex-1">
+              <input 
+                type="text" 
+                value={pickerSearch} 
+                onChange={e => {
+                  setPickerSearch(e.target.value);
+                  if (!isPickerOpen) setIsPickerOpen(true);
+                }}
+                onFocus={() => setIsPickerOpen(true)}
+                placeholder="Search to select, or type new to add..." 
+                className="w-full bg-gray-950 border border-gray-800 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500" 
+              />
+              {isPickerOpen && (
+                <div className="absolute top-full left-0 mt-1 w-full bg-gray-950 border border-gray-800 rounded-lg shadow-2xl z-50 max-h-96 overflow-y-auto custom-scrollbar">
+                  {isCustomTickerNew && (
+                    <button type="button" onClick={() => { toggleTicker(pickerSearch.toUpperCase()); setPickerSearch(""); setIsPickerOpen(false); }} className="w-full text-left px-4 py-3 text-sm text-blue-400 hover:bg-gray-800 border-b border-gray-800 flex items-center gap-2">
+                      <span className="material-symbols-outlined text-[16px]">add</span> Add "{pickerSearch.toUpperCase()}"
+                    </button>
+                  )}
+                  {watchlistedMatches.length > 0 && (
+                    <div className="py-2">
+                      <div className="px-4 py-1 text-[10px] uppercase font-bold text-gray-500 tracking-wider">⭐ Watchlist</div>
+                      {watchlistedMatches.map(t => (
+                        <button type="button" key={t} onClick={() => toggleTicker(t)} className="w-full text-left px-4 py-2 text-sm text-white hover:bg-gray-800 flex justify-between items-center transition-colors">
+                          {t} {selectedTickers.some(x => x.name === t) && <span className="material-symbols-outlined text-[16px] text-blue-500">check</span>}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {otherMatches.length > 0 && (
+                    <div className="py-2 border-t border-gray-800">
+                      <div className="px-4 py-1 text-[10px] uppercase font-bold text-gray-500 tracking-wider">All Tracked Pairs</div>
+                      {otherMatches.map(t => (
+                        <button type="button" key={t} onClick={() => toggleTicker(t)} className="w-full text-left px-4 py-2 text-sm text-white hover:bg-gray-800 flex justify-between items-center transition-colors">
+                          {t} {selectedTickers.some(x => x.name === t) && <span className="material-symbols-outlined text-[16px] text-blue-500">check</span>}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-            {isCustomTickerNew && (
-              <button onClick={() => { toggleTicker(pickerSearch.toUpperCase()); setPickerSearch(""); }} className="w-full text-left px-3 py-2 text-sm text-blue-400 hover:bg-gray-800 border-b border-gray-800 flex items-center gap-2">
-                <span className="material-symbols-outlined text-[14px]">add</span> Add "{pickerSearch.toUpperCase()}"
-              </button>
-            )}
-            {watchlistedMatches.length > 0 && (
-              <div className="py-1">
-                <div className="px-3 py-1 text-[10px] uppercase font-bold text-gray-500 tracking-wider">⭐ Watchlist</div>
-                {watchlistedMatches.map(t => (
-                  <button key={t} onClick={() => toggleTicker(t)} className="w-full text-left px-3 py-1.5 text-sm text-white hover:bg-gray-800 flex justify-between items-center">
-                    {t} {selectedTickers.includes(t) && <span className="material-symbols-outlined text-[14px] text-blue-500">check</span>}
-                  </button>
-                ))}
-              </div>
-            )}
-            {otherMatches.length > 0 && (
-              <div className="py-1 border-t border-gray-800">
-                <div className="px-3 py-1 text-[10px] uppercase font-bold text-gray-500 tracking-wider">All Tracked Pairs</div>
-                {otherMatches.map(t => (
-                  <button key={t} onClick={() => toggleTicker(t)} className="w-full text-left px-3 py-1.5 text-sm text-white hover:bg-gray-800 flex justify-between items-center">
-                    {t} {selectedTickers.includes(t) && <span className="material-symbols-outlined text-[14px] text-blue-500">check</span>}
-                  </button>
-                ))}
-              </div>
-            )}
+            <button 
+              type="button"
+              onClick={() => {
+                if (pickerSearch.trim() && !selectedTickers.some(x => x.name === pickerSearch.toUpperCase())) {
+                  toggleTicker(pickerSearch.toUpperCase());
+                  setPickerSearch('');
+                }
+              }}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg text-sm font-bold transition-colors"
+            >
+              Add
+            </button>
           </div>
-        )}
-      </div>
+
+          {selectedTickers.length > 0 ? (
+            <div className="overflow-x-auto rounded-lg border border-gray-800">
+              <table className="w-full text-left text-sm text-gray-300">
+                <thead className="bg-gray-950/50 text-xs uppercase text-gray-500 border-b border-gray-800">
+                  <tr>
+                    <th className="px-4 py-3 font-medium w-1/3">Pair / Instrument</th>
+                    <th className="px-4 py-3 font-medium">Custom Link</th>
+                    <th className="px-4 py-3 font-medium text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-800 bg-gray-900/50">
+                  {selectedTickers.map(t => (
+                    <tr key={t.name} className="hover:bg-gray-800/50 transition-colors">
+                      <td className="px-4 py-3 font-bold text-white flex items-center gap-2">
+                        <span className="material-symbols-outlined text-blue-500 text-[18px]">monitoring</span>
+                        {t.name}
+                      </td>
+                      <td className="px-4 py-3">
+                        <input
+                          type="text"
+                          value={t.link}
+                          onChange={(e) => setSelectedTickers(prev => prev.map(x => x.name === t.name ? { ...x, link: e.target.value } : x))}
+                          placeholder="e.g. https://tradingview.com/..."
+                          className="w-full bg-gray-950 border border-gray-800 rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"
+                        />
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex items-center justify-end gap-3">
+                          {t.link && (
+                            <a href={t.link} target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:text-purple-300 transition-colors flex items-center gap-1 text-xs font-medium" title="Open Custom Link">
+                              <span className="material-symbols-outlined text-[14px]">public</span> External
+                            </a>
+                          )}
+                          <a href={`/watchlist/${t.name}`} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1 text-xs font-medium" title={`View ${t.name} Watchlist`}>
+                            <span className="material-symbols-outlined text-[14px]">open_in_new</span> Watchlist
+                          </a>
+                          <button type="button" onClick={() => toggleTicker(t.name)} className="text-gray-500 hover:text-red-400 transition-colors" title="Remove Pair">
+                            <span className="material-symbols-outlined text-[18px]">close</span>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="text-center p-6 bg-gray-950 border border-gray-800 rounded-lg text-sm text-gray-500 italic">
+              No instruments selected. Search and add pairs above.
+            </div>
+          )}
+        </div>
       )}
 
       {!isCompact && (

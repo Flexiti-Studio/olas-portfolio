@@ -8,9 +8,21 @@ type FolderObj = { id: string; name: string; images: ImageObj[] };
 
 export function JournalImageGallery({ journalId, dateStr, initialImagesStr }: { journalId: string; dateStr: string; initialImagesStr?: string | null }) {
   const [folders, setFolders] = useState<FolderObj[]>(() => {
+    if (!initialImagesStr) return [];
     try {
-      return initialImagesStr ? JSON.parse(initialImagesStr) : [];
+      const parsed = JSON.parse(initialImagesStr);
+      if (Array.isArray(parsed)) return parsed;
+      return [];
     } catch {
+      // Handle comma-separated strings from the quick inline form
+      const urls = initialImagesStr.split(',').map(s => s.trim()).filter(Boolean);
+      if (urls.length > 0) {
+        return [{
+          id: 'default',
+          name: 'Quick Uploads',
+          images: urls.map((url, i) => ({ id: `quick-${i}`, url, caption: '' }))
+        }];
+      }
       return [];
     }
   });
@@ -18,6 +30,7 @@ export function JournalImageGallery({ journalId, dateStr, initialImagesStr }: { 
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
+  const [previewImage, setPreviewImage] = useState<{url: string, caption: string} | null>(null);
 
   const saveToDb = async (newFolders: FolderObj[]) => {
     setIsSaving(true);
@@ -140,9 +153,9 @@ export function JournalImageGallery({ journalId, dateStr, initialImagesStr }: { 
                     <div key={img.id} className="relative group bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
                       <img src={img.url} alt={img.caption || "Strategy image"} className="w-full h-40 object-cover" />
                       <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-3">
-                        <a href={img.url} target="_blank" rel="noreferrer" className="text-white hover:text-blue-400 font-bold text-sm flex items-center gap-1 transition-colors">
-                          <span className="material-symbols-outlined text-[18px]">open_in_new</span> View Full
-                        </a>
+                        <button onClick={() => setPreviewImage({ url: img.url, caption: img.caption || '' })} className="text-white hover:text-blue-400 font-bold text-sm flex items-center gap-1 transition-colors">
+                          <span className="material-symbols-outlined text-[18px]">zoom_in</span> View Full
+                        </button>
                         <button onClick={() => deleteImage(folder.id, img.id)} className="text-red-400 hover:text-red-300 font-bold text-sm flex items-center gap-1 transition-colors">
                           <span className="material-symbols-outlined text-[18px]">delete</span> Delete
                         </button>
@@ -174,6 +187,23 @@ export function JournalImageGallery({ journalId, dateStr, initialImagesStr }: { 
               </div>
             </button>
           ))}
+        </div>
+      )}
+
+      {/* Lightbox Modal */}
+      {previewImage && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4" onClick={() => setPreviewImage(null)}>
+          <button className="absolute top-6 right-6 text-gray-400 hover:text-white transition-colors z-[110]" onClick={(e) => { e.stopPropagation(); setPreviewImage(null); }}>
+            <span className="material-symbols-outlined text-4xl">close</span>
+          </button>
+          <img src={previewImage.url} alt={previewImage.caption} className="max-w-full max-h-[90vh] object-contain rounded shadow-2xl" onClick={(e) => e.stopPropagation()} />
+          {previewImage.caption && (
+            <div className="absolute bottom-10 left-0 right-0 text-center">
+              <span className="bg-black/80 text-white px-6 py-3 rounded-full text-lg font-medium shadow-xl border border-gray-700/50">
+                {previewImage.caption}
+              </span>
+            </div>
+          )}
         </div>
       )}
     </div>

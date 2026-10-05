@@ -98,3 +98,15 @@ export async function upsertTradingStrategy(data: TradingStrategyData) {
     return { success: false, error: error.message };
   }
 }
+
+export async function getStrategiesList() {
+  try {
+    const strategies = await prisma.tradingStrategy.findMany({
+      select: { id: true, name: true },
+      orderBy: { createdAt: 'desc' }
+    });
+    return { success: true, strategies };
+  } catch (err) {
+    return { success: false, strategies: [] };
+  }
+}

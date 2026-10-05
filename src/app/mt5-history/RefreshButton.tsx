@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { toast } from 'sonner';
 
 export default function RefreshButton() {
   const router = useRouter();
@@ -12,6 +13,7 @@ export default function RefreshButton() {
     router.refresh();
     setTimeout(() => {
       setIsRefreshing(false);
+      toast.success("MT5 Data synced and updated!");
     }, 1000); // UI feedback delay
   };
 

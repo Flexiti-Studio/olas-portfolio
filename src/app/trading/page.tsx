@@ -26,19 +26,30 @@ export default async function TradingDashboard({
   const endOfDay = new Date(targetDate);
   endOfDay.setHours(23, 59, 59, 999);
 
-  const newsEvents = await prisma.newsEvent.findMany({
-    where: {
-      createdAt: {
-        gte: startOfDay,
-        lte: endOfDay
-      }
-    },
-    orderBy: { score: 'desc' }
-  });
+  let newsEvents: any[] = [];
+  try {
+    newsEvents = await prisma.newsEvent.findMany({
+      where: {
+        createdAt: {
+          gte: startOfDay,
+          lte: endOfDay
+        }
+      },
+      orderBy: { score: 'desc' }
+    });
+  } catch (error) {
+    console.warn("Prisma warning fetching news events:", (error as Error).message);
+  }
 
-  const watchlist = await prisma.watchlistItem.findMany({
-    select: { ticker: true }
-  });
+  let watchlist: { ticker: string }[] = [];
+  try {
+    watchlist = await prisma.watchlistItem.findMany({
+      select: { ticker: true }
+    });
+  } catch (error) {
+    console.warn("Prisma warning fetching watchlist:", (error as Error).message);
+  }
+
   const watchedTickers = new Set(watchlist.map(i => i.ticker));
 
   const uniqueTickers = Array.from(new Set(newsEvents.map(e => e.ticker)));
