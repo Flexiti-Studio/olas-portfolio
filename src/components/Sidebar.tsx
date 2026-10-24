@@ -11,9 +11,12 @@ export function Sidebar() {
     { name: 'Pairs', href: '/pairs', icon: 'monitoring' },
     { name: 'Watchlist', href: '/watchlist', icon: 'star' },
     { name: 'Strategy', href: '/trading/strategy', icon: 'auto_graph' },
+    { name: 'EA Lab', href: '/trading/ea-lab', icon: 'science' },
+    { name: 'Library', href: '/trading/library', icon: 'local_library' },
     { name: 'Journal', href: '/journal', icon: 'calendar_month' },
     { name: 'Trade History', href: '/mt5-history', icon: 'history' },
-    { name: 'Trade Manager', href: '/trade-manager', icon: 'manage_accounts' }
+    { name: 'Trade Manager', href: '/trade-manager', icon: 'manage_accounts' },
+    { name: 'Lifestyle Cost', href: '/dashboard/lifestyle-cost', icon: 'account_balance_wallet' }
   ];
 
   return (

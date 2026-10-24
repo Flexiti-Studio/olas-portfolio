@@ -484,6 +484,7 @@ model KnowledgeEntry {
   content      String    // current/latest text
   summary      String?   // optional short summary for quick scanning in the dashboard
   tags         String[]  @default([])
+  isFavourite  Boolean   @default(false)
   projectId    String?   // optional — link to a Project from the focus tracker
   vectorId     String    // Pinecone vector id, same as this row's id for simplicity
   source       String    @default("telegram") // telegram_text | telegram_voice | telegram_photo | dashboard
@@ -781,3 +782,276 @@ model TradingStrategy {
   
   journalEntries    JournalEntry[]
 }
+
+// -----------------------------------------------------------------------------
+// VIDEO TEMPLATES (SCENEWORK)
+// -----------------------------------------------------------------------------
+
+model VideoTemplate {
+  id          String   @id @default(cuid())
+  userId      String?
+  name        String
+  description String?  @db.Text
+  isDefault   Boolean  @default(false)
+  version     Int      @default(1)
+  data        Json     @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("video_templates")
+}
+
+// -----------------------------------------------------------------------------
+// LIFESTYLE COST PLANNER
+// -----------------------------------------------------------------------------
+
+model MonthlyBudget {
+  id            String   @id @default(cuid())
+  userId        String
+  year          Int
+  month         Int      // 0-11
+  incomes       IncomeEntry[]
+  expenses      ExpenseEntry[]
+  savePercent   Int?
+  investPercent Int?
+  updatedAt     DateTime @updatedAt
+
+  @@unique([userId, year, month])
+  @@map("monthly_budgets")
+}
+
+model IncomeEntry {
+  id        String   @id @default(cuid())
+  budgetId  String
+  budget    MonthlyBudget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  source    String
+  amount    Decimal  @default(0)
+
+  @@unique([budgetId, source])
+  @@map("income_entries")
+}
+
+model ExpenseEntry {
+  id        String   @id @default(cuid())
+  budgetId  String
+  budget    MonthlyBudget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  category  String
+  amount    Decimal  @default(0)
+
+  @@unique([budgetId, category])
+  @@map("expense_entries")
+}
+
+model BudgetSettings {
+  userId        String   @id
+  incomeSources String[] @default(["Salary"])
+  categories    String[]
+  savePercent   Int      @default(20)
+  investPercent Int      @default(30)
+  annualReturn  Decimal  @default(10)
+  years         Int      @default(5)
+
+  @@map("budget_settings")
+}
+
+// -----------------------------------------------------------------------------
+// EA LAB (STRATEGY TESTER BENCHMARKING)
+// -----------------------------------------------------------------------------
+
+model EaStrategy {
+  id          String   @id @default(cuid())
+  name        String
+  description String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  versions    EaVersion[]
+  testRuns    EaTestRun[]
+  dayJournals EaDayJournal[]
+  pairNotes   EaPairNote[]
+
+  @@map("ea_strategies")
+}
+
+model EaVersion {
+  id          String   @id @default(cuid())
+  strategyId  String
+  label       String   // e.g. "v1", "v2"
+  code        String   @db.Text
+  codeHash    String   // sha256
+  changeNotes String?  @db.Text
+  createdAt   DateTime @default(now())
+
+  strategy    EaStrategy  @relation(fields: [strategyId], references: [id], onDelete: Cascade)
+  testRuns    EaTestRun[]
+
+  @@map("ea_versions")
+}
+
+model EaTestRun {
+  id              String   @id @default(cuid())
+  strategyId      String
+  versionId       String
+  testedAt        DateTime @default(now())
+  symbol          String
+  timeframe       String?
+  periodFrom      DateTime?
+  periodTo        DateTime?
+  initialDeposit  Float    @default(10000)
+  currency        String   @default("USD")
+  leverage        String?  @default("1:100")
+  finalBalance    Float    @default(10000)
+  inputsJson      Json     @default("{}")
+  rawLog          String   @db.Text
+  journal         String?  @db.Text
+  
+  // Computed metrics columns
+  netProfit       Float    @default(0)
+  returnPct       Float    @default(0)
+  tradesCount     Int      @default(0)
+  winRate         Float    @default(0)
+  profitFactor    Float    @default(0)
+  avgR            Float    @default(0)
+  maxDrawdownR    Float    @default(0)
+  maxConsecLosses Int      @default(0)
+  tpCount         Int      @default(0)
+  slCount         Int      @default(0)
+  errorCount      Int      @default(0)
+  breakCount      Int      @default(0)
+  retestCount     Int      @default(0)
+
+  skipCounts      Json     @default("{}")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  strategy        EaStrategy @relation(fields: [strategyId], references: [id], onDelete: Cascade)
+  version         EaVersion  @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  trades          EaTrade[]
+
+  @@index([strategyId, testedAt])
+  @@index([symbol])
+  @@map("ea_test_runs")
+}
+
+model EaTrade {
+  id         String    @id @default(cuid())
+  testRunId  String
+  ticket     String?
+  openedAt   DateTime?
+  closedAt   DateTime?
+  direction  String    // "buy" | "sell"
+  lots       Float
+  entry      Float
+  sl         Float?
+  tp         Float?
+  exitPrice  Float?
+  exitReason String?   // "TP" | "SL" | "END_OF_TEST" | "OTHER"
+  tag        String?   // trade comment, e.g. "RetestBO"
+  rMultiple  Float?
+  profit     Float?    // optional manual profit edit
+  createdAt  DateTime  @default(now())
+
+  testRun    EaTestRun @relation(fields: [testRunId], references: [id], onDelete: Cascade)
+
+  @@map("ea_trades")
+}
+
+model EaDayJournal {
+  id         String   @id @default(cuid())
+  strategyId String
+  date       String   // "YYYY-MM-DD" local day (Africa/Lagos)
+  notes      String   @db.Text
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  strategy   EaStrategy @relation(fields: [strategyId], references: [id], onDelete: Cascade)
+
+  @@unique([strategyId, date])
+  @@map("ea_day_journals")
+}
+
+model EaPairNote {
+  id         String   @id @default(cuid())
+  strategyId String
+  symbol     String
+  notes      String   @db.Text // stops level, spread, min lot, quirks of that pair
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  strategy   EaStrategy @relation(fields: [strategyId], references: [id], onDelete: Cascade)
+
+  @@unique([strategyId, symbol])
+  @@map("ea_pair_notes")
+}
+
+// =========================================================
+// flexStrategy Models (MVP)
+// =========================================================
+
+model FsProject {
+  id               String                @id @default(cuid())
+  userId           String                @default("guest")
+  name             String
+  symbol           String                @default("XAUUSD")
+  timeframe        String                @default("5m")
+  chartDrawings    Json?
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+
+  versions         FsStrategyVersion[]
+  simulations      FsSimulation[]
+  messages         FsChatMessage[]
+
+  @@index([userId])
+  @@map("fs_projects")
+}
+
+model FsStrategyVersion {
+  id               String         @id @default(cuid())
+  projectId        String
+  version          Int
+  name             String
+  paramsSchema     Json           // Array of { key, type, default, label, min, max, options }
+  params           Json           // Key-value map of parameter values
+  code             String         @db.Text
+  createdBy        String         // "user" | "ai"
+  createdAt        DateTime       @default(now())
+
+  project          FsProject      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  simulations      FsSimulation[]
+
+  @@unique([projectId, version])
+  @@map("fs_strategy_versions")
+}
+
+model FsSimulation {
+  id                String            @id @default(cuid())
+  projectId         String
+  strategyVersionId String
+  paramsSnapshot    Json              // Parameters used for this simulation run
+  stats             Json              // Win rate, profit factor, net profit, drawdown, etc.
+  trades            Json              // Serialized array of completed trades
+  createdAt         DateTime          @default(now())
+
+  project           FsProject         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  strategyVersion   FsStrategyVersion @relation(fields: [strategyVersionId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@map("fs_simulations")
+}
+
+model FsChatMessage {
+  id               String       @id @default(cuid())
+  projectId        String
+  role             String       // "user" | "assistant" | "system"
+  content          String       @db.Text
+  toolStatus       String?      // e.g. "writing_script", "running_simulation", "ready"
+  versionCreated   Int?         // Strategy version created by this message, if applicable
+  createdAt        DateTime     @default(now())
+
+  project          FsProject    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, createdAt])
+  @@map("fs_chat_messages")
+}
+

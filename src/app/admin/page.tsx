@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   FileText, 
@@ -54,6 +55,7 @@ import SpeedApplier from "@/components/task/SpeedApplier";
 import PurchaseAffordabilityCalculator from "@/components/admin/PurchaseAffordabilityCalculator";
 import SalaryBenchmarker from "@/components/admin/SalaryBenchmarker";
 import QuizzesManager from "@/components/admin/QuizzesManager";
+import LifestyleCostPage from "../dashboard/lifestyle-cost/page";
 
 const SIDEBAR_ITEMS = [
   { id: "overview", label: "Overview", icon: LayoutDashboard, desc: "Main statistics" },
@@ -69,7 +71,7 @@ const SIDEBAR_ITEMS = [
   { id: "interview-prep", label: "Interview Prep", icon: MessageSquare, desc: "Notes & questions" },
   { id: "salary-benchmarker", label: "Salary Benchmarker", icon: DollarSign, desc: "Compare offers" },
   { id: "budget-strategy", label: "Budget Strategy", icon: PiggyBank, desc: "50/30/20 Budgeting" },
-  { id: "bank-accounts", label: "Goals Tracker", icon: Target, desc: "Track progress and timelines" },
+  { id: "bank-accounts", label: "Goals Tracker", icon: Target, desc: "Track progress and timelines", href: "/admin/goals" },
   { id: "focus-mode", label: "Focus Mode", icon: Focus, desc: "Single-project tracking" },
   { id: "knowledge-hub", label: "Knowledge Hub", icon: Brain, desc: "Ideas and facts" },
   { id: "creators-manager", label: "Creators Manager", icon: Users, desc: "Manage Creators" },
@@ -77,10 +79,13 @@ const SIDEBAR_ITEMS = [
   { id: "follow-up", label: "Follow-up Reminders", icon: Bell, desc: "Don't miss a beat" },
   { id: "cv-tailor", label: "CV Tailor", icon: FileText, desc: "Manage CV templates" },
   { id: "cover-letters", label: "Cover Letters", icon: Target, desc: "AI Cover Letter Gen" },
+  { id: "lifestyle-cost", label: "Lifestyle Cost", icon: PiggyBank, desc: "Income vs Expenses" },
 ];
 
 export default function AdminDashboard() {
+  const router = useRouter();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState(SIDEBAR_ITEMS[0].id);
@@ -89,6 +94,24 @@ export default function AdminDashboard() {
   const [statsLoading, setStatsLoading] = useState(true);
   const [knowledgeIndex, setKnowledgeIndex] = useState(0);
   const [currentGoal, setCurrentGoal] = useState<any>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const isAuth =
+        localStorage.getItem("admin_authenticated") === "true" ||
+        sessionStorage.getItem("admin_authenticated") === "true";
+      if (isAuth) {
+        setIsAuthenticated(true);
+      }
+      setIsAuthChecking(false);
+
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get("tab");
+      if (tabParam && SIDEBAR_ITEMS.some((item) => item.id === tabParam)) {
+        setActiveTab(tabParam);
+      }
+    }
+  }, []);
 
   const shuffleArray = (array: any[]) => {
     const shuffled = [...array];
@@ -103,7 +126,10 @@ export default function AdminDashboard() {
     if (isAuthenticated) {
       setStatsLoading(true);
       fetch("/api/admin-stats")
-        .then(res => res.json())
+        .then(res => {
+          if (!res.ok) throw new Error("Failed to fetch admin stats");
+          return res.json();
+        })
         .then(data => {
           if (data.knowledge) {
             data.knowledge = shuffleArray(data.knowledge);
@@ -114,7 +140,10 @@ export default function AdminDashboard() {
         .catch(() => setStatsLoading(false));
 
       fetch("/api/goals")
-        .then(res => res.json())
+        .then(res => {
+          if (!res.ok) throw new Error("Failed to fetch goals");
+          return res.json();
+        })
         .then(json => {
           if (json.success && json.data?.length > 0) {
             const active = json.data.find((g: any) => g.status === "active") || json.data[0];
@@ -193,12 +222,34 @@ export default function AdminDashboard() {
     e.preventDefault();
     if (code === "0806") {
       setIsAuthenticated(true);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("admin_authenticated", "true");
+        sessionStorage.setItem("admin_authenticated", "true");
+        document.cookie = "admin_authenticated=true; path=/; max-age=31536000; SameSite=Lax";
+      }
       setError("");
     } else {
       setError("Incorrect code. Please try again.");
       setCode("");
     }
   };
+
+  const handleLogout = () => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("admin_authenticated");
+      sessionStorage.removeItem("admin_authenticated");
+      document.cookie = "admin_authenticated=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    }
+    setIsAuthenticated(false);
+  };
+
+  if (isAuthChecking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-zinc-950">
+        <Loader2 className="w-8 h-8 animate-spin text-zinc-600" />
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return (
@@ -669,12 +720,12 @@ export default function AdminDashboard() {
                       <span>
                         {currentGoal.deadline ? `Deadline: ${new Date(currentGoal.deadline).toLocaleDateString()}` : "No deadline"}
                       </span>
-                      <button 
-                        onClick={() => setActiveTab("bank-accounts")} 
-                        className="text-emerald-450 hover:text-emerald-400 font-semibold flex items-center gap-0.5 cursor-pointer"
+                      <Link 
+                        href="/admin/goals" 
+                        className="text-emerald-400 hover:text-emerald-300 font-semibold flex items-center gap-1 cursor-pointer transition-colors"
                       >
-                        Details <ChevronRight size={12} />
-                      </button>
+                        <span>Open Goals Page</span> <ChevronRight size={14} />
+                      </Link>
                     </div>
                   )}
                 </div>
@@ -979,7 +1030,7 @@ export default function AdminDashboard() {
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: -20 }}
-          className="flex flex-col -m-4 md:-m-8"
+          className="flex flex-col"
         >
           <BankAccounts />
         </motion.div>
@@ -1098,6 +1149,20 @@ export default function AdminDashboard() {
       );
     }
 
+    if (activeTab === "lifestyle-cost") {
+      return (
+        <motion.div
+          key="lifestyle-cost"
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -20 }}
+          className="flex flex-col"
+        >
+          <LifestyleCostPage />
+        </motion.div>
+      );
+    }
+
 
     return (
       <motion.div 
@@ -1189,6 +1254,11 @@ export default function AdminDashboard() {
               <button
                 key={item.id}
                 onClick={() => {
+                  if ((item as any).href) {
+                    router.push((item as any).href);
+                    if (window.innerWidth < 768) setIsSidebarOpen(false);
+                    return;
+                  }
                   setActiveTab(item.id);
                   if (window.innerWidth < 768) setIsSidebarOpen(false);
                 }}
@@ -1224,8 +1294,8 @@ export default function AdminDashboard() {
                 </div>
               </div>
               <button 
-                onClick={() => setIsAuthenticated(false)}
-                className="p-2 text-zinc-500 hover:text-red-400 hover:bg-zinc-800 rounded-lg transition-colors flex-shrink-0"
+                onClick={handleLogout}
+                className="p-2 text-zinc-500 hover:text-red-400 hover:bg-zinc-800 rounded-lg transition-colors flex-shrink-0 cursor-pointer"
                 title="Lock Dashboard"
               >
                 <LogOut size={16} />
@@ -1237,8 +1307,8 @@ export default function AdminDashboard() {
                 OP
               </div>
               <button 
-                onClick={() => setIsAuthenticated(false)}
-                className="p-3 text-zinc-500 hover:text-red-400 hover:bg-zinc-800 rounded-xl transition-colors mx-auto"
+                onClick={handleLogout}
+                className="p-3 text-zinc-500 hover:text-red-400 hover:bg-zinc-800 rounded-xl transition-colors mx-auto cursor-pointer"
                 title="Lock Dashboard"
               >
                 <LogOut size={20} />

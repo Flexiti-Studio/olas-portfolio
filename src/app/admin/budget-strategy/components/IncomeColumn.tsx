@@ -76,33 +76,33 @@ export function IncomeColumn({ incomes, totalIncome, onIncomeDeleted }: IncomeCo
     }
   };
   return (
-    <div className="flex flex-col bg-slate-900 rounded-lg overflow-hidden border border-slate-800 h-full">
-      <div className="p-4 bg-emerald-700 text-white">
-        <h3 className="font-bold text-lg uppercase tracking-wider">INCOME</h3>
-        <div className="flex justify-between items-center mt-2 text-sm">
+    <div className="flex flex-col bg-slate-900 rounded-2xl overflow-hidden border border-slate-800 shadow-md h-full">
+      <div className="p-4 sm:p-5 bg-emerald-700 text-white">
+        <h3 className="font-bold text-base sm:text-lg uppercase tracking-wider">INCOME</h3>
+        <div className="flex justify-between items-center mt-2.5 text-xs sm:text-sm font-medium">
           <span>Total: ₦{totalIncome.toLocaleString()}</span>
         </div>
       </div>
       
-      <div className="p-4 space-y-4">
+      <div className="p-3 sm:p-4 space-y-3">
         {incomes.map((inc, idx) => (
-          <div key={inc.id} className="flex justify-between items-center py-2 border-b border-gray-100/10">
-            <span className="text-sm font-medium text-slate-300">{idx + 1}. {inc.name}</span>
-            <div className="flex items-center gap-3">
-              <span className="text-sm font-semibold text-emerald-400">₦{(inc.amount ?? inc.total ?? 0).toLocaleString()}</span>
+          <div key={inc.id} className="flex justify-between items-center p-2.5 sm:p-3 bg-slate-950/40 border border-slate-800/60 rounded-xl">
+            <span className="text-xs sm:text-sm font-medium text-slate-200">{idx + 1}. {inc.name}</span>
+            <div className="flex items-center gap-2.5">
+              <span className="text-xs sm:text-sm font-semibold text-emerald-400">₦{(inc.amount ?? inc.total ?? 0).toLocaleString()}</span>
               {confirmId === inc.id ? (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
                   <button 
                     onClick={() => handleDelete(inc.id)}
                     disabled={deletingId === inc.id}
-                    className="px-2 py-1 text-xs font-bold bg-red-600 hover:bg-red-500 rounded text-white disabled:opacity-50"
+                    className="px-2 py-0.5 text-xs font-bold bg-red-600 hover:bg-red-500 rounded text-white disabled:opacity-50"
                   >
                     {deletingId === inc.id ? <Loader2 className="w-3 h-3 animate-spin" /> : "Confirm"}
                   </button>
                   <button 
                     onClick={() => setConfirmId(null)}
                     disabled={deletingId === inc.id}
-                    className="px-2 py-1 text-xs font-bold bg-slate-700 hover:bg-slate-600 rounded text-slate-300 disabled:opacity-50"
+                    className="px-2 py-0.5 text-xs font-bold bg-slate-700 hover:bg-slate-600 rounded text-slate-300 disabled:opacity-50"
                   >
                     Cancel
                   </button>
@@ -110,17 +110,17 @@ export function IncomeColumn({ incomes, totalIncome, onIncomeDeleted }: IncomeCo
               ) : (
                 <button 
                   onClick={() => setConfirmId(inc.id)}
-                  className="text-slate-500 hover:text-red-400 disabled:opacity-50 transition-colors"
+                  className="text-slate-500 hover:text-red-400 disabled:opacity-50 transition-colors p-1 rounded hover:bg-slate-800"
                   title="Delete income"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 className="w-3.5 h-3.5" />
                 </button>
               )}
             </div>
           </div>
         ))}
         {incomes.length === 0 && (
-          <div className="text-sm text-slate-500 italic">No income recorded for this period.</div>
+          <div className="text-xs sm:text-sm text-slate-500 italic p-3">No income recorded for this period.</div>
         )}
 
         {/* Add Income UI */}

@@ -1146,7 +1146,62 @@
       "command": "& \"C:\\Users\\HP\\AppData\\Local\\Temp\\wshist_3s6qid.ps1\"; Remove-Item \"C:\\Users\\HP\\AppData\\Local\\Temp\\wshist_3s6qid.ps1\" -ErrorAction SilentlyContinue",
       "timestamp": 1790672999777,
       "cwd": "c:\\Users\\HP\\Documents\\GitHub\\flexiti studio project\\olas-portfolio"
+    },
+    {
+      "command": "& \"C:\\Users\\HP\\AppData\\Local\\Temp\\wshist_1d1rqs.ps1\"; Remove-Item \"C:\\Users\\HP\\AppData\\Local\\Temp\\wshist_1d1rqs.ps1\" -ErrorAction SilentlyContinue",
+      "timestamp": 1791896350504,
+      "cwd": "c:\\Users\\HP\\Documents\\GitHub\\flexiti studio project\\olas-portfolio"
+    },
+    {
+      "command": "& \"C:\\Users\\HP\\AppData\\Local\\Temp\\wshist_z0bujs.ps1\"; Remove-Item \"C:\\Users\\HP\\AppData\\Local\\Temp\\wshist_z0bujs.ps1\" -ErrorAction SilentlyContinue",
+      "timestamp": 1791896361660,
+      "cwd": "c:\\Users\\HP\\Documents\\GitHub\\flexiti studio project\\olas-portfolio"
+    },
+    {
+      "command": "& \"C:\\Users\\HP\\AppData\\Local\\Temp\\wshist_721e3k.ps1\"; Remove-Item \"C:\\Users\\HP\\AppData\\Local\\Temp\\wshist_721e3k.ps1\" -ErrorAction SilentlyContinue",
+      "timestamp": 1791896940160,
+      "cwd": "c:\\Users\\HP\\Documents\\GitHub\\flexiti studio project\\olas-portfolio"
+    },
+    {
+      "command": "& \"C:\\Users\\HP\\AppData\\Local\\Temp\\wshist_o5gllq.ps1\"; Remove-Item \"C:\\Users\\HP\\AppData\\Local\\Temp\\wshist_o5gllq.ps1\" -ErrorAction SilentlyContinue",
+      "timestamp": 1791897548795,
+      "cwd": "c:\\Users\\HP\\Documents\\GitHub\\flexiti studio project\\olas-portfolio"
+    },
+    {
+      "command": "npm run build",
+      "timestamp": 1791897756775,
+      "cwd": "c:\\Users\\HP\\Documents\\GitHub\\flexiti studio project\\olas-portfolio"
+    },
+    {
+      "command": "npm run build; Write-Output \"BUILD_EXIT:$LASTEXITCODE\"",
+      "timestamp": 1791900605062,
+      "cwd": "c:\\Users\\HP\\Documents\\GitHub\\flexiti studio project\\olas-portfolio"
+    },
+    {
+      "command": "rimraf .next ; npm run build; Write-Output \"BUILD_EXIT:$LASTEXITCODE\"",
+      "timestamp": 1791903456266,
+      "cwd": "c:\\Users\\HP\\Documents\\GitHub\\flexiti studio project\\olas-portfolio"
+    },
+    {
+      "command": "Remove-Item -Recurse -Force .next; npm run build; Write-Output \"BUILD_EXIT:$LASTEXITCODE\"",
+      "timestamp": 1791905474387,
+      "cwd": "c:\\Users\\HP\\Documents\\GitHub\\flexiti studio project\\olas-portfolio"
+    },
+    {
+      "command": "npm run build; Write-Output \"BUILD_EXIT:$LASTEXITCODE\"",
+      "timestamp": 1791906857482,
+      "cwd": "c:\\Users\\HP\\Documents\\GitHub\\flexiti studio project\\olas-portfolio"
+    },
+    {
+      "command": "npm run dev",
+      "timestamp": 1792826827268,
+      "cwd": "c:\\Users\\HP\\Documents\\GitHub\\flexiti studio project\\olas-portfolio"
+    },
+    {
+      "command": "& \"C:\\Users\\HP\\AppData\\Local\\Temp\\wshist_ctwxim.ps1\"; Remove-Item \"C:\\Users\\HP\\AppData\\Local\\Temp\\wshist_ctwxim.ps1\" -ErrorAction SilentlyContinue",
+      "timestamp": 1792826921484,
+      "cwd": "c:\\Users\\HP\\Documents\\GitHub\\flexiti studio project\\olas-portfolio"
     }
   ],
-  "lastUpdated": 1790672999777
+  "lastUpdated": 1792826921484
 }

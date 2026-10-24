@@ -6,6 +6,7 @@ import { ArrowLeft, Loader2, DollarSign, Edit, Users, Calendar as CalendarIcon, 
 import { motion } from "framer-motion";
 import SocialTemplates from "@/components/admin/SocialTemplates";
 import CreatePostModal from "./components/CreatePostModal";
+import VideoTemplatesTab from "./components/video-templates/VideoTemplatesTab";
 
 export default function CreatorProjectDetails() {
   const { id } = useParams();
@@ -195,6 +196,7 @@ export default function CreatorProjectDetails() {
 
   // Content addition state
   const [contentsViewMode, setContentsViewMode] = useState<"grid" | "list">("grid");
+  const [contentsSubTab, setContentsSubTab] = useState<"normal" | "videos">("normal");
   const [isAddingPost, setIsAddingPost] = useState(false);
 
   // Titles Pagination Logic
@@ -761,6 +763,7 @@ export default function CreatorProjectDetails() {
             { id: 'videos', label: 'Videos' },
             { id: 'images', label: 'Images' },
             { id: 'social', label: 'Social Templates' },
+            { id: 'video_templates', label: 'Video Templates' },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -883,9 +886,29 @@ export default function CreatorProjectDetails() {
                   </button>
                 </div>
               </div>
+
+              {/* Contents Sub-Tabs */}
+              <div className="flex bg-slate-950 border border-slate-800 rounded-xl p-1 mb-6 max-w-xs">
+                <button
+                  onClick={() => setContentsSubTab("normal")}
+                  className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${
+                    contentsSubTab === "normal" ? "bg-slate-800 text-white shadow-sm" : "text-slate-500 hover:text-slate-300"
+                  }`}
+                >
+                  Normal
+                </button>
+                <button
+                  onClick={() => setContentsSubTab("videos")}
+                  className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${
+                    contentsSubTab === "videos" ? "bg-slate-800 text-white shadow-sm" : "text-slate-500 hover:text-slate-300"
+                  }`}
+                >
+                  Videos
+                </button>
+              </div>
               
               <div className="space-y-8">
-                {(() => {
+                {contentsSubTab === "normal" && (() => {
                   const sortedPosts = [...(project?.posts || [])].sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
                   const postsByDate = sortedPosts.reduce((acc: any, post: any) => {
                     const dateObj = new Date(post.createdAt);
@@ -935,6 +958,47 @@ export default function CreatorProjectDetails() {
                       </div>
                     </div>
                   ));
+                })()}
+
+                {contentsSubTab === "videos" && (() => {
+                  const projectVideos = (contents || []).filter(v => v.type === "VideoStory" || v.story);
+                  if (!projectVideos || projectVideos.length === 0) {
+                    return (
+                      <div className="flex flex-col items-center justify-center py-20 text-slate-500 bg-slate-950/50 border border-dashed border-slate-800 rounded-xl">
+                        <Video className="w-12 h-12 mb-4 text-slate-600" />
+                        <p className="font-medium text-slate-400">No video stories added yet.</p>
+                        <p className="text-sm mt-1">Use the Add Post button to create your first video story.</p>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className={contentsViewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" : "space-y-3"}>
+                      {projectVideos.map((videoItem: any) => (
+                        <div 
+                          key={videoItem.id} 
+                          onClick={() => router.push(`/admin/creators/${project.id}/scenework?videoId=${videoItem.id}`)}
+                          className={`bg-slate-950 border border-slate-800 rounded-xl cursor-pointer hover:border-blue-500/50 transition-all hover:scale-[1.01] ${contentsViewMode === 'grid' ? 'p-5 flex flex-col h-40' : 'p-4 flex items-center justify-between'}`}
+                        >
+                          <div className={contentsViewMode === 'grid' ? 'mb-3 overflow-hidden flex-1' : 'flex items-center gap-4 flex-1 overflow-hidden'}>
+                            <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center shrink-0">
+                              <Video className="w-5 h-5 text-emerald-400" />
+                            </div>
+                            <div className={contentsViewMode === 'grid' ? 'mt-3 flex-1 overflow-hidden' : 'flex-1 overflow-hidden'}>
+                              <h4 className="text-white font-medium line-clamp-1 capitalize">{videoItem.title}</h4>
+                              <p className="text-xs text-slate-500 mt-1 line-clamp-2">Added on {videoItem.date}</p>
+                            </div>
+                          </div>
+                          <div className={contentsViewMode === 'grid' ? 'mt-auto flex justify-between items-center pt-3 border-t border-slate-800/50 shrink-0' : 'flex items-center gap-4 shrink-0 pl-4 border-l border-slate-800/50'}>
+                            <span className={`text-xs font-bold px-2 py-1 rounded-md ${getStatusColor(videoItem.status)}`}>
+                              {videoItem.status}
+                            </span>
+                            <ChevronRight className="w-4 h-4 text-slate-500" />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
                 })()}
               </div>
             </div>
@@ -2085,6 +2149,13 @@ export default function CreatorProjectDetails() {
         {activeProjectTab === 'social' && (
           <div className="mb-44">
             <SocialTemplates />
+          </div>
+        )}
+
+        {/* Tab: VIDEO TEMPLATES */}
+        {activeProjectTab === 'video_templates' && (
+          <div className="mb-44">
+            <VideoTemplatesTab creatorId={id as string} />
           </div>
         )}
 

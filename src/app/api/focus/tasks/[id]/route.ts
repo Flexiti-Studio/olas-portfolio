@@ -8,15 +8,34 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   try {
     const { id } = await params;
     const body = await req.json();
-    const { done } = body;
+    const { done, title } = body;
+
+    const dataToUpdate: any = {};
+    if (title !== undefined && typeof title === "string") {
+      dataToUpdate.title = title.trim();
+    }
 
     if (done === true) {
       const result = await completeTask(id);
+      if (dataToUpdate.title) {
+        await prisma.task.update({
+          where: { id },
+          data: { title: dataToUpdate.title }
+        });
+      }
       return NextResponse.json({ success: true, data: result });
+    } else if (done === false) {
+      dataToUpdate.done = false;
+      dataToUpdate.completedAt = null;
+      const task = await prisma.task.update({
+        where: { id },
+        data: dataToUpdate
+      });
+      return NextResponse.json({ success: true, data: { task } });
     } else {
       const task = await prisma.task.update({
         where: { id },
-        data: { done: false, completedAt: null }
+        data: dataToUpdate
       });
       return NextResponse.json({ success: true, data: { task } });
     }

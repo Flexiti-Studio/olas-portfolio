@@ -37,7 +37,37 @@ export function TransactionsTable({ transactions }: TransactionsTableProps) {
           Total: {transactions.length} entries
         </div>
       </div>
-      <div className="overflow-x-auto">
+      {/* Mobile Card View (< 640px) */}
+      <div className="block sm:hidden divide-y divide-slate-800">
+        {paginatedTransactions.map((t: any) => {
+          const isIncome = t.type === "income";
+          return (
+            <div key={t.id} className="p-3.5 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] text-slate-400">
+                  {format(new Date(t.createdAt), "MMM d, yyyy h:mm a")}
+                </span>
+                <span className={`text-xs font-bold flex items-center ${isIncome ? "text-emerald-400" : "text-red-400"}`}>
+                  {isIncome ? <ArrowUpRight className="w-3.5 h-3.5 mr-0.5" /> : <ArrowDownRight className="w-3.5 h-3.5 mr-0.5" />}
+                  {isIncome ? "+" : "-"}₦{Number(t.amount).toLocaleString()}
+                </span>
+              </div>
+              <div className="font-medium text-slate-200 text-xs sm:text-sm">
+                {t.rawText || "Manual Entry"}
+              </div>
+              <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1">
+                <span className={`px-2 py-0.5 rounded-full ${isIncome ? "bg-emerald-950/60 text-emerald-300 border border-emerald-800/40" : "bg-slate-800 text-slate-300"}`}>
+                  {t.subcategory?.category?.name} &rsaquo; {t.subcategory?.name}
+                </span>
+                <span>{t.bankAccount?.name || "Cash/Unknown"}</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Desktop Table View (>= 640px) */}
+      <div className="hidden sm:block overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead className="bg-slate-800/50 text-slate-400">
             <tr>

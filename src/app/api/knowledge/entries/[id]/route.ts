@@ -27,7 +27,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   try {
     const { id } = await params;
     const body = await req.json();
-    const { content, type, tags, projectId, summary } = body;
+    const { content, type, tags, projectId, summary, isFavourite } = body;
 
     const entry = await prisma.knowledgeEntry.findUnique({ where: { id } });
     if (!entry) {
@@ -46,6 +46,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (tags !== undefined) dataToUpdate.tags = tags;
     if (projectId !== undefined) dataToUpdate.projectId = projectId;
     if (summary !== undefined) dataToUpdate.summary = summary;
+    if (isFavourite !== undefined) dataToUpdate.isFavourite = isFavourite;
 
     const updated = await prisma.knowledgeEntry.update({
       where: { id },

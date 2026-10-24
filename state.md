@@ -1,6 +1,355 @@
 # Project State
 
-## Completed Actions
+- Focus Mode Task Details & Full Inspection Dropdown Suite (`src/app/admin/focus/components/FocusTaskItem.tsx`, `src/app/api/focus/tasks/[id]/route.ts`):
+  - **Full Details View on Dropdown Click**:
+    - Resolved task text truncation (`truncate`) when viewing tasks under a focused project or queued project in Focus Mode (`https://olas-portfolio.vercel.app/admin?tab=focus-mode`).
+    - When expanding the task dropdown (via the chevron or clicking the task row), the title automatically un-truncates and wraps naturally (`whitespace-normal break-words`).
+    - Added an elevated, high-readability **Full Task Details Card** right at the top of the expanded area featuring:
+      - **Complete Uncut Task Content**: Renders multi-line task text with formatting, line breaks, and full character preservation (`whitespace-pre-wrap select-text break-words`).
+      - **Status Badge**: Clear visual pill showing `In Progress` (pulsing blue dot) or `Completed` (emerald green check).
+      - **1-Click Copy**: Added a quick "Copy" button with instant clipboard synchronization, checkmark confirmation, and toast alert.
+      - **Inline Edit & Save**: Added an "Edit" button that reveals an inline multi-line textarea with autofocus and Save/Cancel controls, updating `/api/focus/tasks/[id]`.
+      - **Metadata Strip**: Displays exact creation date/time (`Created: Oct 24, 2026, ...`), completion date/time (`Completed: ...`), and subtask progress count.
+  - **Fluid Framer Motion Animation & Space-Fitting Architecture**:
+    - Animated the opening and closing of the details drawer using `framer-motion` (`AnimatePresence` + `motion.div`) with spring-like physics (`duration: 0.25s`, `ease: [0.16, 1, 0.3, 1]`) and height auto-calculation.
+    - Added smooth rotational chevron transition (`-rotate-90` to `rotate-0`) matching the accordion expansion state.
+    - Bound task details to the available space: added `max-h-56 overflow-y-auto` with clean scrollbar for long tasks, wrapped flex headers, and ensured subtasks and form inputs expand flush (`w-full min-w-0 max-w-full`) across both the focused project card and queue modal dialog.
+  - **Rich Floating Hover Tooltip (`createPortal` + `framer-motion`)**:
+    - Added an instant floating tooltip on hovering any task row or title when collapsed.
+    - Rendered via a clean `document.body` portal with `position: fixed` and `z-[9999]`, preventing clipping from parent card boundaries (`overflow-hidden`) or scrollable lists.
+    - Displays full formatted task text with line breaks, `In Progress` / `Completed` status badge, created timestamp, and helpful click guidance (`Click to expand & edit`).
+    - Smart positioning: dynamically measures element bounding box and places above or below depending on viewport height constraints, automatically dismissing on mouse leave, window scroll, or resize.
+  - **PATCH API Enhancement (`/api/focus/tasks/[id]`)**:
+    - Enhanced the task PATCH handler to accept and persist `title` updates directly, supporting task detail edits alongside completion toggles.
+
+- Backtest Start Point Selection, Position Tool Adjustments & Chart Markers Suite (`ChartAdapter.ts`, `CandlestickChart.tsx`, `BacktestReplayBar.tsx`, `WorkspaceClient.tsx`, `drawingTypes.ts`):
+  - **Start Point Selection from Chart Canvas & Date Picker (Resolved)**:
+    - **No Unrequested Tests on Initial Load**: Gated backtest simulation execution behind explicit user intent (`hasUserRunTest`). Removed automatic test execution on initial candle load and database hydration. Chart loads clean with 0 trades and 0 phantom stats until the user clicks "Run Test" or selects a start point. "Clear Test" immediately resets all trades and returns to clean slate.
+    - **Robust Multi-Way Date & Start Point Picker**:
+      - Bounded `<input type="date">` to the loaded dataset's actual boundaries (`min={minDateStr}` and `max={maxDateStr}`) so browser calendar inputs never default to invalid future dates outside the historical range.
+      - Added a native **Trading Day dropdown** listing every unique trading session in the dataset with its exact bar number (e.g. `2024-10-10 (Bar #1)`), jumping instantly with 1 click.
+      - Added quick presets (`Earliest (Bar #1)`, `25% in`, `50% in`, `Last 50 bars`) and direct Bar # number stepper.
+    - **1-Click Chart Canvas Selection via Coordinate Mapping**:
+      - Implemented `getDataIndexFromCoordinates(x, y)` in `ChartAdapter.ts` using KLineCharts `convertFromPixel([{ x, y }], { paneId: 'candle_pane' })`.
+      - Attached capturing click listener on the chart viewport so clicking any candle while "Start Point" is active accurately snaps to that exact candle without losing focus or defaulting to the end bar.
+    - **Replay Transport Synchronization**: Updated `handlePlayToggle`, `handleStepForward`, and `handleResetReplay` in `WorkspaceClient.tsx` to respect `backtestStartIndex` so restarting or stepping forward stays anchored to the selected start point.
+  - **Buy / Sell Position Tool with Draggable SL & TP Areas**:
+    - Enabled `needDefaultPointFigure: true` on both `tv_long_position` and `tv_short_position` with `totalStep: 3`, exposing interactive draggable TradingView white circular handles (`#ffffff` fill with `#089981` / `#f23645` / `#2962FF` borders).
+    - Traders can independently drag the Take Profit ceiling/floor, Entry line, Stop Loss ceiling/floor, and time extent right on the chart canvas.
+    - Displays real-time calculations for Risk-to-Reward ratio (`R:R`), Target price +%, and Stop price -% on the central info card.
+  - **Chart Markers / Stamps with Emojis & Arrows Palette**:
+    - Registered custom `tv_marker` overlay in `ChartAdapter.ts` supporting emojis and directional execution arrows.
+    - Added Marker / Stamp tool to the left vertical drawing toolbar with a popover palette containing 12 indicators: `▲ BUY`, `▼ SELL`, `🎯 Target`, `🛑 Stop Loss`, `🚀 Rocket`, `💡 Idea`, `⚠️ Warning`, `⭐ Star`, `🔥 Fire`, `📌 Pin`, `💰 Profit`, and `✅ Checkmark`.
+    - Droppable and draggable anywhere on chart candles, with full persistence to database and project drawings.
+  - **Price-Following Trade Markers & Running Position Synchronization**:
+    - Enhanced `setTradeMarkers` in `ChartAdapter.ts` to accept `currentTime?: number`. During bar replay, Buy/Sell entry arrows render only when the replayed bar reaches `entryTime`, and TP/SL exit badges appear only once the replayed bar reaches `exitTime`, preventing future trade signals from leaking onto unplayed bars.
+    - Synchronized `activeReplayPosition` so active trades actively track price candle-by-candle with floating P&L and live visual boundary lines.
+
+- Authentic TradingView Drawing Tools Suite Overhaul & Floating Properties Toolbar (`src/lib/chart/ChartAdapter.ts`, `src/components/flexStrategy/chart/CandlestickChart.tsx`, `src/lib/flexStrategy/chart/drawingTypes.ts`):
+  - **Signature TradingView Visual Aesthetics & Palettes**:
+    - Replaced all outdated light-cyan (`#38bdf8`) drawing defaults with TradingView Royal Blue (`#2962FF`, 2px solid stroke).
+    - Configured authentic TradingView white circular anchor handles (`#ffffff` fill with `#2962FF` 2px border, radius 4.5px, active radius 5.5px with 2.5px border) matching TradingView's iconic handle style.
+    - Updated Long/Short Position tools with TradingView Emerald (`#089981`, `rgba(8, 153, 129, 0.20)`) and TradingView Red (`#f23645`, `rgba(242, 54, 69, 0.20)`).
+  - **Rectangle & Fibonacci Interactive Dragging Overhaul**:
+    - Enabled `needDefaultPointFigure: true` on `rect`, `rectangle`, and `fibonacciLine` so KLineCharts renders interactive native corner/endpoint handles that traders can click and drag to resize and move.
+    - Added step 1 mouse preview feedback for rectangles so clicking point 1 instantly shows a handle, mousemove stretches the box in real time, and click 2 drops the completed supply/demand zone.
+    - Multi-level Fibonacci retracement with full 7 colored ratios (0.000, 0.236, 0.382, 0.500, 0.618, 0.786, 1.000), shaded level bands with Golden Pocket (0.500-0.618) highlighted, and live price/percentage tags.
+  - **Floating TradingView Quick Properties Toolbar (`CandlestickChart.tsx`)**:
+    - Built a dedicated glassmorphism floating capsule toolbar (`bg-[#1e222d] border border-[#2a2e39] text-[#d1d4dc] shadow-2xl rounded-xl`) positioned right above the chart viewport whenever any drawing is clicked/selected:
+      - **Drawing Type Badge**: Visual icon and label (Trend Line, Horizontal Line, Vertical Line, Rectangle, Fibonacci, Long Position, Short Position, etc.).
+      - **Color Picker Swatch**: Circular button revealing a quick popover with 8 TradingView colors (`#2962FF`, `#089981`, `#f23645`, `#ff9800`, `#ab47bc`, `#00bcd4`, `#ffffff`, `#787b86`) for instant 1-click color customization.
+      - **Line Thickness Selector**: Dropdown selector with `1px`, `2px`, `3px`, `4px` options with live visual line weight preview.
+      - **Line Style Switcher**: Toggle between Solid (`—`) and Dashed (`- -`) strokes.
+      - **Lock / Unlock Button**: 1-click toggle locking drawing in place against accidental dragging.
+      - **Delete Button**: Trash can icon for 1-click removal.
+      - **Deselect (Esc)**: Quick close action.
+  - **Authentic TradingView Drawing Icons Matching Canvas Geometry (`CandlestickChart.tsx`)**:
+    - Replaced all mismatched Google Material Symbols (`timeline`, `crop_square`, `stacked_line_chart`, `trending_up`, `near_me`, `straighten`) with dedicated, pixel-perfect TradingView vector SVGs via `TradingViewToolIcon`:
+      - **Cursor**: 4-way precision crosshair (`+`) with center dot, matching the canvas crosshair.
+      - **Trend Line**: Diagonal line segment (`/`) with circular anchor endpoint handles at each end.
+      - **Horizontal Line**: Full-width horizontal line (`—●—`) with center anchor dot.
+      - **Vertical Line**: Top-to-bottom vertical line (`|`) with center anchor dot.
+      - **Ray Line**: Ray starting at an anchor dot, passing through control dot, and terminating with an arrowhead (`●—●→`).
+      - **Rectangle**: Shaded supply/demand zone box with border and corner anchor handles.
+      - **Fibonacci Retracement**: 4 horizontal colored parallel level lines with shaded Golden Pocket band and dashed diagonal connector between anchor dots.
+      - **Long Position**: Emerald TP box on top with upward arrow, crimson SL box below, and royal blue entry line.
+      - **Short Position**: Crimson SL box on top, emerald TP box below with downward arrow, and royal blue entry line.
+      - **Text Note**: TradingView bold `T` glyph.
+      - **Measure Tool**: 2D dashed measurement bounding box with bidirectional vertical and horizontal measurement arrows.
+    - Synchronized both the left vertical drawing toolbar buttons and the floating properties toolbar type badge to use `TradingViewToolIcon`.
+  - **Context-Aware TradingView Cursor Ergonomics for Axes & Drawing Tools (`ChartAdapter.ts`, `CandlestickChart.tsx`)**:
+    - **Y-Axis Price Scale**:
+      - Hovering over the right-side price scale displays vertical resize arrow (`ns-resize` `↕`).
+      - Dragging/adjusting the price scale preserves `ns-resize` throughout the drag (never turns into the folding hand).
+    - **X-Axis Time Scale**:
+      - Hovering over the bottom time scale displays horizontal resize arrow (`ew-resize` `↔`).
+      - Dragging/adjusting candle spacing preserves `ew-resize` throughout the drag (never turns into the folding hand).
+    - **Moving & Resizing Tools**:
+      - Hovering over a drawing line or shape body displays 4-way move cursor (`move` `✢`).
+      - Dragging/translating any drawing displays `move` (`cursor: move !important`).
+      - Hovering over an anchor handle/control point displays precision crosshair (`crosshair`).
+    - **Chart Panning**:
+      - Panning the main chart canvas preserves authentic folding hand (`grabbing`) while leaving axes and drawing tools unaffected.
+  - **Adapter State Sync & Auto-Selection Lifecycle (`ChartAdapter.ts`)**:
+    - Added `onDrawingSelect`, `updateDrawing`, and `deselectDrawing` methods to `IChartAdapter` and `KLineChartAdapter`.
+    - Completing a new drawing on canvas automatically selects it, immediately revealing the floating properties toolbar so users can customize thickness or color without having to re-click it.
+    - Pressing `Delete` or `Backspace` cleans up the selected drawing from canvas and database, and pressing `Escape` deselects cleanly.
+
+- Knowledge Hub Favourite Tagging & Dedicated Category Tabs (`src/app/admin/knowledge/page.tsx`, `EntryList.tsx`, `EntryDetail.tsx`, `/api/knowledge/entries`):
+  - **Interactive Favourite Tagging**:
+    - Added `isFavourite Boolean @default(false)` to `KnowledgeEntry` in Postgres schema and synced Prisma client.
+    - **Quick 1-Click Star on Every List Item (`EntryList.tsx`)**:
+      - Each card has an interactive Star ⭐ button in the top-right corner. Clicking it toggles favorite status optimistically with immediate cache update and PATCH persistence to `/api/knowledge/entries/${id}`.
+      - Favorited entries feature a gold-tinted border (`border-amber-500/30`), filled amber star, and a `★ Favourite` badge.
+    - **Header Favourite Button in Detail View (`EntryDetail.tsx`)**:
+      - Prominent `[★ Favorited / Favourite]` button in the details action bar enabling instant tagging/untagging while reviewing or editing content.
+    - **Create Form Tagging**: Added "Mark as Favourite" toggle button in the "+ Add Entry" creation pane so new entries can be tagged as favourite directly upon creation.
+  - **Dedicated Filter Tabs Strip (`src/app/admin/knowledge/page.tsx`)**:
+    - Replaced the plain select dropdown with a sleek, responsive segmented tab strip with live counters:
+      - **All (N)**: Displays the full archive of knowledge documents and ideas.
+      - **📄 Knowledge (N)**: Filters exclusively for knowledge documents, guidelines, and frameworks.
+      - **💡 Ideas (N)**: Filters exclusively for trading concepts, hypotheses, and brainstorms.
+      - **⭐ Favourites (N)**: Isolates all favorited entries across both knowledge and ideas.
+    - **Favourites Sub-Filters**: When inside the Favourites tab, traders can toggle sub-filters (`All Favourites`, `Knowledge`, `Ideas`) for granular inspection.
+
+- MT5 Drawing Suite Overhaul, Square/Rectangle Tool Fix & Unobstructed Backtest Controls (`ChartAdapter.ts`, `CandlestickChart.tsx`, `ChartToolbar.tsx`, `WorkspaceClient.tsx`, `BacktestReplayBar.tsx`, `drawingTypes.ts`):
+  - **Square / Rectangle Tool Fix & Custom Overlay Registration (`ChartAdapter.ts`)**:
+    - Resolved the issue where clicking the square/rectangle tool did nothing: KLineCharts has no built-in `rect` or `rectangle` overlay. Registered both `rect` and `rectangle` via `registerOverlay` with `totalStep: 3`, rendering two complementary polygon figures: a semi-transparent tinted fill (`style: 'fill'`) and a crisp bounding border (`style: 'stroke'`).
+    - Configured `totalStep: 3` across `tv_measure`, `tv_long_position`, and `tv_short_position` so 2-point drawing interactions (first click, mouse tracking preview, second click completion) complete smoothly and reliably.
+  - **MT5 Useful Tools Addition (Vertical Line)**:
+    - Added the iconic MT5 **Vertical Line** tool (`verticalStraightLine` in KLineCharts) to `drawingTypes.ts`, `ChartAdapter.ts`, and `CandlestickChart.tsx`. Traders can now drop vertical session/cycle lines with one click to mark market opens, macro news events, or cycle divisions.
+  - **Single Save Chart Button (`WorkspaceClient.tsx`, `ChartToolbar.tsx`)**:
+    - Removed the redundant "Save Chart" button from `ChartToolbar.tsx`, keeping a single primary, high-visibility "Save Chart" button in the top navigation header alongside the Export button.
+  - **Single Strategy / Backtest Mode Button (`WorkspaceClient.tsx`, `ChartToolbar.tsx`)**:
+    - Removed the duplicate mode switcher from `ChartToolbar.tsx`.
+    - Consolidated the 2-button segmented control in the top `<header>` into a single, intuitive toggle button:
+      - When in Strategy Mode: `[ ⚡ Strategy Mode ⇄ ]` (clicking toggles to Backtest Mode).
+      - When in Backtest Mode: `[ 🧪 Backtest Mode (N) ⇄ ]` (clicking toggles to Strategy Mode).
+  - **Folding Hand (Grabbing) Drag Cursor (`CandlestickChart.tsx`)**:
+    - Implemented authentic chart panning ergonomics: in cursor mode, hovering displays the open hand (`cursor: grab`), and clicking/holding to pan or drag the chart dynamically transitions into the closed folding hand (`cursor: grabbing !important`).
+    - Added global pointer tracking on the canvas container so the clenched/folding hand cursor stays active throughout rapid drags across the viewport until mouseup, with scoped styles guaranteeing all inner canvas elements seamlessly inherit the folding hand.
+  - **Backtest Controls & Pair Details Overlap Resolution (`BacktestReplayBar.tsx`, `WorkspaceClient.tsx`)**:
+    - Converted `BacktestReplayBar` from a floating `absolute top-3 left-1/2` pill to a dedicated docked sub-toolbar strip (`h-10 border-b border-[#1e222d] bg-[#141824]`) placed directly between `ChartToolbar` and the chart canvas.
+    - The chart canvas and top-left pair details / OHLC bar now reside completely below the backtest controls, ensuring zero visual overlap, no obstructed buttons, and complete access to all replay transport, speed, bar counter, and simulation controls.
+
+- High-Resolution WYSIWYG Chart Window Screenshot Suite & Snapshot Controls (`ChartToolbar.tsx`, `CandlestickChart.tsx`, `ChartAdapter.ts`, `ChartScreenshotModal.tsx`, `WorkspaceClient.tsx`):
+  - **Authentic WYSIWYG Chart Canvas & HUD Compositing (`ChartAdapter.ts`, `CandlestickChart.tsx`)**:
+    - Powered by KLineCharts native `getConvertPictureUrl(true, 'png', '#131722')` combined with HiDPI canvas compositing that faithfully captures everything the user sees on the chart:
+      - All chart panes: Candlesticks/Area line, sub-panes (RSI, ATR, Volume), price scale y-axis (with last value badges), time scale x-axis, and background grid.
+      - User drawings: Trend lines, horizontal lines, Fibonacci retracements, rays, rectangles, text annotations, and long/short position boxes.
+      - Trade execution markers: Buy green arrows, Sell red arrows, and TP/SL exit badges with individual trade P&L tags.
+      - **TradingView Top-Left Legend HUD**: Exact symbol badge, timeframe pill, base dataset info (if loaded), and live OHLC values (`O`, `H`, `L`, `C`, `Change` +%, `Vol`) styled in authentic green (`#26a69a`) or red (`#ef5350`).
+      - **Active Technical Indicators Legends**: Every visible indicator with its colored dot, title (e.g. `EMA 20 close`, `RSI 14`, `BOLL 20 2`, `SuperTrend 10 3`), and live calculated value in the indicator's matching color.
+      - **Bar Close Countdown Badge**: Upper-right capsule with glowing green dot and live remaining time.
+      - **Watermark Badge**: Bottom-right authentic branding with symbol and current timestamp.
+  - **Enhanced Split-Button Toolbar Controls with Live Feedback (`ChartToolbar.tsx`)**:
+    - Added dedicated split-button in the chart toolbar with spinning loader (`progress_activity`) and disabled state (`isCapturingScreenshot`) while capturing to prevent accidental duplicate triggers.
+    - Integrated dropdown action menu with 4 distinct options:
+      - 📸 **Quick Snapshot**: 1-click automatic high-res PNG download + clipboard copy.
+      - 💾 **Download PNG Image**: Direct save to disk.
+      - 📋 **Copy to Clipboard**: Direct image blob clipboard sync for pasting into Discord, Telegram, Notion, or trading journals.
+      - 👁️ **Preview Snapshot Modal**: Opens dedicated full-size inspection dialog.
+  - **Interactive Chart Snapshot Preview Modal (`ChartScreenshotModal.tsx`)**:
+    - High-fidelity TradingView-style dark modal showing high-res snapshot preview, dimensions badge (`W × H px`), direct "Download PNG", "Copy Image" (with visual checkmark confirmation), and "Open in New Tab" actions.
+  - **Sensory Audio & Shutter Flash Feedback (`CandlestickChart.tsx`)**:
+    - Synthesizes a crisp, subtle DSLR camera shutter click using browser-native Web Audio API (`AudioContext`).
+    - Flashes a sleek white camera shutter glow overlay across the chart viewport on capture (`isFlashActive`).
+    - Sonner toast notifications with direct "Preview" action button on every snapshot.
+
+- Overhauled TradingView Drawing Suite, Interactive Moving, Drawing Locking & Database Persistence on FlexStrategy (`http://localhost:3000/flexStrategy/project/[id]`):
+  - **Indicator Details Area Drawing Passthrough & HUD Transparency (`CandlestickChart.tsx`)**:
+    - Fixed drawing tools failing to place points or dragging freezing around the upper-left indicator details area:
+      - When any drawing tool is active (`activeTool !== 'cursor'`), all top-left HUD elements (OHLC bar, symbol badge, indicator list, and settings buttons) transition to `pointer-events-none` with a subtle dim (`opacity-30`). Clicks, mouse tracking, and releases pass 100% unimpeded to the canvas underneath, enabling completely smooth drawing across the entire upper-left quadrant.
+      - In cursor mode (`activeTool === 'cursor'`), outer container wrappers remain `pointer-events-none` so clicks on the chart canvas, candles, and drawings behind the HUD pass through, while only the specific action buttons (settings ⚙️, visibility 👁️, delete ✕, indicator name) remain `pointer-events-auto`.
+    - Added TradingView-style **Indicators Legend Collapse Toggle** (`unfold_more` / `unfold_less`) in Row 1: allows traders to collapse the vertical indicator stack into a compact `fx Indicators (N)` chip anytime for an unobstructed view of the price action.
+    - Set canvas viewport cursor to precision crosshair (`cursor-crosshair`) whenever any drawing tool is selected.
+  - **Tool Cancellation, Escape Reset & Double-Click Toggle (`CandlestickChart.tsx`, `ChartAdapter.ts`)**:
+    - Clicking an already active drawing tool toggles it off and resets back to `cursor`.
+    - Pressing `Escape` or switching tools invokes `adapter.cancelDrawing()`, which immediately cleans up any half-placed or in-progress overlay from the canvas without leaving phantom drawings.
+  - **Authentic TradingView Drawing Mechanics & Live Moving / Dragging (`ChartAdapter.ts`, `CandlestickChart.tsx`)**:
+    - Optimized `tv_measure`, `tv_long_position`, and `tv_short_position` to `totalStep: 2` (matching TradingView's 2-click placement):
+      - `tv_measure`: 2 clicks (start point, end point) to measure price diff and percentage.
+      - `tv_long_position` & `tv_short_position`: 2 clicks (entry, target/width) with automatic 1:2 standard R:R stop loss calibration and independent interactive TP & SL drag handles.
+    - Connected KLineCharts v10 overlay event lifecycles (`onPressedMoving`, `onPressedMoveEnd`, `onDrawEnd`, `onRemoved`, `onSelected`, `onDeselected`) across both new drawings and loaded historical drawings for real-time live coordinate tracking.
+    - Dragging control handles or translating existing drawings updates their live time/price coordinates in `drawingsMap` and immediately triggers persistence.
+    - Added `getDrawings()` query method that dynamically extracts the latest live point coordinates directly from active canvas overlays (`chart.getOverlays({ groupId: 'user_drawings' })`) prior to save.
+    - Implemented automatic cursor mode reset: placing a drawing seamlessly transitions active tool back to `'cursor'` pointer mode so users can immediately interact with and reposition what they drew without extra clicks.
+  - **True Drawing Locking & Hotkey Support (`ChartAdapter.ts`, `CandlestickChart.tsx`)**:
+    - Connected the Lock button on the left drawing toolbar to invoke `adapter.setDrawingsLocked(isLocked)`, calling `chart.overrideOverlay({ id, lock: boolean })` across all active overlays.
+    - When locked, overlays cannot be moved or altered accidentally; unlocking immediately restores interactive drag handles.
+    - Added global keyboard shortcuts: pressing `Delete` or `Backspace` removes the currently selected drawing, and pressing `Escape` resets drawing tool to cursor.
+    - Added "Delete Selected Drawing" and "Lock/Unlock All Drawings" directly into the right-click chart context menu.
+
+- Enhanced Budget Strategy with Mobile Responsiveness, Used Checkmarks & Monthly DB Snapshotting (`http://localhost:3000/admin?tab=budget-strategy` and `/admin/budget-strategy`):
+  - **Sidebar Persistence on Direct Route and Month Switch (`BudgetStrategyPageWrapper`, `PeriodSelector.tsx`)**:
+    - Resolved sidebar disappearing when switching months or accessing `/admin/budget-strategy?periodId=...`:
+      - Wrapped standalone route `/admin/budget-strategy` with `AdminSidebar` (responsive mobile drawer, collapse state, Career Hub navigation) matching `/admin/goals`.
+      - In `PeriodSelector.tsx`, preserved `tab=budget-strategy` query parameter whenever the user is on `/admin` so switching months remains inside the main admin layout.
+  - **Automatic Income Transfer for New Months (`/api/budgeting/strategy/route.ts`, `period/route.ts`)**:
+    - Automatically transfers previous month's incomes (e.g. Qefas Salary ₦137,000 + Qefas Pallative ₦30,000) whenever a new period has 0 incomes, dating them to `period.startDate` with `isRecurring: true`.
+    - Guarantees new months start with their income streams intact so Total Income is never empty.
+  - **Live Checkmark Confirmation, Loading Indicator & Total Balance Reduction (`SubcategoryRow.tsx`, `CategoryColumn.tsx`, `SummaryTable.tsx`)**:
+    - Unlocked checkmark toggling across all periods with instant optimistic UI update and rich Sonner toast.
+    - Integrated a spinning `<Loader2 />` indicator inside the checkbox during network persistence to prevent accidental double taps.
+    - **Total Balance Reduction**: Checking an item immediately deducts its goal/actual amount from the live **Total Balance Remaining** card at the top of the page, in `SummaryTable`, and within each category group's "Available to spend" badge. Unchecking immediately restores the balance.
+  - **Full Mobile-Friendly Responsive Architecture**:
+    - Two-tier responsive row layout for subcategories, responsive stacked cards for transactions and 50/30/20 summary table, 44px+ touch targets, and 4 KPI overview cards (Total Income, Total Used/Spent, Total Balance Remaining, Goal Allocated).
+
+  - **Career Hub Main Admin Sidebar Integration (`AdminSidebar.tsx`)**:
+    - Created reusable `AdminSidebar` component rendering the authentic Career Hub left sidebar (21 items, logo, mobile hamburger drawer, collapse toggle `w-64` to `w-20`, avatar, and lock/logout).
+    - Wrapped `/admin/goals` inside the Main Admin Sidebar so the admin navigation remains permanently accessible on the left just like the rest of the `/admin` experience.
+    - Synchronized persistent authentication across page reloads using `localStorage`, `sessionStorage`, and a long-lived cookie (`admin_authenticated=true; max-age=31536000`), with an `isAuthChecking` loader to prevent any flash of the passcode modal on reload.
+  - **Authentic Stages Timeline on Right Side (Matching `admin/career/[id]`)**:
+    - Replaced generic quarter chips with the genuine vertical chronological stages timeline matching `admin/career/[id]`.
+    - Includes the "Timeline Info" top summary card with Next Target Date, deadline countdown, and overall goals achieved velocity (% achieved).
+    - Vertical timeline rail (`border-l-2 border-zinc-800 ml-3 space-y-8`) with authentic colored nodes:
+      - Emerald green (`bg-emerald-500`) with solid green connecting rail for achieved goals.
+      - Vibrant blue (`bg-blue-500 ring-2 ring-blue-500/30`) for the current active target.
+      - Zinc/slate for upcoming goals.
+    - Each node shows date/quarter, goal title (strikethrough when achieved), and subgoals progress descriptor. Clicking any node scrolls directly to that goal card and highlights it.
+  - **Collapsible Subgoals Hidden by Default**:
+    - Subgoals milestone checklist starts collapsed/hidden by default (`expandedGoals[goal.id] ?? false`).
+    - Accordion toggle button (`Subgoals (X/Y) [View Subgoals / Hide Subgoals]`) with smooth Framer Motion height animations.
+    - Global "Expand All Subgoals / Collapse All Subgoals" toggle button at the top of the feed.
+  - **Full Subgoal Editing, Deletion & Loading Spinners**:
+    - Added inline Subgoal Editing with `<Edit2 size={13} />`, text input, Enter/Esc keyboard shortcuts, and Save/Cancel buttons.
+    - Added visible Subgoal Deletion with `<Trash2 size={13} />`.
+    - Integrated spinning `<Loader2 />` loading indicators across all subgoal actions (checkbox toggle, adding step with `+` button, saving edits, and deleting) providing immediate visual feedback.
+  - **Direct Main Goal Check-off**:
+    - Touch-friendly 28px completion checkbox directly beside every goal title toggling `active` vs `achieved` with instant optimistic UI update, strikethrough, and Sonner toast.
+
+- Built Authentic TradingView Technical Indicators Suite on `http://localhost:3000/flexStrategy/project/[id]`:
+  - **Full Indicator Lifecycle & Synchronization Fixes (`CandlestickChart.tsx`, `ChartAdapter.ts`, `WorkspaceClient.tsx`)**:
+    - **Added Indicators Show Immediately**:
+      - Fixed KLineChart built-in `SMA` issue where passing `[period]` resulted in `NaN` because built-in formula expected `[12, 2]`. Registered custom TradingView `SMA` calculating standard `sum / period`.
+      - In `ChartAdapter.ts`, passed `isStack = true` to `createIndicator` so overlays (EMA, SMA, WMA, Bollinger Bands, SuperTrend, VWAP) stack cleanly on `candle_pane` without replacing or corrupting each other.
+      - Preserved `targetPane` in `indicatorsMap` instead of overwriting with the indicator instance ID returned by KLineCharts.
+      - Added instant re-evaluation in `setCandles` so all indicators compute and render lines immediately when candlestick data loads.
+    - **All On-Chart Indicators Listed in Indicator Popup**:
+      - Removed hardcoded `VOL` indicator from `KLineChartAdapter` constructor that previously put a phantom Volume sub-pane on canvas without an entry in React state.
+      - Integrated `Volume` as a first-class indicator in `WorkspaceClient.tsx` default state and added `Volume (VOL)` to `IndicatorsModal.tsx` under the Volume category.
+      - Handled `vol` in `computeLiveIndicatorValue` in `indicators.ts` (displays live volume e.g. `1,250`).
+      - Updated `localStorage` hydration so empty indicator lists `[]` are respected when users remove all indicators.
+    - **Clean Removal & Diffing**:
+      - Implemented `prevIndicatorsRef` diff tracking in `CandlestickChart.tsx`. Removed indicators or toggled-off indicators now explicitly call `adapter.removeIndicator(id)` to cleanly delete lines and destroy empty sub-panes.
+    - **Client-Side Engine Decoupling & Route Health (`WorkspaceClient.tsx`, `.next/dev/types/routes.d.ts`)**:
+      - Configured dynamic import (`next/dynamic` with `ssr: false`) for `CandlestickChart` in `WorkspaceClient.tsx` to prevent canvas DOM/window evaluation during Next.js SSR passes.
+      - Cleaned up corrupted auto-generated Next.js dev route types in `.next/dev/types/routes.d.ts` that caused initial blank compilation errors.
+  - **On-Chart TradingView Indicator Legends with Live Values & Quick Hover Controls (`CandlestickChart.tsx`)**:
+    - Unified the top-left chart HUD into a single stacked, non-overlapping container with `z-30 pointer-events-auto`.
+    - Each active indicator features: color dot, formatted title (e.g. `EMA 20 close`, `RSI 14`, `BB 20 2`), and real-time live calculated value matching the indicator's color.
+    - Added prominent, always-accessible **Settings buttons** (`⚙️ Settings`) and **Direct Click-to-Edit** on the indicator name, allowing traders to instantly open the settings dialog with a single click.
+    - Connected crosshair subscriber (`onCrosshairChange`): hovering over any historical candlestick in the chart dynamically updates the readout of every active indicator to that exact bar in real time; moving off restores the latest candle value.
+    - Quick actions:
+      - ⚙️ **Settings Cog**: Opens the dedicated TradingView Indicator Settings modal directly for this indicator.
+      - 👁️ **Visibility Toggle**: Hide/show indicator line and dim/strike-through legend label.
+      - ✕ **Remove**: One-click removal from both chart canvas and active indicator state.
+  - **Chart Toolbar Clean-up (`ChartToolbar.tsx`)**:
+    - Removed the "Run Strategy / Run Test" button, "CSV" import button, "Undo" and "Redo" buttons, and the "Replay" controls strip per user request, leaving an uncluttered, pure TradingView top bar featuring the Symbol badge, Timeframes, Chart Type (Candles vs Line), `fx Indicators`, Screenshot button, and Clear Test.
+  - **Interactive TradingView Indicator Settings Modal (`IndicatorSettingsModal.tsx`)**:
+    - Authentic 2-tab TradingView settings dialog:
+      - **Inputs Tab**: Period/Length stepper (- / + / manual entry), Source price selector (`close`, `open`, `high`, `low`, `hl2`, `hlc3`), StdDev multiplier (for Bollinger Bands), and ATR multiplier (for SuperTrend).
+      - **Style Tab**: Harmonious color picker with TradingView presets (Amber, Royal Blue, Cyan, Emerald, Purple, Pink, Orange) and custom hex, line thickness selector (1px, 1.5px, 2.5px, 4px), and visibility checkbox.
+      - "Reset", "Cancel", and "Ok" buttons with instant live chart update and persistence to `localStorage`.
+  - **Expanded Technical Indicator Engine & Custom Registrations (`ChartAdapter.ts`, `indicators.ts`)**:
+    - Registered custom TradingView indicators in KLineChart v10:
+      - `SMA` (Simple Moving Average arithmetic mean with single lookback period).
+      - `EMA` (Exponential Moving Average).
+      - `RSI` (Relative Strength Index).
+      - `BOLL` (Bollinger Bands with upper, midline, lower).
+      - `ATR` (Average True Range with Wilder RMA smoothing in dedicated sub-pane).
+      - `VWAP` (Volume Weighted Average Price with typical price accumulation).
+      - `RANGE_HL` (Donchian / Highest High & Lowest Low channels with upper, midline, and lower).
+      - `SuperTrend` (Dynamic ATR trailing trendline).
+      - `WMA` (Linearly weighted moving average).
+    - Enabled `indicator.lastValueMark.show = true` in `TRADINGVIEW_DARK_THEME` so active indicators project colored value tags directly on the right price scale.
+    - Implemented `overrideIndicator` in `IChartAdapter` and `KLineChartAdapter` for zero-flicker live parameter and style re-renders.
+  - **Revamped `fx Indicators` Catalog Dialog (`IndicatorsModal.tsx`)**:
+    - Categorized into "All Indicators", "Moving Averages" (EMA, SMA, WMA), "Oscillators" (RSI, MACD, ATR), "Volatility & Channels" (Bollinger Bands, SuperTrend, Highest/Lowest), and "Volume" (Volume, VWAP).
+    - Active indicators list with inline ⚙️ Settings cog, 👁️ visibility, and ✕ delete buttons.
+    - Instant 1-click addition with auto-assigned harmonious colors.
+
+- Implemented Authentic TradingView Strategy Tester & Interactive Backtesting Simulation on `http://localhost:3000/flexStrategy/project/[id]`:
+  - **Authentic TradingView Strategy Tester Panel (`BottomTabs.tsx`)**:
+    - Transformed the bottom panel into a full TradingView Strategy Tester suite with 4 dedicated sub-tabs:
+      - **Overview**: 6 KPI cards (Net Profit, Total Closed Trades with W/L, Percent Profitable Win Rate %, Profit Factor, Max Drawdown $ & %, Avg Trade P&L), plus a high-fidelity TradingView Equity Curve area chart (emerald gradient when profitable, crimson when in loss) with baseline starting capital line ($10,000), toggleable Drawdown (%) underwater curve, interactive hover tooltips, and clickable trade data points that focus the trade on the chart.
+      - **Performance Summary**: Authentic 3-column TradingView comparison table (`Metric` | `All Trades` | `Long Trades` | `Short Trades`) computing Net Profit, Gross Profit, Gross Loss, Max Drawdown, Buy & Hold Return ($ and %), Sharpe Ratio, Sortino Ratio, Profit Factor, Total Closed Trades, Winning/Losing Trades %, Avg Trade, Avg Win/Loss, Win/Loss Ratio, Largest Win/Loss, and Avg Bars in Trades.
+      - **List of Trades (Trade Log)**: Interactive table with filter pills (`All`, `Long`, `Short`, `Wins`, `Losses`) tracking Trade #, Type badges (`▲ Entry Long`, `▼ Entry Short`), Signal/Exit reason (`🎯 Take Profit`, `🛑 Stop Loss`, `✕ Signal Close`, `↻ Reverse`, `End of Data`), Date/Time, Entry → Exit Price, Contracts, Profit ($ and %), Cumulative Profit ($), Run-up (MFE $), Drawdown (MAE $), and Bars in trade. Clicking any trade row jumps to and highlights the trade on the chart.
+      - **Properties**: Backtest settings panel detailing Initial Capital ($10,000), Base Currency (USD), Order Sizing, Execution model (On Bar Close, fills next bar open), Intrabar High/Low evaluation, and Pyramiding.
+    - Integrated with **Live Terminal** (MT5 Mobile terminal with real-time balance, equity, free margin, floating P/L, and open positions), **Versions** (v1, v2 with rollback), and **Pine / JS Script Code** tabs.
+    - Added 3-state panel height toggle (Normal `h-72`, Expanded `h-[420px]`, Minimized `h-9`) with maximize/restore buttons.
+  - **On-Chart Strategy Visuals & Bar Replay Synchronization (`CandlestickChart.tsx`, `ChartAdapter.ts`)**:
+    - Fixed Bar Replay candle cutting: memoized `displayedCandles` up to `replayIndex`, so entering replay or stepping forward genuinely cuts off future candles and reveals bars one-by-one just like TradingView Bar Replay.
+    - Trade markers sync only up to the replayed candle timestamp.
+    - Connected active running position rendering (`setRunningPosition`) with live entry tag, and `clearTradeFocus` when trade selection is cleared.
+    - Selecting any trade in the List of Trades zooms/scrolls to that trade and renders the TradingView Long/Short Position Box with emerald TP zone, crimson SL zone, entry line, and R:R label.
+  - **Enriched Simulation Engine Math (`simulationEngine.ts`, `workerRunner.ts`, `stats.ts`, `types.ts`)**:
+    - Tracked intra-trade excursions (MFE Run-up and MAE Drawdown) for every trade.
+    - Calculated `barsInTrade = exitBarIndex - entryBarIndex` and running `cumulativeProfit`.
+    - Computed All, Long, Short subset metrics, Buy & Hold benchmark return, Sharpe Ratio, and Sortino Ratio.
+    - Validated with unit tests in `src/lib/flexStrategy/engine/engine.test.ts`.
+
+- Enhanced Supabase Connection Resilience in EA Lab (`src/lib/prisma.ts`, `src/app/actions/eaLab.ts`):
+  - Hardened `withPrismaRetry`: expanded transient error detection to include `P1001`, `P1002`, `P1008`, `P1017`, `P2024`, `P2028`, `ECONNRESET`, `ETIMEDOUT`, `ENOTFOUND`, and `EAI_AGAIN`.
+  - Increased retry attempts to 3 with progressive exponential backoff (up to 3,000ms delay) allowing transient network glitches or Supabase PgBouncer reconnects to recover automatically.
+  - Added user-friendly, actionable error handling in `saveEaTestRun` and `updateEaTestRun` so users are informed of network hiccups without losing any parsed trades or form data.
+
+- Resolved React 19 `<Script>` tag console error in RootLayout (`src/app/layout.tsx`):
+  - Replaced Next.js `<Script strategy="beforeInteractive">` with a native static HTML `<script dangerouslySetInnerHTML={{...}} />` tag inside `<head>` in `RootLayout`.
+  - In React 19 / Next.js Turbopack, `next/script` is a Client Component boundary (`'use client'`); rendering `<script>` inside a client component triggers React 19's reconciler warning: *"Encountered a script tag while rendering React component. Scripts inside React components are never executed when rendering on the client."*
+  - Using a native static `<script>` tag directly in the server component `<head>` executes synchronously on the initial HTML payload to apply the stored `localStorage.theme` without FOUC, while completely eliminating the React 19 client reconciliation warning.
+
+- EA Lab Pairs Tab Numbered Dropdown & List Numbering (`http://localhost:3000/trading/ea-lab/[strategyId]`):
+  - **Numbered Pair Dropdown**: Added an interactive selector dropdown in the Pairs tab banner listing every tracked instrument with its fixed number index (`#1. EURUSD`, `#2. GBPUSD`, etc.) along with test run count and completed trades.
+  - **Single Pair Focus & Sequential Navigation**: Selecting any pair from the dropdown isolates that specific pair's test results, broker specifications, and trade logs, accompanied by Prev (`chevron_left`) and Next (`chevron_right`) chevron buttons with an active index counter (`#N of Total`) for rapid cycling.
+  - **Preserved List Numbering**: Enhanced pair numbering using static `p.pairNumber` so each pair maintains its true chronological rank whether viewed in the full aggregate list or filtered individually.
+  - **Show All Reset**: Convenient one-click "Show All" action to restore the full list view.
+
+  - **Hierarchical Subversion Organization in Code Tab Sidebar**:
+    - Replaced the flat list in the Code iterations sidebar with a tree hierarchy using `buildVersionTree(versions)`.
+    - Subversions (e.g., `v3 - Break Even`, `v3 - Session Trading`, `v3 - Ranging`, `v3 - Liquidity`) are rendered directly nested beneath the parent version from which they branched.
+    - Added an aesthetic purple tree connector line (`border-l-2 border-purple-500/40`), subversion counter pill, and subversion icon badge.
+    - Updated `AddVersionModal` with explicit parent version selection (`baseVersionId` and `baseVersionLabel`), embedding `[Parent: ...]` tags alongside subversion tags while cleanly preserving user change notes.
+  - **Interactive Version Flow Chart View (`@xyflow/react` + `dagre`)**:
+    - Built a full-screen interactive lineage flow chart powered by `@xyflow/react` (React Flow v12) and `dagre` layout engine.
+    - Toggleable between "Code Editor" and "Flow Chart" via a dedicated view mode switch in the top toolbar with a subversion count indicator badge.
+    - Custom `VersionNode` cards featuring version labels, subversion type badges, net P&L, win rate %, trade count, run count, code hash, and quick action buttons ("Inspect Code" and "+ Sub-Version").
+    - Directed visual graph with solid blue directional edges for sequential major version progression, and dashed purple curved edges labeled `↳ Subversion: [Type]` for branching subversions.
+    - Interactive controls: Dagre orientation toggle (Left-to-Right `LR` vs Top-to-Bottom `TB`), subversion filter pills, background grid, mini-map, zoom/pan controls, and seamless one-click jumping directly into the code editor for any inspected node.
+
+  - **De-Squeezed Run Edge Leaderboard**: Converted the cramped multi-column split in Section 4 into a full-width `min-w-[860px]` Run Edge Leaderboard table with spacious column padding, responsive typography, and dedicated two-column Diagnostics & Exits breakdown card below it.
+  - **Two Independent Accordions**:
+    - **Accordion #1 (Focused Pair Banner)**: Dedicated to the focused instrument (`currency_exchange`). The slim 44px summary bar displays runs combined, trades, win rate %, avg R, combined profit, and "Show All Pairs" link. Clicking it toggles the detailed statistics strip (Combined profit, Profit factor, Max drawdown, guidance) and interactive test run cards for that pair.
+    - **Accordion #2 (Strategy Verdict & Quantitative Diagnostics)**: Dedicated to the strategy verdict (`tune` / `check_circle`). Always visible in Section 1 across All Backtests, Single Pair, and Isolated Run scopes. Defaults to **open** so traders immediately see the full verdict, criteria checklist, "Generate AI Summary" button, and backtest heuristic warning cards without having to click, while retaining the ability to collapse it via "Hide Details" anytime.
+  - **Permanent Dual Dropdown Toolbar (Pair & Test Run)**:
+    - Ensured both the **Pair Dropdown** (`currency_exchange`) and **Test Run Dropdown** (`science`) remain permanently visible and active side-by-side in the toolbar at all times.
+    - Removed the fallback badge that previously replaced the Test Run dropdown with a static chip whenever a pair had only 1 test run. Now traders can always view and toggle runs directly through the dropdown interface.
+  - **Removed Quick Select Pills**: Cleanly removed the quick select pills bar under the toolbar, unifying instrument and run filtering under the dedicated hierarchical dropdowns.
+  - **Dynamic Scoped Version Comparison**: Wired the Section 5 "Version Comparison (v1 vs v2...)" table to dynamically recompute version performance based on the active focus scope (`selectedPair` or isolated `selectedRunId`). Versions untested on the active instrument display clean dashes and "Untested" badges without spurious negative deltas, and successive tested iterations calculate genuine delta improvements against the previous tested version.
+- Converted Section 4 to Run Performance & Edge Analysis on Single Pair Focus (`http://localhost:3000/trading/ea-lab/[strategyId]`):
+  - When focused on a single pair (`selectedPair !== 'all'`), the section converts from global "Pair Performance & Edge Analysis" to "Run Performance & Edge Analysis: [Pair]".
+  - **Spotlight Cards for Selected Pair**: Displays "Doing Well • Top Run" and "Doing Worse • Underperforming Run" spotlight cards featuring:
+    - Run # and Timeframe (e.g. `Run #2 (H1) · Rank #1`).
+    - EA Code Version pill (e.g. `Version: v1` or `v2`).
+    - Exact backtest run duration and date range (e.g. `Duration: 2.5 Months · 2026.01.01 → 2026.03.15`).
+    - Win Rate %, Avg R expectancy, Profit Factor, Total Trades, Net Profit, and return %.
+    - Quick "Focus Run #N" action button to isolate that specific test run with one click.
+  - **Run Edge Leaderboard Table**: Replaces the pair leaderboard with an interactive run-by-run ranking for the selected pair:
+    - Columns: Rank & Run, Code Version chip, Test Duration & Period, Status pill (Best Run, Worst Run, Doing Well, Doing Worse, Neutral), Win Rate & trade count, Avg R, Profit Factor, Net Profit, and Isolate / Focused action button.
+    - Filter pills to view "All", "Doing Well", or "Doing Worse" runs for this pair.
+  - Diagnostics and exit reasons (TP, SL, End of Test, manual/other, and filter skips) dynamically reflect the selected pair's runs.
+  - Preserved the global "Pair Performance & Edge Analysis" view across all pairs whenever `selectedPair === 'all'`.
+- Enhanced EA Lab Analysis Focus Scope & Quick Select on `http://localhost:3000/trading/ea-lab/[strategyId]`:
+  - Resolved repeated pairs in Quick Select by grouping all runs by unique pair symbol into `pairGroups`, eliminating duplicate pills.
+  - Implemented a hierarchical selection experience with a dedicated **Pair Dropdown** displaying each unique instrument once with test counts and net profit.
+  - Added a conditional **Test Run Dropdown** when a pair with multiple tests is selected, allowing traders to seamlessly switch between combined pair analysis ("All Tests for [Pair]") or isolating any individual test run ("Run #1", "Run #2", etc.). If a pair has only 1 test run, a clean badge indicates single test execution.
+  - Added dedicated Pair Focus Banner displaying combined test runs, total trades, win rate, aggregate net profit, and max drawdown whenever a multi-test pair is focused.
+- Resolved "Body exceeded 1 MB limit" Next.js Server Action runtime crash and client freeze on Strategy Tester log imports:
+  - In `next.config.ts`, configured `experimental.serverActions.bodySizeLimit: "20mb"` to accommodate multi-megabyte MT5 Strategy Tester logs spanning months of execution.
+  - In `src/app/actions/eaLab.ts`, refactored `saveEaTestRun` and `updateEaTestRun` to return lightweight summary descriptors (`{ success: true, testRun: { id, strategyId, symbol, tradesCount } }`) rather than serializing megabytes of `rawLog` across WebSocket/HTTP, wrapped actions in `withPrismaRetry` for database resilience, and introduced on-demand raw log fetching via `getTestRunRawLog`.
+  - In `src/app/trading/ea-lab/[strategyId]/page.tsx` and `src/app/trading/ea-lab/page.tsx`, stripped `rawLog` from server-side query payloads using explicit Prisma `select` fields, reducing initial page payload size by over 95%.
+  - In `src/components/ea-lab/AddRunModal.tsx` and `src/app/trading/ea-lab/new-run/AddRunFormStandalone.tsx`, replaced synchronous parser execution on keystroke with a 150ms debounced parser hook and live `isParsing` spinner, and added 10 trades per page pagination to the parsed trades preview table to prevent rendering thousands of unvirtualized DOM elements in memory.
+  - In `src/app/trading/ea-lab/[strategyId]/EaStrategyDetailClient.tsx`, memoized `availablePairs` and replaced `window.location.reload()` with `router.refresh()` for instant, seamless state updates on test run submission.
 - Synchronized the Postgres database schema with `prisma/schema.prisma` using `npx prisma db push`. This added the missing `videos` column to the `CreatorProject` table.
 - Verified that `prisma.creatorProject.findMany()` now queries the database successfully (returned 2 records).
 - Implemented direct video file upload to Cloudflare R2 on the Creator Details page and enabled HTTP Range partial request headers in the uploads API for seekable streaming.
@@ -17,4 +366,264 @@
 - Upgraded the batch video upload UX: the progress modal now shows a live "X of Y videos uploaded" counter embedded inside the spinner, a gradient progress bar, and all uploaded videos receive an `uploadedAt` ISO timestamp. Video cards now display a pulsing green "New Today" badge (overlay and inline chip) on any video uploaded on the current calendar day.
 - Overhauled the Speed Apply CV generation pipeline: upgraded the model from `gpt-4o-mini` to `gpt-4o` (temperature 0.4), completely rewrote the system prompt with 9 absolute ATS rules (JD keyword mirroring, mandatory metrics in every bullet, banned hollow phrases, power-verb enforcement, keyword saturation, skills ordered by JD relevance), and expanded the candidate base profile with full quantified project portfolio, quantified experience bullets, and work authorization details to produce consistently high ATS-match CVs.
 - Created the AI Quizzes tab on the Admin Dashboard (`http://localhost:3000/admin`), enabling users to post questions, notes, or topics, generate structured multiple-choice quizzes using `gpt-4o`, take interactive tests, get real-time score grading, and review detailed question-by-question AI explanations.
+- Built the "EA Lab" feature for MetaTrader 5 Strategy Tester benchmark tracking under `/trading/ea-lab`: added Prisma models (`EaStrategy`, `EaVersion`, `EaTestRun`, `EaTrade`, `EaDayJournal`, `EaPairNote`) synced via `prisma db push`, implemented pure log parser `src/lib/ea-lab/parse-log.ts` with passing unit tests, implemented deterministic metrics and heuristics `src/lib/ea-lab/metrics.ts` with passing unit tests, created Africa/Lagos daily grouping and UI tabs (Analysis with Recharts cumulative R curve, Daily Log accordion with run numbers #1, #2... and per-trade profit editor, Code with MQL5 syntax highlighter and diff viewer, and Pairs with broker quirks notes), added EA Lab to sidebar, and seeded sample data.
+- Resolved Prisma `P2028` transaction lease timeout on Supabase PgBouncer pooler during large tester run saves by replacing interactive transactions with Prisma's atomic nested relation creates (`trades: { create: [...] }`).
+- Implemented full editing and deletion of saved Strategy Tester Runs (`EditRunModal`, `updateEaTestRun`, `deleteEaTestRun`) with live re-parsing and recomputed metrics, and integrated rich Sonner toast notifications across all EA Lab creation and editing workflows (new strategy, new version, save test run, update run, delete run, day journal, trade profit, and pair notes).
+- Implemented Focus Scope controls on the EA Lab Analysis tab (`AnalysisTab.tsx`): users can choose to focus on "All Backtests (Aggregate)" or isolate any specific tester log run (`Run #1`, `Run #2`, etc.) via a dedicated dropdown or quick-select pills. When a run is isolated, the verdict heuristics, KPI cards (Net Profit, Win Rate, Expectancy/Avg R, Profit Factor, Max Drawdown, Consec Losses), cumulative R-multiple curve, pair performance, exits/skips diagnostics, and AI summary dynamically recompute specifically for that selected run and display an active run focus banner with its trade journal notes.
+- Fixed and hardened Strategy Tester log parsing in `src/lib/ea-lab/parse-log.ts`: added robust multi-format timestamp separation (supporting tab-separated, mixed tab/space, and space-only logs from MT5), handled pre-order deals (where MT5 logs `deal #N done` before `CTrade::OrderSend`), handled post-order tag attribution matching by order lots and price, gracefully extracted input sections with comments and separators, supported realistic stop loss / take profit trigger formats, and enabled automatic net profit estimation based on trade R-multiples and risk settings when Strategy Tester logs are truncated or omit an explicit `final balance` line.
+- Added comprehensive Account Capital, Profit & Return, Risk Per Trade, and Backtest Duration metrics to the EA Lab Analytics page (`AnalysisTab.tsx`): added a dedicated 4-card Capital & Duration Profile strip displaying Full Trading Balance (starting deposit vs. ending balance with leverage), Profit Made with exact return % against initial account size, Risk Per Trade (% of account size and max dollar risk per setup derived from inputs), and the dynamic backtest duration period cleanly calculated and formatted in Days, Months, or Years with date range boundaries across individual runs or aggregate backtests.
+- Hardened `parse-log.ts` trade extraction: trades are now created from `market buy/sell` lines (confirmed by CTrade::OrderSend/deal, no double counting), positions are closed via SL/TP lines or by reconciling opposite same-size deals (EA/end-of-test closes), robust `final balance` parsing, and new exported `applyTradeProfits` estimates per-trade P/L (lots x price move, calibrated to real net profit when a final balance is known; else R x risk). `AddRunModal` has a manual "real final balance" input that recalibrates trade profits.
+- Enhanced the Pairs tab (`PairsTab.tsx`): added sequential numbering badges (`#1`, `#2`, `#3`...) to each documented instrument, connected full backtest runs (`runs={runs}`), and embedded a comprehensive test run results section for every pair showing run number, tested date, timeframe, period duration in days/months/years, balance progression (starting → final balance), net profit and return percentage, trade count, win rate, expectancy (Avg R), profit factor, risk per trade, journal notes, and an expandable interactive table to inspect all completed trades with tickets, directions, lots, entry/SL/TP, exit reasons, and R-multiples.
+- Overhauled MT5 Strategy Tester log parser (`src/lib/ea-lab/parse-log.ts`):
+  - Step 1 Diagnosis: Identified that previous code paired exits by array/line sequence rather than entry deal ticket ID `#N`, relied on trigger/order SL prices rather than closing deal fill prices, lacked symbol contract size multipliers, and used heuristic scaling instead of mechanical calculations.
+  - Step 2 Implementation: Fixed `splitLogIntoRuns` to reliably separate multi-run logs at `testing of Experts\...` headers; anchored trades on `deal #N sell|buy <lots> <symbol> at <price> done`; paired exits specifically to `#N` entry deal tickets; extracted exact fill prices from bracketed closing deal `#M` lines; implemented mechanical profit calculation `(exit - entry) * lots * contractSize` (buy) and `(entry - exit) * lots * contractSize` (sell); introduced `reconciliationDiff` to transparently capture difference between broker net profit and mechanical trade profit sum.
+- Resolved "0 Trades Parsed (UNKNOWN)" in Edit Strategy Tester Run modal (`EditRunModal.tsx`):
+  - Diagnosed that when re-parsing multi-run or raw logs, `EditRunModal` only parsed `parsed[0]` and lacked run selector pills, leaving users stuck on Run #1 when pasting combined or custom logs, while fallback symbol detection left the symbol as `UNKNOWN` if synchronization lines preceded the chunk.
+  - Upgraded `EditRunModal.tsx` to handle multi-run logs with interactive run selectors (`Run #1`, `Run #2`...), auto-populating all fields (symbol, timeframe, deposit, final balance, leverage, trades, period) and falling back cleanly to the modal's active symbol if parsed symbol is `UNKNOWN`.
+- Implemented 10 trades per page pagination in EA Lab (`DailyLogTab.tsx` and `PairsTab.tsx`):
+  - In `DailyLogTab.tsx`, each executed run's expanded trade table now slices trades to `10/page` with independent per-run pagination state (`runTradePages`), preserving 1-based sequential indices, interactive profit editing, and full R-multiple styling.
+  - Added modern pagination controls showing current range ("Showing 1-10 of 22 trades"), previous/next buttons, and direct numeric page selector buttons.
+  - Mirrored the 10/page trade pagination into the expandable trade inspector tables in `PairsTab.tsx`.
+- Built the "flexStrategy" MVP suite under route `/flexStrategy`:
+  - Extended Prisma schema with `FsProject`, `FsStrategyVersion`, `FsSimulation`, and `FsChatMessage` models.
+  - Built core simulation engine (`src/lib/flexStrategy/engine/`) with next-bar open fills, intrabar SL/TP execution, indicators (SMA, EMA, ATR, RSI, Highest, Lowest, VWAP), stats math, and sandboxed Web Worker runner with 2-second timeout.
+  - Built full unit tests (`src/lib/flexStrategy/engine/engine.test.ts`) covering indicators, fill execution, SL/TP triggers, and KPI math.
+  - Built clean candle data interface (`getCandles`) supporting bundled synthetic XAUUSD 5m candles and custom CSV uploads.
+  - Created interactive candlestick chart (`CandlestickChart.tsx`) with Buy/Sell markers, PnL badges, dashed trade lines, and SL/TP overlays.
+  - Built replay toolbar with step, play/pause, reset, and speed controls (1x, 2x, 5x).
+  - Built live auto-generated parameters panel (`ParametersPanel.tsx`) debounced by 300ms.
+  - Implemented AI Copilot chat (`/flexStrategy/api/chat`) with Groq model, strategy JSON extractor, and 50-bar dry-run auto-repair loop.
+  - Created Bottom Tabs for Trades inspection, Stats & SVG equity curve sparkline, Version history with rollback, and Generated Script view.
+  - Built Dashboard (`/flexStrategy/dashboard`), Workspace (`/flexStrategy/project/[id]`), Auth (`/flexStrategy/login`, `/flexStrategy/signup`), and Landing page (`/flexStrategy`).
+  - Added Export modal with JSON download and MetaTrader 5 (.mq5) skeleton translator stub.
+- Added TradingView-style timeframes switcher and Technical Indicators system to flexStrategy:
+  - Extended timeframes to `1m`, `3m`, `5m`, `15m`, `30m`, `1h`, `4h`, `1d` with TradingView quick-select buttons and dropdown categorized by Minutes, Hours, and Days.
+  - Fixed timeframe switching bug by wiring `generateSampleXauusdCandles` to compute candle timestamps and price moves for the selected timeframe interval, allowing seamless switching.
+  - Implemented TradingView-style `fx Indicators` button and modal (`IndicatorsModal.tsx`) allowing users to search and add indicators (SMA, EMA, VWAP, Highest/Lowest Channel, RSI, ATR) with custom colors and periods.
+- Enhanced Timeframe Switching to actively transform the chart and simulation:
+  - Scaled volatility, wave periods, spreads, and volume in `sampleData.ts` based on selected timeframe (`1m` through `1d`), ensuring noticeable candle structure differences between higher and lower timeframes.
+  - Added dynamic time/date axis ticks (`MM/DD HH:mm`) on the chart's bottom bar reflecting the timeframe's true bar spacing.
+  - Added a TradingView watermark (`SYMBOL · TIMEFRAME`) on the canvas background.
+  - Configured `WorkspaceClient.tsx` to automatically re-run the strategy and reset bar replay whenever timeframe or candles change.
+- Enhanced Chart Navigation with Interactive Zoom & Pan:
+  - Implemented mouse wheel zoom (scroll up to zoom in, scroll down to zoom out) dynamically adjusting the visible candlestick window.
+  - Implemented click-and-drag horizontal panning to scroll through past historical bars.
+- Upgraded Chart Aesthetics & Added Line Chart (Area):
+  - Redesigned candlesticks to match TradingView's authentic dark theme palette: `#089981` (emerald teal) for bullish bodies & wicks, and `#f23645` (crimson red) for bearish bodies & wicks, with crisp border strokes and proportional wick widths.
+  - Added TradingView-style Chart Type toggle buttons (Candles icon vs Line icon) in the toolbar.
+  - Built high-fidelity Area Line Chart mode with a 2px royal blue line (`#2962ff`), luminous gradient area fill, and a live tracking dot at the latest close.
+- Transformed XAU/USD (Gold) Synthetic Price Engine into Authentic Market Microstructure:
+  - Replaced artificial sine-wave oscillations and constant slopes in `sampleData.ts` with a realistic seeded PRNG (Mulberry32) modeling true XAUUSD price action.
+  - Calibrated Gold price levels to real-world trading ranges (~$2,654 - $2,724, ~$70 daily range) with realistic ATR scaling per timeframe (1m through 1d).
+  - Modeled genuine Gold session regimes: Asian consolidation range, London Judas liquidity sweep below Asian lows with long lower pinbar rejection wicks, London trend expansion with impulsive displacement legs & pullbacks, NY morning surge & exhaustion climax shooting star wick, institutional bearish market structure shift, and afternoon balanced retracement.
+  - Implemented authentic candlestick morphology with natural wick-to-body ratios, momentum marubozus, liquidity grab pinbars, and realistic volume distribution.
+- Implemented Full Database Persistence & Upgraded Technical Indicators in flexStrategy:
+  - Built persistent backend API endpoint `/flexStrategy/api/project/[id]` using Prisma (`FsProject`, `FsStrategyVersion`, and `FsChatMessage`) to save and load project configuration, symbol, timeframe, active parameters, strategy versions, and chat messages directly in PostgreSQL.
+  - Connected `WorkspaceClient.tsx` to automatically hydrate from the database on page mount, persist AI chat messages and version creations upon generation, and sync parameters, symbol, and timeframe updates. Added instant local storage caching for indicators and chart view types.
+  - Upgraded indicator rendering in `CandlestickChart.tsx`: mapped full replay candle history to indicator calculations so lines start immediately without being clipped by zoom/pan offsets, added live indicator value tags on the right price scale, and gave subpanel oscillators (RSI, ATR) dedicated bottom margin space with TradingView-style 70/30 boundary lines, 50-midline, and dynamic value readings.
+- Fixed the "Run Strategy" button execution flow on FlexStrategy project workspaces (`/flexStrategy/project/[id]`):
+  - Diagnosed that `ChartToolbarProps` was missing `isRunning` and `onUploadCsv` type definitions in `ChartToolbar.tsx`.
+  - Replaced nested template literal interpolation syntax inside the Web Worker inline script (`WORKER_INLINE_SOURCE`) with clean string concatenation, preventing syntax and execution crashes when compiling user strategy code inside the Web Worker sandbox.
+  - Enhanced worker message error handling in `workerRunner.ts` to surface compilation/runtime error details instead of silently failing, while seamlessly falling back to synchronous in-thread simulation if Web Worker Blob execution fails or times out.
+  - Hardened version hydration in `WorkspaceClient.tsx` so that initial/loaded strategy versions always guarantee valid executable code (preventing placeholder `function onBar(ctx) { ... }` stubs from blocking runs).
+- Separated Daily Logs by Versions with Interactive Sidebar in EA Lab (`DailyLogTab.tsx`):
+  - Added a dedicated Version Navigation Sidebar on the Daily Log tab allowing users to isolate logs to "All Versions", specific iterations (e.g. `v1`, `v2`...), or "Unassigned".
+  - Sidebar cards display each version's total test run count, trade count, and net PnL badge.
+  - Dynamically recalculates daily groups, daily aggregate metrics (Win Rate, Expectancy, PnL), and journal entries according to the selected version scope.
+  - Added an active filter banner showing the selected version iteration with a one-click reset to view all versions.
+  - Added version badges (`v1`, `v2`...) to individual run headers within the daily stream for immediate visual clarity.
+- Added TradingView Long/Short Position indicators & Chart Drawing Suite in FlexStrategy (`CandlestickChart.tsx`):
+  - Upgraded simulation engine and worker runner (`simulationEngine.ts`, `workerRunner.ts`, `types.ts`) to preserve explicit stop loss (`sl`), take profit (`tp`), and `runningPosition` across all executed and active trades.
+  - Implemented high-fidelity TradingView Long / Short Position tool rendering directly onto the candlestick chart:
+    - Long trades render an emerald green target zone (`TP: ... +pips`), crimson stop-loss zone (`SL: ... -pips`), crisp entry line (`Open: ...`), and central dark-glass pill showing Risk/Reward ratio (e.g. `R:R 2.00`) and closed PnL.
+    - Short trades render a crimson stop-loss zone above entry and an emerald green target zone below entry.
+    - Active running positions render with a pulsing status badge, real-time unrealized PnL, and live candle tracking.
+  - Built left-docked TradingView Drawing Toolbar with 8 interactive tools:
+    - Cursor / Pan navigation
+    - Trendline (2-point interactive ray with endpoints and dashed preview)
+    - Horizontal Support/Resistance ray (places dashed line across chart with live price pill on the right scale)
+    - Rectangle / Order Block zone (2-point translucent box with stroke)
+    - Manual Long Position calculator tool (places interactive 1:2 R:R Long position box at clicked candle/price)
+    - Manual Short Position calculator tool (places interactive 1:2 R:R Short position box at clicked candle/price)
+    - Trade Position Boxes display toggle ("All Trades", "Selected Only", "Hidden")
+- Implemented Collapsible Sidebars for Parameters and AI Copilot in FlexStrategy Workspace (`WorkspaceClient.tsx`, `ParametersPanel.tsx`, `StrategyChatPanel.tsx`):
+  - Added independent collapsible states for both the Parameters panel and the AI Strategy Copilot panel.
+  - When collapsed, each panel minimizes into a sleek 40px vertical sidebar rail displaying an expand button (`chevron_left`), colored tool icon (`tune` / `smart_toy`), and vertical tracking label (`PARAMETERS` / `COPILOT AI`).
+  - Added header collapse buttons (`dock_to_right` icon) in both panel headers for direct one-click collapse.
+  - Added top navigation quick-toggle pills (`Parameters` and `AI Copilot`) with active state badges to expand/collapse either panel from anywhere.
+  - When both panels are collapsed, the candlestick chart expands to take up 100% full width of the screen.
+- Enhanced Collapsible Sidebars with Smooth Animation and Chart Auto-Resize (`CandlestickChart.tsx`, `ParametersPanel.tsx`, `StrategyChatPanel.tsx`):
+  - Refactored sidebar containers to use smooth 300ms CSS width transitions (`transition-[width] duration-300 ease-in-out`) between collapsed (40px) and expanded (288px / 384px) states.
+  - Implemented `ResizeObserver` on the candlestick chart container in `CandlestickChart.tsx` to continuously monitor pixel dimensions on every animation frame, smoothly re-scaling the canvas and maintaining responsive geometry without layout shift.
+- Built Mobile MT5-Style Trades Terminal & Renamed Completed Trades to History (`BottomTabs.tsx`, `WorkspaceClient.tsx`):
+  - Renamed the completed trades list to **"History"** (`History (${trades.length})`).
+  - Added a dedicated **"Trades"** tab displaying an authentic MetaTrader 5 mobile trading terminal:
+    - Top card displays real-time account capital: **Balance**, **Equity**, **Free margin**, **Margin**, and large highlighted **Floating P/L**.
+    - Active open positions render with symbol, order direction & lots (e.g. `buy 1.00`), open price `→` live price, `SL`, `TP`, ticket ID, and live profit.
+    - Clean empty state when no positions are open, waiting for strategy entry signals.
+- Built Interactive Chart Drawing Tools & Dual-Layer Persistence in FlexStrategy (`CandlestickChart.tsx`, `WorkspaceClient.tsx`, `/api/project/[id]`, PostgreSQL):
+  - Made all chart drawing tools (Horizontal Ray, Trendline, Rectangle / Order Block, Long Position, Short Position) fully interactive, movable, and resizable.
+  - Implemented precise hit-testing (`findDrawingAt`) and context-sensitive cursor updates (`move`, `ns-resize`, `ew-resize`, `crosshair`, `nwse-resize`).
+  - Added interactive drag handles when any drawing is selected (TP level circle, SL level circle, entry handle, width stretching handle, corner handles).
+  - Dragging the body of any tool translates it across time and price; dragging individual handles adjusts price levels or span.
+  - Added a top-right floating indicator toolbar for selected drawings with a one-click Delete button, along with keyboard `Delete` / `Backspace` shortcut listeners.
+  - Implemented dual-layer persistence: drawings are saved locally in `localStorage` under `fs_drawings_${projectId}_${symbol}` for instant offline resilience and asynchronously persisted to PostgreSQL (`FsProject.chartDrawings` jsonb column) via `POST /flexStrategy/api/project/[id]` so progress seamlessly carries over across revisits, reloads, and browser restarts.
+- Resolved Transient Supabase PgBouncer Pooler Disconnects (P1001) in EA Lab (`src/lib/prisma.ts`, `src/app/trading/ea-lab/[strategyId]/page.tsx`, `src/app/trading/ea-lab/page.tsx`, `src/app/trading/ea-lab/new-run/page.tsx`):
+  - Diagnosed that Supabase Transaction Mode pooler on port 6543 closes idle TCP sockets; when Next.js Turbopack re-uses a dead cached socket, it threw `Can't reach database server at aws-1-eu-central-2.pooler.supabase.com:6543`.
+  - Built `withPrismaRetry` in `src/lib/prisma.ts` which detects transient connection drops (`P1001`, socket resets, timeouts), performs clean `prisma.$disconnect()` / `prisma.$connect()`, and retries operations.
+  - Wrapped server component queries in StrategyDetailPage, EaLabOverviewPage, and NewRunPage with `withPrismaRetry` for uninterrupted page rendering.
+- Implemented Animated 3-Line Clamped Description with "Read more" / "Show less" in EA Lab Strategy Detail (`EaStrategyDetailClient.tsx`):
+  - Clamped lengthy strategy descriptions to 3 lines by default (`max-h-[3.9rem]`) with a smooth dark gradient fade mask on the bottom edge.
+  - Dynamically calculates whether the description exceeds 3 lines (`scrollHeight > 64px`) to only render the toggle when necessary.
+  - Added an animated "Read more" / "Show less" toggle button with a rotating chevron indicator (`transition-transform duration-300`) and smooth container reveal animation (`transition-[max-height] duration-500 ease-in-out`).
+  - Added `whitespace-pre-line` formatting so multi-line and multi-paragraph strategy notes display cleanly structured paragraphs.
+- Implemented Interactive Backtest Start Point Selection in FlexStrategy (`simulationEngine.ts`, `workerRunner.ts`, `ChartToolbar.tsx`, `CandlestickChart.tsx`, `WorkspaceClient.tsx`):
+  - Added support for starting backtest and bar replay from any arbitrary candle/bar on the chart.
+  - Indicator Warmup: Bars preceding the selected start bar are preserved in `historySlice` to calculate moving averages (e.g. EMA 20), ATR, and channel indicators so signals on the starting bar do not fail from lookback truncation.
+  - Added a dedicated "[📍 Set Start]" button on the Chart Toolbar that toggles into picking mode with visual feedback.
+  - Interactive Canvas Guide: Moving the cursor across the chart renders a live cyan dashed guide line and bar tag (`📍 Set Start (Bar #N)`).
+  - Clicking any candle anchors the backtest start point with a prominent vertical cyan dashed line (`#06b6d4`), anchor badge (`▶ START (Bar #N)`), and downward pointer.
+  - Keyboard shortcut `Escape` or the floating banner's "Cancel" button exits picking mode.
+  - Persistence: The selected start point is immediately saved to `localStorage` under `fs_backtest_start_${projectId}` so it persists across page reloads, and replay automatically starts from the selected bar.
+- Connected AI Copilot with Full Live Strategy Context & Groq Integration (`src/app/flexStrategy/api/chat/route.ts`, `StrategyChatPanel.tsx`, `WorkspaceClient.tsx`):
+  - Fixed Groq model targeting to active model `qwen/qwen3.8-27b` (verified with HTTP 200).
+  - Deep Strategy Context Prompt: The AI Copilot now receives the active strategy name, version (`vN`), symbol, timeframe, backtest start point bar, active adjustable parameter values, full parameter schema, complete latest backtest stats (total trades, win rate, net profit, profit factor, max drawdown, expectancy), and the live JavaScript `onBar` code.
+  - Added a live synchronization banner in `StrategyChatPanel.tsx` (`🟢 Live Sync: vN <Name>`) displaying active version and stats.
+  - Added interactive quick-prompt suggestion chips: "💡 Explain Logic", "🎯 Optimize SL/TP", "📈 Add 50 EMA", "⚠️ Diagnose Losses", and "📊 Add RSI".
+- Implemented Multi-Layer Chart & Simulation History Persistence (`getCandles.ts`, `WorkspaceClient.tsx`):
+  - Cached candle datasets per project, symbol, and timeframe (`fs_candles_${projectId}_${symbol}_${timeframe}`) and general project key.
+  - Persisted simulation snapshots (`fs_sim_history_${projectId}`) with stats, trade counts, and start bar index for zero-latency reload recovery.
+- Synchronized Running Trades & Replay Positions with MT5 Terminal & Chart (`WorkspaceClient.tsx`, `CandlestickChart.tsx`, `BottomTabs.tsx`):
+  - Solved why running trades were not appearing in the MT5 Mobile "Trades" tab: previously, `runningPosition` was only read from the simulation's end-of-data bar; during bar replay or mid-backtest, active trades were missing from the running trades terminal and prematurely shown in History.
+  - Dynamically computed `activeReplayPosition`: identifies any trade whose `entryTime <= currentTime && exitTime > currentTime` during replay (or open positions at end-of-data), piping it directly into both the Candlestick Chart and MT5 Mobile Trades terminal.
+  - Filtered `visibleCompletedTrades` in both the Chart and History tab so only trades that have legitimately closed at or before the current replay candle appear in completed History.
+  - Dynamically recalculated MT5 Mobile terminal equity metrics (`balance`, `equity`, `free margin`, `margin level`, and real-time ticking `floating P/L`) per replay candle.
+- Added Interactive Time & Price Scale Adjustment Suite for Chart Clarity (`CandlestickChart.tsx`):
+  - Vertical Price Scale Dragging: Clicking and dragging up/down on the right price axis dynamically expands or compresses the vertical price range (`priceScaleFactor` from 0.15x to 8.0x), stretching or compressing candle heights in place around the price center without moving the chart.
+  - Horizontal Time Scale Dragging: Anchored horizontal zoom around the focal center candle (`focalIndex`) — dragging right zooms in (expands candle width) and dragging left zooms out (compresses bars), adjusting `panOffset` simultaneously so candles expand/contract symmetrically in place without laterally moving or sliding the chart.
+  - Anchored `handleZoom` for toolbar buttons and mouse wheel: keeps the focal center bar stationary during zoom in/out.
+  - Auto-Fit & Reset Gestures: Double-clicking either axis resets that specific axis to default auto-scale. Added an authentic TradingView-style interactive `AUTO` scale button at the bottom-right corner junction that pulses when customized and auto-fits both axes upon click.
+  - Live HUD Feedback: Added real-time floating indicator badges during scale drag showing the exact multiplier (`↕ Price Zoom: 1.45x`, `↔ Time Zoom: 45 bars`) and context-sensitive `ns-resize` and `ew-resize` cursors with subtle hover highlight strips.
+- Added Instant "Clear Test" Simulation Reset Controls & Refresh Persistence (`ChartToolbar.tsx`, `BottomTabs.tsx`, `WorkspaceClient.tsx`, `CandlestickChart.tsx`):
+  - Added dedicated "Clear Test" (`mop` icon) buttons to both the top Chart Toolbar and Bottom Tabs header strip.
+  - Clears all executed simulation trades, removes trade entry/exit arrows ('B'/'S') and TradingView long/short boxes from the chart canvas, resets the MT5 Mobile Trades terminal and History log to 0, resets equity curve sparklines and KPI stats, and purges cached snapshots.
+  - Persisted cleared backtest state across page refreshes (`fs_sim_cleared_${projectId}` flag) so refreshing the browser preserves the cleared state without auto-running until the user explicitly clicks "Run Strategy" or changes parameters.
+  - Complemented with Drawing Suite controls: Trade Position Boxes Visibility toggle (`all` / `selected` / `none`) and "Clear Drawings" button (`delete_sweep`).
+- Implemented TradingView Chart Layer with KLineChart Adapter (`src/lib/chart/ChartAdapter.ts`, `src/lib/chart/resample.ts`, `CandlestickChart.tsx`, `ChartToolbar.tsx`):
+  - Created decoupled `IChartAdapter` interface and `KLineChartAdapter` class at `src/lib/chart/ChartAdapter.ts` enabling zero-friction future swap-in for TradingView Charting Library.
+  - Implemented exact TradingView dark theme: background `#131722`, grid `#1e222d`, up candle `#26a69a`, down candle `#ef5350`, text `#d1d4dc`.
+  - Built left vertical drawing toolbar: Cursor (Crosshair), Trendline, Horizontal Line, Ray, Rectangle, Fibonacci Retracement, Long Position Tool, Short Position Tool, Text, Measure, Lock, Hide All, and Eraser.
+  - Built multi-timeframe candle resampler (`src/lib/chart/resample.ts` & `getCandles.ts`) generating accurate timestamps and OHLC transformations between `1m`, `5m`, `15m`, `1h`, `4h`, and `1D` so drawings remain anchored to identical timestamp and price coordinates across all timeframes.
+  - Wired top bar controls: symbol selector, quick timeframe buttons, chart type toggle (candles / area line), indicators menu (`fx Indicators`), undo/redo buttons, and screenshot capture.
+  - Rendered top-left live OHLC legend updating on hover, bottom Volume sub-pane, right price scale last-price label with dashed tracking line, and live candle close countdown badge.
+  - Restricted trade markers to small Buy/Sell entry and exit arrows, rendering full SL/TP zone boxes and P&L labels only when a trade is selected or focused.
+- Completed Step 1 (Real Data) & Step 2 (Timeframe Resampling) for flexStrategy:
+  - Eliminated generated/synthetic price engine from `getCandles.ts` in favor of a single real base dataset per symbol with persistence.
+  - Implemented `src/lib/data/csvImporter.ts` with comprehensive support for MT5 "Export Bars" (tab-separated with <DATE> <TIME> <OPEN>... columns) and plain CSVs, strict ascending chronological validation, zero-range/negative price prevention, duplicate timestamp rejection, and exact row-number error messages. Verified with 100% passing unit tests in `src/lib/data/csvImporter.test.ts`.
+  - Implemented `src/lib/data/resample.ts` with `resample(baseCandles, targetTf)` aggregating open=first, high=max, low=min, close=last, volume=sum, UTC time bucketing, partial last bucket handling, no look-ahead, and `isAllowedMultiple(baseTf, targetTf)`. Verified with 100% passing unit tests in `src/lib/data/resample.test.ts`.
+  - Added Data Status Line on the chart header: `XAUUSD • 5m base • 288 candles • 2024-10-10 → 2024-10-10`.
+- Implemented 14 Algorithmic Strategy Categories & Left Tab Navigation in EA Lab (`/trading/ea-lab`):
+  - Defined comprehensive methodology configurations in `src/lib/ea-lab/categories.ts` covering all 14 core trading frameworks with exact numbering (#1 to #14), main idea descriptions, tailored icons, and color accents:
+    1. Trend Following
+    2. Pullback Trading
+    3. Market Structure (SMC/ICT)
+    4. Supply and Demand
+    5. Liquidity-Based Trading
+    6. Breakout Trading
+    7. Opening-Range Breakout
+    8. Momentum Trading
+    9. Mean Reversion
+    10. Fibonacci Retracement
+    11. Order Flow and Volume Analysis
+    12. Wallet Activity and On-Chain Analysis
+    13. News and Event-Based Trading
+    14. Hybrid / Confluence Strategies
+  - Implemented Left-Side Tab Sidebar in `EaLabOverviewClient.tsx` where "All Categories" starts first, followed by each of the 14 methodology categories with live counts, search filter, and active indicator styling.
+  - Added Category Spotlight Hero Banner dynamically revealing the category number badge, title, highlighted Main Idea quote box (`💡 Main Idea: ...`), and category-specific KPIs (Active EAs, Backtests, Executed Trades, Net Profit).
+  - Built interactive "Methodology Matrix" modal displaying the full 14-framework cheat sheet table with one-click filtering to any category.
+  - Added category assignment support in `CreateStrategyModal.tsx` and detail client badge in `EaStrategyDetailClient.tsx`.
+  - Added Closeable / Collapsible Sidebar toggle (`isSidebarOpen`) with `localStorage` persistence and smooth 300ms CSS width transition (`transition-[width] duration-300 ease-in-out`) that collapses the sidebar from full width (`w-80`) into a slim icons-only rail (`w-[68px]`) displaying centered category icons, micro number badges, count tags, and rich floating hover tooltips, while allowing the strategy grid to expand smoothly.
+  - Resolved multi-category strategy duplication: updated `getStrategyCategory` and `matchStrategyCategory` to enforce strict single-category resolution (explicit assignment first, followed by scored keyword attribution with a minimum confidence threshold) so each strategy belongs to exactly one category, added an "Uncategorized" filter, and added a quick Category Reassignment modal on each strategy card.
+  - Eliminated all scrollbars and prevented card clipping: added global `.no-scrollbar`, `.hide-scrollbar`, and `.scrollbar-none` utilities in `globals.css` with `!important` overriding universal `*` rules, reinforced with inline styles (`scrollbarWidth: none`, `msOverflowStyle: none`); enabled `overflow-visible` in collapsed mode to eliminate horizontal/vertical scrollbars; elevated `<aside>` and sticky container to `z-40`, buttons to `hover:z-50`, and tooltips to `z-[100]` with `ring-1 ring-white/10` and `backdrop-blur-md` floating at `top-1/2 -translate-y-1/2` cleanly above `<main>`'s `z-10` layer so hover previews and the sidebar are never covered or clipped by strategy cards.
+  - Streamlined header controls: removed the top bar "Expand Categories" and "Methodology Matrix" buttons, as well as the sidebar footer methodology guide link, leaving the top bar cleanly focused on primary actions ("New Strategy" and "Add Test Run") while keeping the dock toggle inside the sidebar header.
+  - Built the "Strategy Library" feature (`/trading/library`):
+    - Added "Library" navigation item with `local_library` icon in `src/components/Sidebar.tsx`.
+    - Curated the complete "12 trading strategies worth testing in your bot" taxonomy in `src/lib/trading/libraryData.ts` across 4 core frameworks: A. Trend-Following (#1 EMA Trend Following, #2 Donchian Channel Breakout, #3 HTF Trend + LTF Pullback), B. Momentum (#4 Price Momentum, #5 RSI Pullback, #6 MACD Momentum Confirmation), C. Breakout (#7 Support & Resistance Breakout + Retest, #8 Opening Range Breakout, #9 Liquidity Sweep + MSS), and D. Mean-Reversion (#10 Bollinger Bands, #11 Z-Score Mean Reversion with LaTeX formula breakdown, #12 Statistical Arbitrage / Pairs Trading).
+    - Designed interactive Left Category Navigation Sidebar in `LibraryClient.tsx` supporting seamless switching across main categories (All, A, B, C, D), search filtering, difficulty pills (Easy, Intermediate, Advanced), and quick-jump anchors.
+    - Implemented Image Attachment & Setup Gallery for each strategy: created `/api/trading/library/images` supporting multipart file uploads (saved to `public/uploads/library/`) and direct TradingView/web image URLs, persistent client-side storage (`localStorage`), thumbnail galleries with delete actions, and a high-resolution Fullscreen Lightbox modal.
+    - Added "Version Control" and "Bot QA Checklist" tabs across all 3 key views:
+      - Strategy Library (`/trading/library`): 3 top tabs (`12 Bot Strategies`, `Version Control`, `Bot QA Checklist`).
+      - EA Strategy Tester Lab (`/trading/ea-lab`): 3 top tabs (`EA Strategies`, `Version Control`, `Bot QA Checklist`) situated below the top header banner with counts and quick switching.
+      - EA Strategy Detail (`/trading/ea-lab/[strategyId]`): 6 tabs (`Analysis`, `Daily Log`, `Code`, `Pairs`, `Version Control`, `Checklist`) with context-aware `initialStrategyId` filtering.
+      - `VersionControlTab.tsx`: Tracks iterations, releases, parameter diffs, and changelogs across strategies with status tiers (`Production`, `Demo Testing`, `Backtest Iteration`, `Deprecated`), metrics recording (Win Rate, Profit Factor, Max Drawdown), code references, search/strategy filters, and an interactive "Log New Version" modal with `localStorage` persistence.
+      - `ChecklistTab.tsx`: Algorithmic Bot Validation & Pre-Flight Deployment QA protocol organized into 4 critical phases (Phase 1: Formulation & Mechanical Rules, Phase 2: Backtest Rigor, Phase 3: Forward Demo, Phase 4: Live Risk Guardrails) with interactive checkboxes, severity levels, live readiness verdict badge, progress bar, audit notes drawer, report clipboard export, and custom check creation.
+- Overhauled the Version Control Tab (`src/components/trading-library/VersionControlTab.tsx`) with Master-Detail architecture:
+  - **Left-Side Version Sidebar**: Displays interactive vertical tabs of all available code versions (`v1.0.0`, `v1.1.0`, `v1.2.0`, `v2.0.0`...) with status pills, pair badges, and real-time checklist progress counters, alongside a search bar, status filters (`All`, `Prod`, `Test`, `Backtest`), and "+ New Version" modal creation.
+  - **Right-Side Active Version Workspace**:
+    - **Editable Description & Strategy Hypotheses**: In-place editable textarea for documenting architectural changes, logic improvements, and strategy goals with instant "Save Description" persistence.
+    - **Target Pairs Manager ("Pairs to Try with It")**: Interactive tag system showing active instruments (`XAUUSD`, `EURUSD`, `US30`...) with remove buttons, custom symbol input, and 1-click quick-add chips for popular assets.
+    - **Strategy Coverage Checklist ("Checklist I Want the Strategy to Cover")**: Progress bar tracking coverage %, interactive checkboxes with category tags (`Entry`, `Exit`, `Risk Guard`, `Filter`), "+ Add Check" form with category selection, and quick-add suggestion chips for core algorithmic rules (e.g. 4H Trend Alignment, Breakeven at 1R, ATR Trailing Stop, Daily Drawdown Cap, Spread Protection).
+- Customized the phases in the Checklist Tab (`src/components/trading-library/ChecklistTab.tsx`) to match the quantitative bot development lifecycle:
+  1. **Normal**: Core mechanical rules, indicator triggers, parameter parsimony, and higher-timeframe trend alignment.
+  2. **Volatility**: Dynamic ATR stop/target scaling, spread & slippage friction buffers, chop filters, and abnormal volatility spike circuit breakers.
+  3. **Session**: Session window confinement (London/NY/Overlap), opening range isolation, end-of-session auto-flattening, and Asian range benchmark targets.
+  4. **Economic Calendar**: Tier 1 high-impact news blackout buffers (CPI/NFP/FOMC), speech cancellation rules, holiday guards, and calendar API sync.
+  5. **Performance Analytics**: Sample size (>= 100 trades), positive expectancy (> +0.25R), profit factor (> 1.30), out-of-sample forward testing, and Monte Carlo ruin probability.
+  6. **Position Manager**: Mandatory server-side hard stops, fractional lot sizing (<= 1.0% equity), automated breakeven at 1R, trailing stop engines, and daily loss circuit breakers (3.0% cap).
+  - Updated filter chips, phase progress counters, grouped displays, and modal creation to seamlessly use these 6 phases with automatic backward-compatible schema normalization.
+- Resolved checklist resurrection issue across Checklist and Version Control tabs (`ChecklistTab.tsx`, `VersionControlTab.tsx`):
+  - Diagnosed root causes: (1) `localStorage` loading logic checked `parsed.length > 0`, treating an empty array `[]` (when all items were deleted) as missing state and falling through to legacy keys or `DEFAULT_CHECKLIST`, resurrecting items; (2) `VersionControlTab`'s `normalizeVersionItem` forced 6 default checklist items if `item.checklist.length === 0`; (3) switching strategies or re-initializing keys could re-seed default items that a user had already deleted.
+  - Implemented persistent deleted items tracker (`trading_library_checklist_deleted_ids`) that immediately purges deleted check IDs across all checklist and version storage keys, ensuring deleted criteria never resurrect.
+  - Updated storage checks to verify `stored !== null && Array.isArray(parsed)`, preserving empty states (`[]`), and cleanly removing legacy storage keys upon migration.
+- Redesigned Checklist Tab (`ChecklistTab.tsx`) with Left-Side Category Navigation Sidebar & Empty Starting State:
+  - Removed all hardcoded dummy checklist seed items so the checklist starts completely empty (`[]`), giving users a clean canvas to create their own verification rules from scratch.
+  - Built interactive Left Categories Navigation Sidebar with tabs for **"All Categories"** and the 6 phases (**Normal**, **Volatility**, **Session**, **Economic Calendar**, **Performance Analytics**, **Position Manager**), displaying real-time `${checked}/${total}` counters, icons, and active styling.
+- Resolved `PrismaClientKnownRequestError: The column ea_strategies.category does not exist in the current database`:
+  - Diagnosed that `@prisma/client` retained a stale `category: 'category'` field definition on `EaStrategy` while `prisma/schema.prisma` and the Postgres database store categories serialized inside the `description` text (`[Category: ...]`), causing default `SELECT *` queries via Prisma's `include` to fail.
+  - Replaced open `include` queries with explicit `select` trees in `src/app/trading/ea-lab/page.tsx` and `src/app/trading/ea-lab/[strategyId]/page.tsx` selecting only valid database columns (`id`, `name`, `description`, `createdAt`, `updatedAt`, `versions`, `testRuns`, `dayJournals`, `pairNotes`).
+  - Purged the stale `category` enum field from `@prisma/client` artifacts (`index.js`, `edge.js`, `wasm.js`, `index-browser.js`, `index.d.ts`).
+- Resolved "Version Control tab not showing available versions" in EA Lab Strategy Detail (`VersionControlTab.tsx`, `EaStrategyDetailClient.tsx`, `EaLabOverviewClient.tsx`):
+  - Diagnosed that `VersionControlTab` previously only recognized static library strategies (`LIBRARY_STRATEGIES`), and filtered out all EA strategies when `initialStrategyId` was passed because none of the seed versions matched database strategy IDs (e.g. `cmv5d7tga00002sncabe43lge`), rendering an empty list with "0 of 4 Available Versions".
+  - Extended `VersionControlTab` with props for `strategyName`, `strategyVersions` (`EaVersion[]`), `strategyOptions`, `defaultPairs`, and `runs`.
+  - Built `combinedStrategies` uniting the active strategy, all EA Lab database strategies, and Library strategies into a single registry for all filters and modals.
+  - Implemented automatic EA version hydration: synthesizes and persists version entries for each code version from Prisma (`EaVersion`) or creates a baseline `v1.0.0` version with target benchmark pairs and 6 core algorithmic testing rules, guaranteeing versions are always available for checklist and pair testing.
+  - Enabled full target pairs management ("Pairs to Try with It") with quick-add chips, custom symbol input, and removal, and coverage checklist ("Checklist I Want the Strategy to Cover") with progress tracking, category badges, and quick-add suggestions.
+  - Upgraded the "+ New Version" modal and strategy dropdowns so creating and filtering versions for any EA Lab strategy works seamlessly.
+- Implemented In-Place Source Code Editing on EA Lab Code Page and Removed Edit Version Name (`CodeTab.tsx`, `eaLab.ts`, `schemas.ts`):
+  - Removed all "Edit Version Name", "Rename", and sidebar hover edit triggers from `CodeTab.tsx`.
+  - Built `updateVersionCodeSchema` and server action `updateEaVersionCode` in `eaLab.ts` allowing persistent code updates and automatic SHA-256 fingerprint recalculation on `EaVersion` in PostgreSQL.
+  - Implemented full in-place MQL5 code editing in `CodeTab.tsx`:
+    - "Edit Code" action toggle with clean "● Editing Code" banner and Cancel/Save controls.
+    - Synchronized line numbers gutter that updates dynamically as lines are typed or removed.
+    - Full-width monospace editor with Tab indentation support (inserts 2 spaces) and `Ctrl+S` / `Cmd+S` quick save.
+    - Real-time SHA-256 fingerprint preview and line/character count status strip.
+    - Inline change notes input to record what was modified in the code edit.
+    - Instant local state update and Sonner toast notifications upon saving.
+- Removed Duplicate "Edit Code" Button on EA Lab Code Page (`CodeTab.tsx`):
+  - Removed the redundant "Edit Code" button from the top toolbar, keeping only the primary "Edit Code" button located inside the code viewer panel header next to "Copy" where code editing is natively scoped and controlled.
+- Integrated Associated Pairs Selector with `add_chart` and Automatic Pairs Table Persistence (`AddRunModal.tsx`, `AddRunFormStandalone.tsx`, `PairsTab.tsx`, `eaLab.ts`):
+  - Connected `saveEaTestRun` and `updateEaTestRun` server actions to automatically upsert any tested symbol into `prisma.eaPairNote` (`ea_pair_notes` table in Postgres), guaranteeing all backtested instruments are persistently stored and displayed on the Pairs tab.
+  - Added dedicated "Select Associated Pair" section with `add_chart` icon in `AddRunModal.tsx` and `AddRunFormStandalone.tsx`: displays all pairs currently documented on the Pairs tab for the chosen strategy as 1-click selectable chips (`add_chart <symbol>`), automatically detects and selects canonical pair names from pasted logs, highlights the active choice with a blue badge (`Selected: <symbol>`), and includes a custom pair override input.
+  - Added quick associated pairs overview strip above the log paste input in `AddRunModal.tsx` and `AddRunFormStandalone.tsx` so users can see all existing pairs on the Pairs tab before pasting.
+- Added Financial Performance (Amount Made & Loss) Breakdown per Code Version on Code Tab (`CodeTab.tsx`, `EaStrategyDetailClient.tsx`):
+  - Passed backtest runs to `CodeTab` and implemented deterministic calculation of Net Result P&L, Total Amount Won (Gross Gains), Total Amount Lost (Gross Losses), Win Rate %, Return %, and Expectancy in R per code version.
+  - Added financial badges to each version card in the left sidebar (`Won: +$X`, `Lost: -$Y`, `Net P&L: +$Z (+R%)`, run/trade counts).
+  - Built a 4-card KPI performance strip in the main code viewer header displaying Net Result, Total Amount Won, Total Amount Lost, and Win Rate/Expectancy for the active code version.
+- Implemented Code Version Deletion with Confirmation Modal and Cascade Safety in EA Lab (`CodeTab.tsx`, `eaLab.ts`, `schemas.ts`):
+  - Created `deleteVersionSchema` in `schemas.ts` and `deleteEaVersion` server action in `eaLab.ts` with Next.js path revalidation.
+  - Added "Delete" action button in the code viewer panel header next to "Copy" and quick-delete trash icon on version cards in the sidebar.
+  - Built a confirmation modal displaying version label, backtest run count warning if runs are linked, and destructive confirmation handling with instant local state update and redirection to remaining versions.
+- Implemented Sub-Versions for Strategy Codes across 5 Algorithmic Regimes (`subVersions.ts`, `AddVersionModal.tsx`, `CodeTab.tsx`):
+  - Defined 5 distinct sub-version variants with tailored colors, icons, and descriptions:
+    1. **Normal** (`tune`, blue): Standard / Base mechanical rules without extra filters.
+    2. **Break Even** (`shield_lock`, emerald): Automated breakeven stop loss adjustments (e.g. at 1R or target pips).
+    3. **Session Trading** (`schedule`, purple): Trading confined to specific sessions (London, NY Open).
+    4. **Ranging** (`swap_horiz`, amber): Consolidation & chop filters (ADX, Bollinger, boundary tests).
+    5. **Liquidity** (`water_drop`, cyan): Liquidity sweep, stop hunt, and institutional wick manipulation filters.
+  - Upgraded `AddVersionModal` with interactive 5-card sub-version selector, intuitive automatic label suggestions (`v1 - Break Even`), and seamless metadata serialization in `changeNotes`.
+  - Added "+ Sub-Version" branching button in `CodeTab.tsx` header to instantly create a new variant inheriting the active code.
+  - Added interactive Sub-Version filter chips (`All`, `Normal`, `Break Even`, `Session`, `Ranging`, `Liquidity`) with dynamic count badges in the version sidebar and colored tags on version cards and the main code viewer header.
+
+
+
 

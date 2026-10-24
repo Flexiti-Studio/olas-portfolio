@@ -6,8 +6,9 @@ import { SummaryTable } from "./components/SummaryTable";
 import { CategoryColumn } from "./components/CategoryColumn";
 import { IncomeColumn } from "./components/IncomeColumn";
 import { TransactionsTable } from "./components/TransactionsTable";
-import { Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams, usePathname } from "next/navigation";
+import AdminSidebar from "@/components/admin/AdminSidebar";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -19,12 +20,52 @@ const queryClient = new QueryClient({
 });
 
 export default function BudgetStrategyPageWrapper() {
-  return (
+  const pathname = usePathname() || "";
+  const isStandalone = pathname.startsWith("/admin/budget-strategy");
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 1024) {
+        setIsSidebarOpen(false);
+      }
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  const content = (
     <QueryClientProvider client={queryClient}>
       <Suspense fallback={<div className="animate-pulse h-screen w-full bg-slate-900"></div>}>
         <BudgetStrategyPage />
       </Suspense>
     </QueryClientProvider>
+  );
+
+  if (!isStandalone) {
+    return content;
+  }
+
+  return (
+    <div className="bg-zinc-950 text-white min-h-screen relative overflow-x-hidden">
+      {/* Career Hub Main Admin Sidebar */}
+      <AdminSidebar
+        activeTab="budget-strategy"
+        isSidebarOpen={isSidebarOpen}
+        setIsSidebarOpen={setIsSidebarOpen}
+      />
+
+      {/* Main Content Area */}
+      <main
+        className={`min-h-screen transition-all duration-300 ease-in-out ${
+          isSidebarOpen ? "md:ml-64" : "md:ml-20"
+        }`}
+      >
+        <div className="max-w-7xl mx-auto">
+          {content}
+        </div>
+      </main>
+    </div>
   );
 }
 
@@ -138,31 +179,126 @@ function BudgetStrategyPage() {
     );
   }
 
-  const isEditable = data.periodId === data.activePeriodId;
+  const isEditable = true; // Allow checking off items and managing goals on any viewed month
+  const isSnapshot = data.periodId !== data.activePeriodId || Boolean(data.isSnapshot);
+
+  const totalAllocated = (data.groups?.NEEDS?.totalGoal || 0) + 
+                         (data.groups?.SAVINGS?.totalGoal || 0) + 
+                         (data.groups?.WANTS?.totalGoal || 0);
+  const totalUsed = data.totalUsed ?? 0;
+  const totalBalanceRemaining = data.totalBalance ?? (data.totalIncome - totalUsed);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-200 p-4 md:p-8">
+    <div className="min-h-screen bg-slate-950 text-slate-200 p-3 sm:p-5 md:p-8">
       {/* Header Row */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-        <h1 className="text-2xl md:text-3xl font-bold text-white">Budget Strategy</h1>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+        <div>
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">Budget Strategy</h1>
+            {isSnapshot ? (
+              <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                Archived Snapshot
+              </span>
+            ) : (
+              <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                Active Month
+              </span>
+            )}
+          </div>
+          <p className="text-xs sm:text-sm text-slate-400 mt-1">
+            {isSnapshot ? (
+              `Historical snapshot for ${data.periodLabel} • ${data.usedCount ?? 0} of ${data.totalItemsCount ?? 0} items marked used`
+            ) : (
+              `50/30/20 monthly budgeting • ${data.usedCount ?? 0} of ${data.totalItemsCount ?? 0} items marked used`
+            )}
+          </p>
+        </div>
+
         <div className="w-full md:w-auto">
           <PeriodSelector currentPeriodId={data.periodId} />
         </div>
       </div>
 
+      {/* Financial Health & Live Balance Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
+        {/* Total Income */}
+        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 sm:p-4 shadow-sm">
+          <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
+            Total Income
+          </div>
+          <div className="text-lg sm:text-2xl font-black text-emerald-400">
+            ₦{data.totalIncome.toLocaleString()}
+          </div>
+          <div className="text-[11px] text-slate-500 mt-1">
+            {data.incomes?.length || 0} income streams
+          </div>
+        </div>
+
+        {/* Total Used / Spent (Checked items + Expenses) */}
+        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 sm:p-4 shadow-sm">
+          <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
+            Total Used / Spent
+          </div>
+          <div className="text-lg sm:text-2xl font-black text-slate-100">
+            ₦{totalUsed.toLocaleString()}
+          </div>
+          <div className="text-[11px] text-emerald-400 font-medium mt-1">
+            ✓ {data.usedCount || 0} items checked used
+          </div>
+        </div>
+
+        {/* Total Balance Remaining (Reduces when items are checked!) */}
+        <div className={`rounded-2xl p-3.5 sm:p-4 shadow-md border ${
+          totalBalanceRemaining >= 0 
+            ? "bg-gradient-to-br from-emerald-950/40 to-slate-900 border-emerald-800/40" 
+            : "bg-gradient-to-br from-red-950/40 to-slate-900 border-red-800/40"
+        }`}>
+          <div className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1 flex items-center justify-between">
+            <span>Total Balance</span>
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-black/30 font-mono">Live</span>
+          </div>
+          <div className={`text-lg sm:text-2xl font-black ${
+            totalBalanceRemaining >= 0 ? "text-emerald-300" : "text-red-400"
+          }`}>
+            ₦{totalBalanceRemaining.toLocaleString()}
+          </div>
+          <div className="text-[11px] text-slate-400 mt-1">
+            {totalBalanceRemaining >= 0 ? "Remaining to spend" : "Budget deficit"}
+          </div>
+        </div>
+
+        {/* Total Goal Allocated */}
+        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 sm:p-4 shadow-sm">
+          <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
+            Goal Allocated
+          </div>
+          <div className="text-lg sm:text-2xl font-black text-indigo-300">
+            ₦{totalAllocated.toLocaleString()}
+          </div>
+          <div className="text-[11px] text-slate-500 mt-1">
+            {data.totalItemsCount || 0} budget categories
+          </div>
+        </div>
+      </div>
+
       {/* Summary Table block */}
-      <div className="mb-8">
+      <div className="mb-6 sm:mb-8">
         <SummaryTable totalIncome={data.totalIncome} groups={data.groups} strategy={data.strategy} periodId={data.periodId} />
       </div>
 
-      {!isEditable && (
-        <div className="mb-6 p-4 bg-yellow-900/30 border border-yellow-700/50 rounded-lg text-yellow-400 font-medium">
-          You are viewing a past period ({data.periodLabel}). Goals are read-only.
+      {isSnapshot && (
+        <div className="mb-6 p-3.5 sm:p-4 bg-amber-950/30 border border-amber-800/40 rounded-xl text-amber-300 text-xs sm:text-sm font-medium flex items-center justify-between flex-wrap gap-2">
+          <span>
+            📁 <strong>Archived Monthly Snapshot ({data.periodLabel}):</strong> Goals and checkmarks are preserved as historical records.
+          </span>
+          <span className="text-[11px] text-amber-400/80 bg-amber-900/40 px-2 py-0.5 rounded-md">
+            DB Snapshot
+          </span>
         </div>
       )}
 
       {/* Two-column layout to prevent squeezing */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         <IncomeColumn incomes={data.incomes} totalIncome={data.totalIncome} onIncomeDeleted={handleGoalUpdated} />
         
         <CategoryColumn 
@@ -171,8 +307,9 @@ function BudgetStrategyPage() {
           categories={data.groups.NEEDS.categories}
           totalGoal={data.groups.NEEDS.totalGoal}
           totalActual={data.groups.NEEDS.totalActual}
-          periodLabel={data.periodId} // Reused periodId down the line for POSTs
-          isEditable={isEditable}
+          periodLabel={data.periodLabel}
+          periodId={data.periodId}
+          isEditable={true}
           onGoalUpdated={handleGoalUpdated} 
         />
         
@@ -182,8 +319,9 @@ function BudgetStrategyPage() {
           categories={data.groups.SAVINGS.categories}
           totalGoal={data.groups.SAVINGS.totalGoal}
           totalActual={data.groups.SAVINGS.totalActual}
-          periodLabel={data.periodId}
-          isEditable={isEditable}
+          periodLabel={data.periodLabel}
+          periodId={data.periodId}
+          isEditable={true}
           onGoalUpdated={handleGoalUpdated} 
         />
         
@@ -193,8 +331,9 @@ function BudgetStrategyPage() {
           categories={data.groups.WANTS.categories}
           totalGoal={data.groups.WANTS.totalGoal}
           totalActual={data.groups.WANTS.totalActual}
-          periodLabel={data.periodId}
-          isEditable={isEditable}
+          periodLabel={data.periodLabel}
+          periodId={data.periodId}
+          isEditable={true}
           onGoalUpdated={handleGoalUpdated} 
         />
       </div>

@@ -12,6 +12,7 @@ interface CategoryColumnProps {
   totalGoal: number;
   totalActual: number;
   periodLabel: string;
+  periodId?: string;
   isEditable: boolean;
   onGoalUpdated: (subcategoryId: string, newGoal: number) => void;
 }
@@ -23,6 +24,7 @@ export function CategoryColumn({
   totalGoal,
   totalActual,
   periodLabel,
+  periodId,
   isEditable,
   onGoalUpdated
 }: CategoryColumnProps) {
@@ -56,20 +58,34 @@ export function CategoryColumn({
     }
   };
 
-  const overallRemaining = totalGoal - totalActual;
+  // Calculate used items and used amount in this group (checked items + expenses)
+  const allSubcats = categories.flatMap((c) => c.subcategories || []);
+  const usedCount = allSubcats.filter((s) => s.isUsed).length;
+  const totalCount = allSubcats.length;
+  const groupUsedAmount = allSubcats.reduce((sum, s) => sum + (s.usedAmount ?? (s.isUsed ? Math.max(s.goal, s.actual) : s.actual)), 0);
+  const overallRemaining = totalGoal - groupUsedAmount;
   const isOverspent = overallRemaining < 0;
 
   return (
-    <div className="flex flex-col bg-slate-900 rounded-lg overflow-hidden border border-slate-800">
+    <div className="flex flex-col bg-slate-900 rounded-2xl overflow-hidden border border-slate-800 shadow-md">
       {/* Group Header */}
-      <div className={`p-4 ${themeColor} text-white`}>
-        <h3 className="font-bold text-lg uppercase tracking-wider">{title}</h3>
-        <div className="flex justify-between items-center mt-2 text-sm">
-          <span>Goal: ₦{totalGoal.toLocaleString()}</span>
-          <span>Actual: ₦{totalActual.toLocaleString()}</span>
+      <div className={`p-4 sm:p-5 ${themeColor} text-white`}>
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <h3 className="font-bold text-base sm:text-lg uppercase tracking-wider">{title}</h3>
+          {totalCount > 0 && (
+            <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-white/20 backdrop-blur-xs">
+              {usedCount}/{totalCount} Used
+            </span>
+          )}
         </div>
-        <div className="mt-1">
-          <span className={`text-xs font-semibold px-2 py-1 rounded bg-white/20`}>
+
+        <div className="flex justify-between items-center mt-2.5 text-xs sm:text-sm font-medium">
+          <span>Goal: ₦{totalGoal.toLocaleString()}</span>
+          <span>Used/Spent: ₦{groupUsedAmount.toLocaleString()}</span>
+        </div>
+
+        <div className="mt-2 flex items-center justify-between">
+          <span className={`text-xs font-semibold px-2.5 py-1 rounded-lg ${isOverspent ? "bg-red-950/60 text-red-200 border border-red-800/40" : "bg-black/20 text-white/90"}`}>
             {overallRemaining >= 0 
               ? `Available to spend: ₦${overallRemaining.toLocaleString()}` 
               : `Overspent: ₦${Math.abs(overallRemaining).toLocaleString()}`}
@@ -78,16 +94,17 @@ export function CategoryColumn({
       </div>
 
       {/* Categories List */}
-      <div className="p-4 space-y-6">
+      <div className="p-3 sm:p-4 space-y-5">
         {categories.map((cat, catIdx) => (
-          <div key={cat.id}>
-            <div className="flex justify-between items-center mb-2 pb-1 border-b border-slate-700">
-              <h4 className="font-semibold text-slate-300">{catIdx + 1}. {cat.name}</h4>
-              <span className="text-xs text-slate-500">
-                Goal: {cat.totalGoal.toLocaleString()} | Actual: {cat.totalActual.toLocaleString()}
+          <div key={cat.id} className="bg-slate-950/40 rounded-xl p-2.5 sm:p-3 border border-slate-800/60">
+            <div className="flex justify-between items-center mb-2.5 pb-1.5 border-b border-slate-800">
+              <h4 className="font-semibold text-slate-200 text-xs sm:text-sm">{catIdx + 1}. {cat.name}</h4>
+              <span className="text-[11px] text-slate-400">
+                Goal: ₦{cat.totalGoal.toLocaleString()} | Spent: ₦{cat.totalActual.toLocaleString()}
               </span>
             </div>
-            <div className="space-y-1">
+            
+            <div className="space-y-2">
               {cat.subcategories.map((sub: any, subIdx: number) => (
                 <SubcategoryRow
                   key={sub.id}
@@ -99,14 +116,19 @@ export function CategoryColumn({
                   actual={sub.actual}
                   remaining={sub.remaining}
                   periodLabel={periodLabel}
+                  periodId={periodId || periodLabel}
+                  initialIsUsed={Boolean(sub.isUsed)}
                   isEditable={isEditable}
                   onGoalUpdated={onGoalUpdated}
+                  onUsedToggled={() => {
+                    if (onGoalUpdated) onGoalUpdated("", 0);
+                  }}
                 />
               ))}
 
               {/* Add Subcategory UI */}
               {isEditable && (
-                <div className="pt-2">
+                <div className="pt-1.5">
                   {addingCatId === cat.id ? (
                     <div className="flex items-center gap-2 mt-2">
                       <input
@@ -120,19 +142,19 @@ export function CategoryColumn({
                           if (e.key === "Escape") setAddingCatId(null);
                         }}
                         disabled={isSavingSubcat}
-                        className="flex-1 bg-slate-800/50 border border-slate-700 rounded px-2 py-1 text-sm text-slate-200"
+                        className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs sm:text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
                       />
                       <button
                         onClick={() => handleAddSubcategory(cat.id)}
                         disabled={isSavingSubcat || !newSubcatName.trim()}
-                        className="px-2 py-1 bg-emerald-600 hover:bg-emerald-500 rounded text-xs font-semibold text-white disabled:opacity-50"
+                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-xs font-semibold text-white disabled:opacity-50 transition-colors"
                       >
                         {isSavingSubcat ? <Loader2 className="w-3 h-3 animate-spin" /> : "Save"}
                       </button>
                       <button
                         onClick={() => { setAddingCatId(null); setNewSubcatName(""); }}
                         disabled={isSavingSubcat}
-                        className="px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded text-xs text-slate-300"
+                        className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-xs text-slate-300 transition-colors"
                       >
                         Cancel
                       </button>
@@ -140,9 +162,9 @@ export function CategoryColumn({
                   ) : (
                     <button
                       onClick={() => setAddingCatId(cat.id)}
-                      className="flex items-center text-xs text-slate-500 hover:text-emerald-400 transition-colors mt-2"
+                      className="flex items-center text-xs font-medium text-slate-400 hover:text-emerald-400 transition-colors py-1 px-1.5 rounded hover:bg-slate-800/50 mt-1"
                     >
-                      <Plus className="w-3 h-3 mr-1" /> Add Subcategory
+                      <Plus className="w-3.5 h-3.5 mr-1 text-emerald-500" /> Add Subcategory
                     </button>
                   )}
                 </div>

@@ -11,11 +11,13 @@ export async function GET(req: NextRequest) {
     const type = url.searchParams.get("type");
     const tag = url.searchParams.get("tag");
     const projectId = url.searchParams.get("projectId");
+    const isFavourite = url.searchParams.get("isFavourite");
 
     const where: any = {};
     if (type) where.type = type;
     if (tag) where.tags = { has: tag };
     if (projectId) where.projectId = projectId;
+    if (isFavourite === "true") where.isFavourite = true;
 
     const entries = await prisma.knowledgeEntry.findMany({
       where,
@@ -32,14 +34,14 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { content, type = "KNOWLEDGE", tags = [], projectId } = body;
+    const { content, type = "KNOWLEDGE", tags = [], projectId, isFavourite = false } = body;
 
     if (!content) {
       return NextResponse.json({ success: false, error: { message: "content is required" } }, { status: 400 });
     }
 
     const entry = await prisma.knowledgeEntry.create({
-      data: { content, type, tags, projectId, source: "dashboard", vectorId: "pending" }
+      data: { content, type, tags, projectId, isFavourite, source: "dashboard", vectorId: "pending" }
     });
     
     await prisma.knowledgeEntry.update({

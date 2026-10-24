@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, Calendar, Sparkles, Archive, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 interface Period {
@@ -24,7 +24,7 @@ export function PeriodSelector({ currentPeriodId }: PeriodSelectorProps) {
   const [isRestoreMode, setIsRestoreMode] = useState(false);
   const [newLabel, setNewLabel] = useState("");
 
-  useEffect(() => {
+  const loadPeriods = () => {
     fetch("/api/budgeting/strategy/period?list=true")
       .then(r => r.json())
       .then(data => {
@@ -35,11 +35,23 @@ export function PeriodSelector({ currentPeriodId }: PeriodSelectorProps) {
         setLoading(false);
       })
       .catch(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadPeriods();
   }, []);
 
+  const navigateToPeriod = (pId: string) => {
+    const url = new URL(window.location.href);
+    url.searchParams.set("periodId", pId);
+    if (window.location.pathname === "/admin") {
+      url.searchParams.set("tab", "budget-strategy");
+    }
+    router.push(url.pathname + "?" + url.searchParams.toString());
+  };
+
   const handlePeriodChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const pId = e.target.value;
-    router.push(`/admin/budget-strategy?periodId=${encodeURIComponent(pId)}`);
+    navigateToPeriod(e.target.value);
   };
 
   const handleCreatePeriod = async (e: React.FormEvent) => {
@@ -63,7 +75,7 @@ export function PeriodSelector({ currentPeriodId }: PeriodSelectorProps) {
       if (data.success) {
         setIsModalOpen(false);
         setNewLabel("");
-        router.push(`/admin/budget-strategy?periodId=${data.data.period.id}`);
+        navigateToPeriod(data.data.period.id);
         router.refresh();
       } else {
         alert(data.error?.message || "Failed to create period");
@@ -76,89 +88,124 @@ export function PeriodSelector({ currentPeriodId }: PeriodSelectorProps) {
 
   const openModal = (isRestore: boolean = false) => {
     setIsRestoreMode(isRestore);
+    // Suggest next month's name
+    if (!isRestore) {
+      const d = new Date();
+      d.setMonth(d.getMonth() + 1);
+      const suggestedName = d.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+      setNewLabel(suggestedName);
+    } else {
+      setNewLabel("");
+    }
     setIsModalOpen(true);
   };
 
   if (loading) {
-    return <div className="animate-pulse h-10 w-48 bg-slate-800 rounded"></div>;
+    return <div className="animate-pulse h-10 w-48 bg-slate-800 rounded-xl"></div>;
   }
 
   const isViewingPastPeriod = currentPeriodId && currentPeriodId !== activePeriodId;
 
   return (
-    <div className="flex items-center gap-4">
-      <select 
-        value={currentPeriodId} 
-        onChange={handlePeriodChange}
-        className="bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm text-slate-200"
-      >
-        {periods.map(p => (
-          <option key={p.id} value={p.id}>
-            {p.label} {p.id === activePeriodId ? "(Active)" : ""}
-          </option>
-        ))}
-      </select>
+    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full sm:w-auto">
+      {/* Month Selector dropdown */}
+      <div className="relative flex-1 sm:w-56">
+        <div className="absolute left-3 top-2.5 pointer-events-none text-slate-400">
+          <Calendar className="w-4 h-4" />
+        </div>
+        <select 
+          value={currentPeriodId} 
+          onChange={handlePeriodChange}
+          className="w-full bg-slate-800/90 border border-slate-700 hover:border-slate-600 rounded-xl pl-9 pr-8 py-2 text-xs sm:text-sm font-medium text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-colors"
+        >
+          {periods.map(p => (
+            <option key={p.id} value={p.id}>
+              {p.label} {p.id === activePeriodId ? "• (Active)" : "• (Snapshot)"}
+            </option>
+          ))}
+        </select>
+      </div>
 
-      {isViewingPastPeriod && (
+      {/* Action Buttons */}
+      {isViewingPastPeriod ? (
         <button 
           onClick={() => openModal(true)}
           disabled={isCreating}
-          className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white px-4 py-2 rounded text-sm font-medium flex items-center"
+          className="bg-emerald-600 hover:bg-emerald-500 active:scale-95 disabled:opacity-50 text-white px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center justify-center gap-1.5 shadow-md shadow-emerald-950/40 transition-all"
         >
-          {isCreating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-          Set as active
+          {isCreating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Archive className="w-3.5 h-3.5" />}
+          Restore as Active
         </button>
-      )}
-
-      {!isViewingPastPeriod && (
+      ) : (
         <button 
           onClick={() => openModal(false)}
           disabled={isCreating}
-          className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-4 py-2 rounded text-sm font-medium flex items-center"
+          className="bg-indigo-600 hover:bg-indigo-500 active:scale-95 disabled:opacity-50 text-white px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center justify-center gap-1.5 shadow-md shadow-indigo-950/40 transition-all whitespace-nowrap"
+          title="Snapshot current month and start new fresh month"
         >
-          {isCreating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-          Start New Period
+          {isCreating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+          New Month Snapshot
         </button>
       )}
 
-      {/* Custom Modal */}
+      {/* Snapshot / Rollover Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-700 rounded-lg shadow-xl w-full max-w-md mx-4 p-6 overflow-hidden relative">
-            <h3 className="text-lg font-semibold text-white mb-2">
-              {isRestoreMode ? "Restore Period" : "Start New Period"}
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl w-full max-w-md p-5 sm:p-6 relative">
+            <h3 className="text-lg font-bold text-white mb-1.5 flex items-center gap-2">
+              {isRestoreMode ? (
+                <>
+                  <Archive className="w-5 h-5 text-emerald-400" />
+                  Restore Period Snapshot
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-5 h-5 text-indigo-400" />
+                  Start New Month & Save Snapshot
+                </>
+              )}
             </h3>
-            <p className="text-sm text-slate-400 mb-6">
-              Enter a name for your new budget period (e.g. "August 2026").
+
+            <p className="text-xs sm:text-sm text-slate-400 mb-5 leading-relaxed">
+              {isRestoreMode ? (
+                "This will duplicate the selected snapshot into a new active month with your recorded goals."
+              ) : (
+                "A permanent snapshot of the current month (with all used checkmarks & logged expenses) will be archived to the database. The new month will begin as a fresh, unmarked copy with your goals carried over."
+              )}
             </p>
-            <form onSubmit={handleCreatePeriod}>
-              <div className="mb-6">
+
+            <form onSubmit={handleCreatePeriod} className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                  New Month Name
+                </label>
                 <input
                   type="text"
                   autoFocus
-                  placeholder="Period Label"
+                  placeholder="e.g. November 2026"
                   value={newLabel}
                   onChange={(e) => setNewLabel(e.target.value)}
                   disabled={isCreating}
-                  className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
                 />
               </div>
-              <div className="flex justify-end gap-3">
+
+              <div className="flex justify-end gap-2.5 pt-2">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
                   disabled={isCreating}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded text-sm font-medium text-slate-300 disabled:opacity-50 transition-colors"
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-750 rounded-xl text-xs sm:text-sm font-medium text-slate-300 disabled:opacity-50 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isCreating || !newLabel.trim()}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded text-sm font-medium text-white disabled:opacity-50 flex items-center transition-colors"
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-xs sm:text-sm font-semibold text-white disabled:opacity-50 flex items-center gap-1.5 shadow-lg shadow-indigo-900/40 transition-colors"
                 >
-                  {isCreating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                  {isRestoreMode ? "Restore & Start" : "Start Period"}
+                  {isCreating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                  {isRestoreMode ? "Restore & Activate" : "Snapshot & Start"}
                 </button>
               </div>
             </form>
