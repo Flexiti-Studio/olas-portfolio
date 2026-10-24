@@ -6,8 +6,7 @@ async function test() {
   try {
     const res = await generateScenesAction({
       story: "Most small businesses in Lagos do not lose customers because of price. They lose them in the inbox.",
-      templateId: "explainer",
-      formatId: "16:9"
+      templateId: "explainer"
     });
     console.log("Success:", res);
   } catch(e: any) {

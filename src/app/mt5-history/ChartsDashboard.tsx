@@ -95,7 +95,7 @@ export default function ChartsDashboard({ trades }: { trades: TradeData[] }) {
                 contentStyle={{ backgroundColor: '#111827', borderColor: '#374151', color: '#fff', borderRadius: '8px' }}
                 itemStyle={{ color: '#60a5fa' }}
                 labelStyle={{ color: '#9ca3af', marginBottom: '4px' }}
-                formatter={(value: number) => [`$${value}`, 'Cumulative Profit']}
+                formatter={(value: any) => [`$${value}`, 'Cumulative Profit']}
               />
               <Area 
                 type="monotone" 
@@ -125,7 +125,7 @@ export default function ChartsDashboard({ trades }: { trades: TradeData[] }) {
                 <Tooltip 
                   cursor={{ fill: '#1f2937' }}
                   contentStyle={{ backgroundColor: '#111827', borderColor: '#374151', color: '#fff', borderRadius: '8px' }}
-                  formatter={(value: number) => [`$${value}`, 'Profit']}
+                  formatter={(value: any) => [`$${value}`, 'Profit']}
                 />
                 <Bar dataKey="value" radius={[4, 4, 0, 0]}>
                   {
@@ -161,7 +161,7 @@ export default function ChartsDashboard({ trades }: { trades: TradeData[] }) {
                 </Pie>
                 <Tooltip 
                   contentStyle={{ backgroundColor: '#111827', borderColor: '#374151', color: '#fff', borderRadius: '8px' }}
-                  formatter={(value: number) => [value, 'Trades']}
+                  formatter={(value: any) => [value, 'Trades']}
                 />
                 <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
               </PieChart>

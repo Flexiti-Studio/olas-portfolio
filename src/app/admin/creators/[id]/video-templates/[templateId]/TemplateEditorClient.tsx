@@ -65,7 +65,7 @@ export default function TemplateEditorClient({
   const [importJsonText, setImportJsonText] = useState("");
 
   const { register, control, handleSubmit, watch, getValues, reset, formState: { errors, isDirty } } = useForm<VideoTemplateData>({
-    resolver: zodResolver(VideoTemplateSchema),
+    resolver: zodResolver(VideoTemplateSchema) as any,
     defaultValues
   });
 

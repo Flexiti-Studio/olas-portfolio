@@ -53,7 +53,7 @@ export default function CumulativeProfitChart({ trades }: { trades: { closeTime:
               contentStyle={{ backgroundColor: '#111827', borderColor: '#374151', color: '#fff', borderRadius: '8px' }}
               itemStyle={{ color: '#60a5fa' }}
               labelStyle={{ color: '#9ca3af', marginBottom: '4px' }}
-              formatter={(value: number) => [`$${value}`, 'Cumulative Profit']}
+              formatter={(value: any) => [`$${value}`, 'Cumulative Profit']}
             />
             <Area 
               type="monotone" 

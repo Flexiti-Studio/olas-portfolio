@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Loader2, Wand2, Maximize, Layers } from "lucide-react";
 
 export default function StoryView({ projectId }: { projectId: string }) {
-  const { story, setStory, templateId, setTemplateId, setView, setScenes } = useSceneworkStore();
+  const { story, setStory, templateId, setTemplateId, setView, setScenes, scenes } = useSceneworkStore();
   const [isGenerating, setIsGenerating] = useState(false);
   const [templates, setTemplates] = useState<any[]>([]);
 

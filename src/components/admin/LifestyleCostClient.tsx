@@ -642,7 +642,7 @@ export default function LifestyleCostClient({ userId }: { userId: string }) {
                   <Tooltip 
                     cursor={{ fill: '#27272a', opacity: 0.4 }}
                     contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '12px', color: '#fff' }}
-                    formatter={(val: number) => formatNGN(val)}
+                    formatter={(val: any) => formatNGN(Number(val) || 0)}
                   />
                   <ReferenceLine y={0} stroke="#3f3f46" />
                   <Bar dataKey="income" fill="#2dd4bf" radius={[4, 4, 0, 0]} maxBarSize={40} name="Income" />

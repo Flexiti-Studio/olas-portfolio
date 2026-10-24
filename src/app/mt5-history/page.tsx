@@ -260,8 +260,8 @@ export default async function MT5HistoryPage({
                 </td>
                 <td className="px-6 py-4 font-medium">{trade.volume.toFixed(2)}</td>
                 <td className="px-6 py-4 text-xs font-mono">
-                  <div className="text-red-400">SL: {trade.sl ? trade.sl.toFixed(5) : '—'}</div>
-                  <div className="text-blue-400">TP: {trade.tp ? trade.tp.toFixed(5) : '—'}</div>
+                  <div className="text-red-400">SL: {(trade as any).sl ? (trade as any).sl.toFixed(5) : '—'}</div>
+                  <div className="text-blue-400">TP: {(trade as any).tp ? (trade as any).tp.toFixed(5) : '—'}</div>
                 </td>
                 <td className="px-6 py-4 text-gray-300">
                   <div>{trade.openPrice.toFixed(5)}</div>

@@ -82,12 +82,12 @@ export default async function TradingDashboard({
   const formattedDate = targetDate.toISOString().split('T')[0];
 
   // Count news per ticker for the horizontal list
-  const newsCountByTicker = newsEvents.reduce((acc, event) => {
+  const newsCountByTicker: Record<string, number> = newsEvents.reduce((acc: Record<string, number>, event) => {
     acc[event.ticker] = (acc[event.ticker] || 0) + 1;
     return acc;
-  }, {} as Record<string, number>);
+  }, {});
 
-  const tickersWithCounts = Object.entries(newsCountByTicker)
+  const tickersWithCounts: [string, number][] = (Object.entries(newsCountByTicker) as [string, number][])
     .sort((a, b) => b[1] - a[1]); // Sort by count descending
 
   return (

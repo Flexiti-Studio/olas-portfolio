@@ -12,7 +12,7 @@ export interface ParsedTrade {
   sl?: number | null;
   tp?: number | null;
   exitPrice?: number | null; // Exit fill price from deal #M
-  exitReason?: 'TP' | 'SL' | 'END_OF_TEST' | 'OTHER';
+  exitReason?: 'TP' | 'SL' | 'END_OF_TEST' | 'OTHER' | 'TRAILING' | string;
   tag?: string;
   rMultiple?: number | null;
   profit?: number | null; // Exact mechanical profit in account currency
@@ -273,7 +273,7 @@ export function parseSingleRun(runLog: string): ParsedRun {
   // Track pending exits awaiting closing deal confirmation
   interface PendingExit {
     entryTicket: string;
-    exitReason: 'TP' | 'SL' | 'END_OF_TEST' | 'OTHER';
+    exitReason: 'TP' | 'SL' | 'END_OF_TEST' | 'OTHER' | 'TRAILING' | string;
     exitDealTicket?: string;
     triggerPrice?: number;
     testTime?: string;
@@ -433,10 +433,9 @@ export function parseSingleRun(runLog: string): ParsedRun {
       if (symbol === 'UNKNOWN' && sym) {
         symbol = sym;
       }
-      const curPending: { direction: 'buy' | 'sell'; lots: number; tag?: string } | null = pendingMarketInfo;
       const existingTag: string | undefined =
-        curPending && curPending.direction === dir && Math.abs(curPending.lots - lots) < 0.001
-          ? curPending.tag
+        (pendingMarketInfo as any)?.direction === dir && Math.abs(((pendingMarketInfo as any)?.lots ?? 0) - lots) < 0.001
+          ? (pendingMarketInfo as any)?.tag
           : undefined;
 
       pendingMarketInfo = {
