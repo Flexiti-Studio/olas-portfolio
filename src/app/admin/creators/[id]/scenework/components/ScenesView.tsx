@@ -1,6 +1,5 @@
 import { useCallback, useEffect } from 'react';
 import { ReactFlow, Background, Controls, MiniMap, Node, Edge } from '@xyflow/react';
-import '@xyflow/react/dist/style.css';
 import dagre from 'dagre';
 import { useSceneworkStore } from '../store/useSceneworkStore';
 import { TEMPLATES } from '../config/templates';

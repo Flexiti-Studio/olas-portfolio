@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma';
 import Link from 'next/link';
 import { WatchlistRemoveButton } from './WatchlistRemoveButton';
 
+export const dynamic = 'force-dynamic';
+
 function getScoreBadgeColor(score: number) {
   if (score > 70) return 'bg-green-500/20 text-green-500';
   if (score >= 40) return 'bg-yellow-500/20 text-yellow-500';

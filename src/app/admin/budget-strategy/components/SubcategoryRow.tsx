@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Loader2, Check, Trash2, ArrowLeftRight } from "lucide-react";
+import { Loader2, Check, Trash2, ArrowLeftRight, GripVertical } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
@@ -17,6 +17,7 @@ interface SubcategoryRowProps {
   periodId?: string;
   initialIsUsed?: boolean;
   isEditable: boolean;
+  dragHandleProps?: any;
   onGoalUpdated?: (id: string, newGoal: number) => void;
   onUsedToggled?: (id: string, isUsed: boolean) => void;
 }
@@ -33,6 +34,7 @@ export function SubcategoryRow({
   periodId,
   initialIsUsed = false,
   isEditable,
+  dragHandleProps,
   onGoalUpdated,
   onUsedToggled
 }: SubcategoryRowProps) {
@@ -146,14 +148,16 @@ export function SubcategoryRow({
     try {
       const res = await fetch(`/api/budgeting/subcategory?id=${id}`, { method: "DELETE" });
       if (res.ok) {
+        toast.success(`"${name}" deleted successfully`);
         if (onGoalUpdated) onGoalUpdated(id, 0);
         router.refresh();
       } else {
-        const json = await res.json();
-        alert(json.error?.message || "Failed to delete subcategory");
+        const json = await res.json().catch(() => null);
+        toast.error(json?.error?.message || "Failed to delete subcategory");
       }
     } catch (e) {
       console.error(e);
+      toast.error("Network error deleting subcategory");
     } finally {
       setIsDeleting(false);
       setConfirmDelete(false);
@@ -201,33 +205,42 @@ export function SubcategoryRow({
   };
 
   const isOverspent = remaining < 0;
-  
-  const isChanged = mode === "amount" 
-    ? Number(inputValue) !== goal 
+
+  const isChanged = mode === "amount"
+    ? Number(inputValue) !== goal
     : Number(inputValue) !== (percentage || 0);
 
   return (
-    <div 
-      className={`group rounded-xl p-2.5 sm:p-3 transition-all duration-200 border ${
-        isUsed 
-          ? "bg-slate-900/40 border-emerald-950/40 opacity-90 hover:opacity-100" 
+    <div
+      className={`group rounded-xl p-2.5 sm:p-3 transition-all duration-200 border ${isUsed
+          ? "bg-slate-900/40 border-emerald-950/40 opacity-90 hover:opacity-100"
           : "bg-slate-900/90 border-slate-800 hover:border-slate-700 hover:bg-slate-850"
-      }`}
+        }`}
     >
       {/* Top Row: Checkmark + Title + Used Badge + Actions */}
       <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          {/* Drag Handle */}
+          {dragHandleProps && (
+            <div
+              {...dragHandleProps}
+              className="text-slate-600 hover:text-slate-300 cursor-grab active:cursor-grabbing p-0.5 rounded transition-colors touch-none"
+              title="Drag to readjust position"
+            >
+              <GripVertical className="w-4 h-4" />
+            </div>
+          )}
+
           {/* Checkmark Button with clear loading state */}
           <button
             type="button"
             onClick={handleToggleUsed}
             disabled={isTogglingUsed}
             title={isUsed ? "Marked as used (click to unmark and restore balance)" : "Click to mark as used and reduce from total balance"}
-            className={`flex-shrink-0 w-6 h-6 rounded-md border flex items-center justify-center transition-all ${
-              isUsed
+            className={`flex-shrink-0 w-6 h-6 rounded-md border flex items-center justify-center transition-all ${isUsed
                 ? "bg-emerald-500 border-emerald-400 text-white shadow-sm shadow-emerald-500/25 ring-2 ring-emerald-500/20"
                 : "border-slate-600 bg-slate-800/80 hover:border-emerald-400 text-transparent hover:text-emerald-400/40"
-            } ${isTogglingUsed ? "opacity-75 cursor-wait" : "cursor-pointer active:scale-95"}`}
+              } ${isTogglingUsed ? "opacity-75 cursor-wait" : "cursor-pointer active:scale-95"}`}
           >
             {isTogglingUsed ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-300" />
@@ -238,10 +251,9 @@ export function SubcategoryRow({
 
           {/* Subcategory Name & Indicators */}
           <div className="min-w-0 flex-1 flex items-center gap-2 flex-wrap">
-            <span 
-              className={`text-sm font-medium truncate transition-colors ${
-                isUsed ? "text-slate-400 line-through decoration-emerald-500/50" : "text-slate-200"
-              }`}
+            <span
+              className={`text-sm font-medium truncate transition-colors ${isUsed ? "text-slate-400 line-through decoration-emerald-500/50" : "text-slate-200"
+                }`}
               title={name}
             >
               {index ? `${index}. ` : ""}{name}
@@ -282,12 +294,11 @@ export function SubcategoryRow({
             </div>
           ) : (
             <>
-              <span 
-                className={`text-[11px] font-semibold px-2 py-0.5 rounded-md ${
-                  isOverspent 
-                    ? "bg-red-500/15 text-red-400 border border-red-500/20" 
+              <span
+                className={`text-[11px] font-semibold px-2 py-0.5 rounded-md ${isOverspent
+                    ? "bg-red-500/15 text-red-400 border border-red-500/20"
                     : "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20"
-                }`}
+                  }`}
                 title={isOverspent ? "Overspent" : "Remaining"}
               >
                 {remaining >= 0 ? `+₦${remaining.toLocaleString()}` : `-₦${Math.abs(remaining).toLocaleString()}`}
@@ -340,9 +351,8 @@ export function SubcategoryRow({
               onChange={(e) => setInputValue(e.target.value)}
               disabled={!isEditable}
               placeholder={mode === "percentage" ? "0%" : "₦0"}
-              className={`w-full bg-slate-800/80 border border-slate-700 rounded-lg px-2.5 py-1 text-xs sm:text-sm font-medium text-right text-slate-100 disabled:opacity-50 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 transition-all ${
-                showPulse ? 'ring-2 ring-red-500 animate-pulse bg-red-500/10' : ''
-              }`}
+              className={`w-full bg-slate-800/80 border border-slate-700 rounded-lg px-2.5 py-1 text-xs sm:text-sm font-medium text-right text-slate-100 disabled:opacity-50 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 transition-all ${showPulse ? 'ring-2 ring-red-500 animate-pulse bg-red-500/10' : ''
+                }`}
               step={mode === "percentage" ? "0.1" : "1"}
             />
             <span className="absolute left-2 top-1.5 text-xs text-slate-500 font-mono pointer-events-none">
@@ -383,7 +393,7 @@ export function SubcategoryRow({
             <p className="text-xs sm:text-sm text-slate-400 mb-5">
               Logging expense under <span className="text-indigo-400 font-semibold">{name}</span>
             </p>
-            
+
             <div className="space-y-3 mb-5">
               <div>
                 <label className="block text-xs font-medium text-slate-400 mb-1">Description</label>

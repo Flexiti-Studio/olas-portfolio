@@ -6,6 +6,8 @@ import { EditJournalModal } from '@/components/EditJournalModal';
 import { format } from 'date-fns';
 import { JournalImageGallery } from '@/components/JournalImageGallery';
 
+export const dynamic = 'force-dynamic';
+
 export default async function JournalDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 

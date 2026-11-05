@@ -1,5 +1,74 @@
 # Project State
 
+- Build Verification & Static Prerendering Optimization (`src/app/journal`, `src/app/trading`, `src/app/watchlist`, `src/app/pairs`):
+  - **Successful Production Build (`npm run build`)**:
+    - Build compiled and generated all 69 static & dynamic routes with exit code 0.
+    - Resolved TypeScript error (`currentCheckedItems` scope in `LifestyleCostClient.tsx`).
+    - Configured `export const dynamic = 'force-dynamic'` across database-reliant server component pages (`/journal`, `/journal/[id]`, `/trading`, `/trading/strategy`, `/watchlist`, `/pairs`), preventing build-time static prerender crashes when remote database pools are unreachable during CI or build steps.
+
+- Priority Checklist "Split What is Left" Checkable Items & Runtime Fix (`src/components/admin/LifestyleCostClient.tsx`):
+  - **Embedded Surplus Breakdown as Checkable Items**:
+    - Added the monthly surplus split allocations (**Save X%**, **Invest Y%**, **Buffer Z%**) directly into the **Priority Checklist** card under Investment Projection.
+    - Each split item renders its live calculated amount (e.g., `₦6,000`, `₦9,000`, `₦15,000`), percentage badges, and dedicated icons (`PiggyBank`, `TrendingUp`, `Wallet`).
+    - Handled checking/unchecking with dedicated keys (`split-save`, `split-invest`, `split-buffer`), scoping them strictly to the active month (`${year}-${selectedMonth}`) in PostgreSQL (`Setting` table).
+    - Handled counter properly increments when split items or starred items are checked.
+  - **Resolved Runtime ReferenceError**:
+    - Eliminated initialization order temporal dead zone bug by scoping `monthKey` and `currentCheckedItems` cleanly without premature reference to `currentMonthCalc`.
+    - Zero type errors across `LifestyleCostClient.tsx`.
+
+- Admin Sidebar Grouping & Priority Checklist Financial Allocation (`src/components/admin/AdminSidebar.tsx`, `src/app/admin/page.tsx`, `src/components/admin/LifestyleCostClient.tsx`):
+  - **Sidebar Menu Rearrangement**:
+    - Grouped **Budget Strategy**, **Lifestyle Cost**, and **Goals Tracker** consecutively together in both `AdminSidebar.tsx` and `admin/page.tsx`:
+      1. Budget Strategy (`/admin?tab=budget-strategy`)
+      2. Lifestyle Cost (`/admin?tab=lifestyle-cost`)
+      3. Goals Tracker (`/admin/goals`)
+  - **"Split What is Left" Financial Allocation inside Priority Checklist**:
+    - Embedded the full financial split breakdown directly within the **Priority Checklist** card right under Investment Projection.
+    - Accurately renders the live calculations and dollar amounts for the active month:
+      - **Save X%**: live monthly savings allocation (e.g. `₦6,000` / 20%) with PiggyBank badge.
+      - **Invest Y%**: live monthly investment allocation (e.g. `₦9,000` / 30%) with TrendingUp badge.
+      - **Buffer Z%**: remaining percentage and amount kept as spending buffer (e.g. `₦15,000` / 50%).
+    - Directly links monthly surplus allocation to the checklist of primary targets to take care of for the selected month.
+
+- Lifestyle Cost Planner Drag-and-Drop Reordering, Priority Checklist & Star Persistence (`src/components/admin/LifestyleCostClient.tsx`, `src/app/dashboard/lifestyle-cost/actions.ts`):
+  - **Drag-and-Drop Reordering for Entries**:
+    - Integrated `@hello-pangea/dnd` drag-and-drop contexts on both **Incomes** and **Expenses** lists in `LifestyleCostClient.tsx`.
+    - Added dedicated drag handles (`GripVertical`) on each row with smooth cursor feedback (`cursor-grab` / `cursor-grabbing`), responsive drag shadows, and active drag state styling.
+    - Dragging items calls React Hook Form's `move(sourceIndex, destIndex)` and immediately persists the updated order via `saveBudgetSettings` (`incomeSources` and `categories`), ensuring customized ordering is retained permanently in PostgreSQL across months and sessions.
+  - **Starring & Priority Checklist ("Take care of first")**:
+    - Relocated the **Priority Checklist** into a dedicated card positioned directly under the **Investment Projection** section on the left-hand side.
+    - **Database Persistence & Month Scoping**:
+      - Starred items are saved globally per user in `Setting` (`lifestyle_starred_{userId}`).
+      - Checked/handled items are keyed and attached strictly to the selected month & year (`lifestyle_checked_by_month_{userId}`, with key `${year}-${selectedMonth}`).
+      - Switching months immediately scopes the checklist to that month's specific checked obligations and entered amounts without bleeding into other months.
+      - Displays live status counters (`X / Y handled`) per month, tags indicating whether each item is an `Income` (teal badge) or `Expense` (amber badge), and live month amounts.
+      - Includes empty state guidance when no items are starred.
+
+- Budget Strategy Drag-and-Drop Reordering, Income Single-Entry, and Resilient Subcategory Deletion (`src/app/admin/budget-strategy/components/CategoryColumn.tsx`, `src/app/admin/budget-strategy/components/SubcategoryRow.tsx`, `src/app/api/budgeting/strategy/route.ts`, `src/app/api/budgeting/subcategory/route.ts`, `src/app/api/budgeting/strategy/reorder/route.ts`):
+  - **Drag-and-Drop Subcategory Reordering (`@hello-pangea/dnd` + Setting Persistence)**:
+    - Integrated native drag handles (`GripVertical`) on each subcategory row.
+    - Wrapped each category's items in a `DragDropContext` + `Droppable` list.
+    - Reordering items applies optimistic UI placement immediately and saves the ordered array of subcategory IDs via `/api/budgeting/strategy/reorder` to `Setting` (`budget_subcat_order_{categoryId}`).
+    - When fetching `/api/budgeting/strategy`, subcategories are automatically sorted according to user-customized order.
+  - **Fixed Double Entry for Income on New Month**:
+    - Removed redundant recurring income lookups that matched past entries alongside new month copied entries. Incomes are now cleanly scoped to the active period's date range, eliminating duplicate salary or palliative entries.
+  - **Resilient Subcategory Deletion & Toast Feedback**:
+    - In `SubcategoryRow.tsx`, replaced generic alerts with Sonner toasts with proper error extraction.
+    - In `/api/budgeting/subcategory` DELETE handler, unlinked foreign key references in `Goal` before deleting `subcategory` and wrapped post-deletion auto-balancing in a try-catch, preventing deletion failure errors.
+
+- Lifestyle Cost Planner Return & Years Editing, Clean Month Isolation and Database Persistence (`src/components/admin/LifestyleCostClient.tsx`, `src/app/dashboard/lifestyle-cost/actions.ts`):
+  - **Clean Month-Isolated Entry Data**:
+    - Removed previous-month auto-cloning and unsaved form spillover when switching months.
+    - Selecting any month now strictly loads and focuses only that month's saved database settings and amounts (or clean 0s if nothing was recorded yet), preserving month isolation until explicitly changed or saved.
+  - **Fluid Inputs for Return (%) and Years**:
+    - Decoupled `localReturn` and `localYears` into dedicated controlled string states so typing decimals, clearing values, or entering multiple digits is completely responsive without freezing or resetting cursor position.
+    - Updated the projection chart and summary cards to compute immediately when valid numbers are entered.
+    - Added clean commit handlers on `onBlur` and `Enter` keydown that format, validate, and call `saveBudgetSettings` with immediate Sonner toast confirmation (`Annual return updated to X%`, `Projection timeline updated to Y years`).
+  - **Robust Prisma Upsert & Decimal Normalization**:
+    - Enhanced `saveBudgetSettings` to use `prisma.budgetSettings.upsert` with parsed numeric values for `annualReturn` and `years`, ensuring settings persist to PostgreSQL even if the initial record had not yet been created for the user.
+    - Normalized Decimal values to numbers upon return to avoid any client serialization errors.
+
+
 - Focus Mode Task Details & Full Inspection Dropdown Suite (`src/app/admin/focus/components/FocusTaskItem.tsx`, `src/app/api/focus/tasks/[id]/route.ts`):
   - **Full Details View on Dropdown Click**:
     - Resolved task text truncation (`truncate`) when viewing tasks under a focused project or queued project in Focus Mode (`https://olas-portfolio.vercel.app/admin?tab=focus-mode`).

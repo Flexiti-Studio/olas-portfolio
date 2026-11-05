@@ -1,9 +1,11 @@
 "use client";
 
 import { SubcategoryRow } from "./SubcategoryRow";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
+import { toast } from "sonner";
 
 interface CategoryColumnProps {
   title: string;
@@ -32,11 +34,52 @@ export function CategoryColumn({
   const [addingCatId, setAddingCatId] = useState<string | null>(null);
   const [newSubcatName, setNewSubcatName] = useState("");
   const [isSavingSubcat, setIsSavingSubcat] = useState(false);
+  const [localCategories, setLocalCategories] = useState(categories);
+
+  useEffect(() => {
+    setLocalCategories(categories);
+  }, [categories]);
+
+  const handleDragEnd = async (result: DropResult, categoryId: string) => {
+    const { destination, source } = result;
+    if (!destination || destination.index === source.index) return;
+
+    const catIndex = localCategories.findIndex((c) => c.id === categoryId);
+    if (catIndex === -1) return;
+
+    const targetCategory = localCategories[catIndex];
+    const newSubcategories = Array.from(targetCategory.subcategories);
+    const [movedItem] = newSubcategories.splice(source.index, 1);
+    newSubcategories.splice(destination.index, 0, movedItem);
+
+    // Optimistic local update
+    const updatedCategories = [...localCategories];
+    updatedCategories[catIndex] = {
+      ...targetCategory,
+      subcategories: newSubcategories,
+    };
+    setLocalCategories(updatedCategories);
+
+    try {
+      const orderedSubcategoryIds = newSubcategories.map((s: any) => s.id);
+      const res = await fetch("/api/budgeting/strategy/reorder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ categoryId, orderedSubcategoryIds }),
+      });
+      if (!res.ok) {
+        toast.error("Failed to save reordered positions");
+      }
+    } catch (e) {
+      console.error("Reorder failed:", e);
+      toast.error("Network error saving order");
+    }
+  };
 
   const handleAddSubcategory = async (categoryId: string) => {
     if (!newSubcatName.trim()) {
-       setAddingCatId(null);
-       return;
+      setAddingCatId(null);
+      return;
     }
     setIsSavingSubcat(true);
     try {
@@ -59,7 +102,7 @@ export function CategoryColumn({
   };
 
   // Calculate used items and used amount in this group (checked items + expenses)
-  const allSubcats = categories.flatMap((c) => c.subcategories || []);
+  const allSubcats = localCategories.flatMap((c) => c.subcategories || []);
   const usedCount = allSubcats.filter((s) => s.isUsed).length;
   const totalCount = allSubcats.length;
   const groupUsedAmount = allSubcats.reduce((sum, s) => sum + (s.usedAmount ?? (s.isUsed ? Math.max(s.goal, s.actual) : s.actual)), 0);
@@ -86,8 +129,8 @@ export function CategoryColumn({
 
         <div className="mt-2 flex items-center justify-between">
           <span className={`text-xs font-semibold px-2.5 py-1 rounded-lg ${isOverspent ? "bg-red-950/60 text-red-200 border border-red-800/40" : "bg-black/20 text-white/90"}`}>
-            {overallRemaining >= 0 
-              ? `Available to spend: ₦${overallRemaining.toLocaleString()}` 
+            {overallRemaining >= 0
+              ? `Available to spend: ₦${overallRemaining.toLocaleString()}`
               : `Overspent: ₦${Math.abs(overallRemaining).toLocaleString()}`}
           </span>
         </div>
@@ -95,7 +138,7 @@ export function CategoryColumn({
 
       {/* Categories List */}
       <div className="p-3 sm:p-4 space-y-5">
-        {categories.map((cat, catIdx) => (
+        {localCategories.map((cat, catIdx) => (
           <div key={cat.id} className="bg-slate-950/40 rounded-xl p-2.5 sm:p-3 border border-slate-800/60">
             <div className="flex justify-between items-center mb-2.5 pb-1.5 border-b border-slate-800">
               <h4 className="font-semibold text-slate-200 text-xs sm:text-sm">{catIdx + 1}. {cat.name}</h4>
@@ -103,73 +146,94 @@ export function CategoryColumn({
                 Goal: ₦{cat.totalGoal.toLocaleString()} | Spent: ₦{cat.totalActual.toLocaleString()}
               </span>
             </div>
-            
-            <div className="space-y-2">
-              {cat.subcategories.map((sub: any, subIdx: number) => (
-                <SubcategoryRow
-                  key={sub.id}
-                  index={subIdx + 1}
-                  id={sub.id}
-                  name={sub.name}
-                  goal={sub.goal}
-                  percentage={sub.percentage}
-                  actual={sub.actual}
-                  remaining={sub.remaining}
-                  periodLabel={periodLabel}
-                  periodId={periodId || periodLabel}
-                  initialIsUsed={Boolean(sub.isUsed)}
-                  isEditable={isEditable}
-                  onGoalUpdated={onGoalUpdated}
-                  onUsedToggled={() => {
-                    if (onGoalUpdated) onGoalUpdated("", 0);
-                  }}
-                />
-              ))}
 
-              {/* Add Subcategory UI */}
-              {isEditable && (
-                <div className="pt-1.5">
-                  {addingCatId === cat.id ? (
-                    <div className="flex items-center gap-2 mt-2">
-                      <input
-                        type="text"
-                        autoFocus
-                        placeholder="Subcategory name..."
-                        value={newSubcatName}
-                        onChange={(e) => setNewSubcatName(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") handleAddSubcategory(cat.id);
-                          if (e.key === "Escape") setAddingCatId(null);
-                        }}
-                        disabled={isSavingSubcat}
-                        className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs sm:text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
-                      />
-                      <button
-                        onClick={() => handleAddSubcategory(cat.id)}
-                        disabled={isSavingSubcat || !newSubcatName.trim()}
-                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-xs font-semibold text-white disabled:opacity-50 transition-colors"
-                      >
-                        {isSavingSubcat ? <Loader2 className="w-3 h-3 animate-spin" /> : "Save"}
-                      </button>
-                      <button
-                        onClick={() => { setAddingCatId(null); setNewSubcatName(""); }}
-                        disabled={isSavingSubcat}
-                        className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-xs text-slate-300 transition-colors"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  ) : (
+            <DragDropContext onDragEnd={(res) => handleDragEnd(res, cat.id)}>
+              <Droppable droppableId={`droppable-${cat.id}`}>
+                {(provided) => (
+                  <div
+                    ref={provided.innerRef}
+                    {...provided.droppableProps}
+                    className="space-y-2 min-h-[10px]"
+                  >
+                    {cat.subcategories.map((sub: any, subIdx: number) => (
+                      <Draggable key={sub.id} draggableId={sub.id} index={subIdx} isDragDisabled={!isEditable}>
+                        {(dragProvided, snapshot) => (
+                          <div
+                            ref={dragProvided.innerRef}
+                            {...dragProvided.draggableProps}
+                            className={`transition-shadow ${snapshot.isDragging ? "shadow-2xl ring-2 ring-emerald-500/50 rounded-xl z-50 bg-slate-850" : ""}`}
+                          >
+                            <SubcategoryRow
+                              index={subIdx + 1}
+                              id={sub.id}
+                              name={sub.name}
+                              goal={sub.goal}
+                              percentage={sub.percentage}
+                              actual={sub.actual}
+                              remaining={sub.remaining}
+                              periodLabel={periodLabel}
+                              periodId={periodId || periodLabel}
+                              initialIsUsed={Boolean(sub.isUsed)}
+                              isEditable={isEditable}
+                              dragHandleProps={isEditable ? dragProvided.dragHandleProps : undefined}
+                              onGoalUpdated={onGoalUpdated}
+                              onUsedToggled={() => {
+                                if (onGoalUpdated) onGoalUpdated("", 0);
+                              }}
+                            />
+                          </div>
+                        )}
+                      </Draggable>
+                    ))}
+                    {provided.placeholder}
+                  </div>
+                )}
+              </Droppable>
+            </DragDropContext>
+
+            {/* Add Subcategory UI */}
+            {isEditable && (
+              <div className="pt-2">
+                {addingCatId === cat.id ? (
+                  <div className="flex items-center gap-2 mt-2">
+                    <input
+                      type="text"
+                      autoFocus
+                      placeholder="Subcategory name..."
+                      value={newSubcatName}
+                      onChange={(e) => setNewSubcatName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleAddSubcategory(cat.id);
+                        if (e.key === "Escape") setAddingCatId(null);
+                      }}
+                      disabled={isSavingSubcat}
+                      className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs sm:text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+                    />
                     <button
-                      onClick={() => setAddingCatId(cat.id)}
-                      className="flex items-center text-xs font-medium text-slate-400 hover:text-emerald-400 transition-colors py-1 px-1.5 rounded hover:bg-slate-800/50 mt-1"
+                      onClick={() => handleAddSubcategory(cat.id)}
+                      disabled={isSavingSubcat || !newSubcatName.trim()}
+                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-xs font-semibold text-white disabled:opacity-50 transition-colors"
                     >
-                      <Plus className="w-3.5 h-3.5 mr-1 text-emerald-500" /> Add Subcategory
+                      {isSavingSubcat ? <Loader2 className="w-3 h-3 animate-spin" /> : "Save"}
                     </button>
-                  )}
-                </div>
-              )}
-            </div>
+                    <button
+                      onClick={() => { setAddingCatId(null); setNewSubcatName(""); }}
+                      disabled={isSavingSubcat}
+                      className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-xs text-slate-300 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setAddingCatId(cat.id)}
+                    className="flex items-center text-xs font-medium text-slate-400 hover:text-emerald-400 transition-colors py-1 px-1.5 rounded hover:bg-slate-800/50 mt-1"
+                  >
+                    <Plus className="w-3.5 h-3.5 mr-1 text-emerald-500" /> Add Subcategory
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         ))}
       </div>

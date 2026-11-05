@@ -3,7 +3,8 @@
 import { useSceneworkStore } from "./store/useSceneworkStore";
 import HeaderSwitch from "./components/HeaderSwitch";
 import StoryView from "./components/StoryView";
-import ScenesView from "./components/ScenesView";
+import dynamic from "next/dynamic";
+const ScenesView = dynamic(() => import("./components/ScenesView"), { ssr: false });
 import { ArrowLeft } from "lucide-react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";

@@ -7,6 +7,8 @@ import { tickerToCoinGeckoId } from '@/lib/market/checkVolumeSignal';
 
 const prisma = new PrismaClient();
 
+export const dynamic = 'force-dynamic';
+
 export default async function TradingDashboard({
   searchParams,
 }: {

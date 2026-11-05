@@ -53,11 +53,20 @@ export async function DELETE(req: Request) {
 
       await tx.transaction.deleteMany({ where: { subcategoryId: id } });
       await tx.budgetGoal.deleteMany({ where: { subcategoryId: id } });
+      // Unlink any Goals referencing this subcategory so foreign key constraints don't fail
+      await tx.goal.updateMany({
+        where: { subcategoryId: id },
+        data: { subcategoryId: null }
+      });
       await tx.subcategory.delete({ where: { id } });
     });
 
-    const { autoBalanceCurrentPeriod } = await import("@/lib/autoBalance");
-    await autoBalanceCurrentPeriod();
+    try {
+      const { autoBalanceCurrentPeriod } = await import("@/lib/autoBalance");
+      await autoBalanceCurrentPeriod();
+    } catch (rebalanceErr) {
+      console.warn("Auto balance post-deletion non-fatal warning:", rebalanceErr);
+    }
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

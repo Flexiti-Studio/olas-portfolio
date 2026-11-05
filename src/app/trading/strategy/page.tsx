@@ -2,6 +2,8 @@ import React from 'react';
 import { prisma } from '@/lib/prisma';
 import { StrategyPlaybook } from './StrategyPlaybook';
 
+export const dynamic = 'force-dynamic';
+
 export default async function StrategyPage() {
   const strategies = await prisma.tradingStrategy.findMany({
     orderBy: { updatedAt: 'desc' }

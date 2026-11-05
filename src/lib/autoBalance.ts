@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 export async function autoBalanceCurrentPeriod() {
   const config = await prisma.appConfig.findUnique({ where: { id: "singleton" } });
   const activePeriodId = config?.activePeriodId;
-  
+
   if (!activePeriodId) return false;
 
   const period = await prisma.period.findUnique({ where: { id: activePeriodId } });
@@ -15,16 +15,13 @@ export async function autoBalanceCurrentPeriod() {
   });
   const endDate = nextPeriod ? nextPeriod.startDate : new Date('2100-01-01');
 
-  // Calculate total income
+  // Calculate total income for current period
   const periodIncomes = await prisma.income.findMany({
     where: {
-      OR: [
-        { createdAt: { gte: period.startDate, lt: endDate } },
-        { isRecurring: true, createdAt: { lt: endDate } }
-      ]
+      createdAt: { gte: period.startDate, lt: endDate }
     }
   });
-  
+
   let totalIncome = Number(period.rolloverAmount) || 0;
   for (const inc of periodIncomes) {
     totalIncome += Number(inc.amount);
@@ -47,7 +44,7 @@ export async function autoBalanceCurrentPeriod() {
     for (const groupKey of ["NEEDS", "SAVINGS", "WANTS"] as const) {
       const groupCategories = allCategories.filter(c => c.group === groupKey);
       const subcatIds = groupCategories.flatMap(c => c.subcategories.map(s => s.id));
-      
+
       const groupGoals = currentGoals.filter(g => subcatIds.includes(g.subcategoryId));
       const idealForGroup = idealAmounts[groupKey];
 
@@ -66,7 +63,7 @@ export async function autoBalanceCurrentPeriod() {
         // Separate percentage-based goals from fixed/proportional goals
         const percentageGoals = groupGoals.filter(g => g.percentage !== null);
         const otherGoals = groupGoals.filter(g => g.percentage === null);
-        
+
         let remainingIdeal = idealForGroup;
 
         // Process percentage goals first
@@ -89,10 +86,10 @@ export async function autoBalanceCurrentPeriod() {
           for (const goal of otherGoals) {
             let newAmount = 0;
             if (currentOtherTotal === 0) {
-               newAmount = distributeAmount / otherGoals.length;
+              newAmount = distributeAmount / otherGoals.length;
             } else {
-               const proportion = Number(goal.amount) / currentOtherTotal;
-               newAmount = distributeAmount * proportion;
+              const proportion = Number(goal.amount) / currentOtherTotal;
+              newAmount = distributeAmount * proportion;
             }
             if (isNaN(newAmount)) newAmount = 0;
 

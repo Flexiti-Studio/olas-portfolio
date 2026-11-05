@@ -174,23 +174,13 @@ export async function GET(req: Request) {
       endDate = d;
     }
 
-    // Fetch Income for the period date range (including past recurring incomes)
+    // Fetch Income specifically created for this period
     let periodIncomes = await prisma.income.findMany({
       where: {
-        OR: [
-          {
-            createdAt: {
-              gte: period.startDate,
-              lt: endDate,
-            },
-          },
-          {
-            isRecurring: true,
-            createdAt: {
-              lt: endDate,
-            },
-          },
-        ],
+        createdAt: {
+          gte: period.startDate,
+          lt: endDate,
+        },
       },
       include: { incomeCategory: true },
     });
@@ -289,6 +279,18 @@ export async function GET(req: Request) {
       include: { subcategories: true },
     });
 
+    // Fetch custom subcategory orders if stored
+    const orderSettings = await prisma.setting.findMany({
+      where: { key: { startsWith: "budget_subcat_order_" } },
+    });
+    const orderMap: Record<string, string[]> = {};
+    for (const s of orderSettings) {
+      const catId = s.key.replace("budget_subcat_order_", "");
+      if (Array.isArray(s.value)) {
+        orderMap[catId] = s.value as string[];
+      }
+    }
+
     let totalSubcategoriesCount = 0;
     let usedSubcategoriesCount = 0;
     let overallUsedAmount = 0;
@@ -297,7 +299,19 @@ export async function GET(req: Request) {
       const groupKey = cat.group as "NEEDS" | "SAVINGS" | "WANTS";
       const catData = { id: cat.id, name: cat.name, subcategories: [] as any[], totalGoal: 0, totalActual: 0, totalUsed: 0 };
 
-      for (const sub of cat.subcategories) {
+      // Sort subcategories by custom order if saved
+      const customOrder = orderMap[cat.id];
+      const sortedSubs = [...cat.subcategories].sort((a, b) => {
+        if (!customOrder) return 0;
+        const indexA = customOrder.indexOf(a.id);
+        const indexB = customOrder.indexOf(b.id);
+        if (indexA === -1 && indexB === -1) return 0;
+        if (indexA === -1) return 1;
+        if (indexB === -1) return -1;
+        return indexA - indexB;
+      });
+
+      for (const sub of sortedSubs) {
         const goal = goals.find((g) => g.subcategoryId === sub.id);
         const goalAmount = goal ? Number(goal.amount) : 0;
         const goalPercentage = goal?.percentage ? Number(goal.percentage) : null;

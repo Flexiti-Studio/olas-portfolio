@@ -15,7 +15,8 @@ import {
   buildVersionTree,
   findParentVersion,
 } from '@/lib/ea-lab/subVersions';
-import { VersionFlowChart } from './VersionFlowChart';
+import dynamic from 'next/dynamic';
+const VersionFlowChart = dynamic(() => import('./VersionFlowChart').then(m => m.VersionFlowChart), { ssr: false });
 
 export interface VersionItem {
   id: string;
@@ -407,12 +408,12 @@ export function CodeTab({ strategyId, strategyName, versions, runs = [], onVersi
       currentSv === 'normal'
         ? 'break_even'
         : currentSv === 'break_even'
-        ? 'session_trading'
-        : currentSv === 'session_trading'
-        ? 'ranging'
-        : currentSv === 'ranging'
-        ? 'liquidity'
-        : 'normal';
+          ? 'session_trading'
+          : currentSv === 'session_trading'
+            ? 'ranging'
+            : currentSv === 'ranging'
+              ? 'liquidity'
+              : 'normal';
 
     const baseLabelClean = baseVersion.label.split(' - ')[0].trim();
     setModalInitialCode(baseVersion.code);
@@ -491,11 +492,11 @@ export function CodeTab({ strategyId, strategyName, versions, runs = [], onVersi
         prev.map((v) =>
           v.id === currentVersion.id
             ? {
-                ...v,
-                code: res.version.code,
-                codeHash: res.version.codeHash,
-                changeNotes: res.version.changeNotes,
-              }
+              ...v,
+              code: res.version.code,
+              codeHash: res.version.codeHash,
+              changeNotes: res.version.changeNotes,
+            }
             : v
         )
       );
@@ -561,11 +562,10 @@ export function CodeTab({ strategyId, strategyName, versions, runs = [], onVersi
                 setViewMode('editor');
                 setIsDiffMode(false);
               }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
-                viewMode === 'editor' && !isDiffMode
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${viewMode === 'editor' && !isDiffMode
                   ? 'bg-blue-600 text-white shadow-sm'
                   : 'text-zinc-400 hover:text-white'
-              }`}
+                }`}
             >
               <span className="material-symbols-outlined text-[16px]">code</span>
               <span>Code Editor</span>
@@ -576,11 +576,10 @@ export function CodeTab({ strategyId, strategyName, versions, runs = [], onVersi
                 setViewMode('flowchart');
                 setIsDiffMode(false);
               }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
-                viewMode === 'flowchart'
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${viewMode === 'flowchart'
                   ? 'bg-purple-600 text-white shadow-sm'
                   : 'text-zinc-400 hover:text-white'
-              }`}
+                }`}
             >
               <span className="material-symbols-outlined text-[16px]">account_tree</span>
               <span>Flow Chart</span>
@@ -598,11 +597,10 @@ export function CodeTab({ strategyId, strategyName, versions, runs = [], onVersi
                 setIsEditingCode(false);
                 setIsDiffMode(!isDiffMode);
               }}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 border ${
-                isDiffMode
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 border ${isDiffMode
                   ? 'bg-blue-600 border-blue-500 text-white'
                   : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:text-white'
-              }`}
+                }`}
             >
               <span className="material-symbols-outlined text-sm">difference</span>
               {isDiffMode ? 'Exit Diff View' : 'Compare Diff'}
@@ -682,13 +680,12 @@ export function CodeTab({ strategyId, strategyName, versions, runs = [], onVersi
             {diffLines.map((line, idx) => (
               <div
                 key={idx}
-                className={`py-0.5 px-2 rounded ${
-                  line.type === 'added'
+                className={`py-0.5 px-2 rounded ${line.type === 'added'
                     ? 'bg-emerald-950/60 text-emerald-300 font-medium'
                     : line.type === 'removed'
-                    ? 'bg-rose-950/60 text-rose-300 line-through'
-                    : 'text-zinc-400'
-                }`}
+                      ? 'bg-rose-950/60 text-rose-300 line-through'
+                      : 'text-zinc-400'
+                  }`}
               >
                 <span className="inline-block w-6 text-zinc-600 select-none text-right mr-3">
                   {idx + 1}
@@ -726,11 +723,10 @@ export function CodeTab({ strategyId, strategyName, versions, runs = [], onVersi
               <button
                 type="button"
                 onClick={() => setSubVersionFilter('all')}
-                className={`text-[10px] font-semibold px-2 py-1 rounded-lg border transition-all cursor-pointer ${
-                  subVersionFilter === 'all'
+                className={`text-[10px] font-semibold px-2 py-1 rounded-lg border transition-all cursor-pointer ${subVersionFilter === 'all'
                     ? 'bg-blue-600 border-blue-500 text-white shadow-sm'
                     : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white'
-                }`}
+                  }`}
               >
                 All ({subVersionCounts.all})
               </button>
@@ -742,11 +738,10 @@ export function CodeTab({ strategyId, strategyName, versions, runs = [], onVersi
                     key={sv.id}
                     type="button"
                     onClick={() => setSubVersionFilter(sv.id)}
-                    className={`text-[10px] font-semibold px-2 py-1 rounded-lg border transition-all cursor-pointer flex items-center gap-1 ${
-                      isSelected
+                    className={`text-[10px] font-semibold px-2 py-1 rounded-lg border transition-all cursor-pointer flex items-center gap-1 ${isSelected
                         ? `${sv.bgColor} ${sv.borderColor} ${sv.textColor} ring-1 ${sv.activeRing}`
                         : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white'
-                    }`}
+                      }`}
                   >
                     <span className="material-symbols-outlined text-[11px]">{sv.icon}</span>
                     <span>{sv.badgeLabel}</span>
@@ -779,13 +774,12 @@ export function CodeTab({ strategyId, strategyName, versions, runs = [], onVersi
                     <div
                       key={v.id}
                       onClick={() => setSelectedVersionId(v.id)}
-                      className={`group p-3 rounded-xl border cursor-pointer transition-all relative ${
-                        isSelected
+                      className={`group p-3 rounded-xl border cursor-pointer transition-all relative ${isSelected
                           ? 'bg-blue-600/10 border-blue-500/60 shadow-md ring-1 ring-blue-500/30'
                           : isSub
-                          ? 'bg-zinc-950/90 border-purple-900/40 hover:border-purple-600/60'
-                          : 'bg-zinc-950 border-zinc-800 hover:border-zinc-700'
-                      }`}
+                            ? 'bg-zinc-950/90 border-purple-900/40 hover:border-purple-600/60'
+                            : 'bg-zinc-950 border-zinc-800 hover:border-zinc-700'
+                        }`}
                     >
                       <div className="flex items-center justify-between mb-1 gap-2">
                         <div className="flex items-center gap-1.5 min-w-0">
@@ -831,9 +825,8 @@ export function CodeTab({ strategyId, strategyName, versions, runs = [], onVersi
                               Net P&L:
                             </span>
                             <span
-                              className={`text-xs font-mono font-bold ${
-                                fin.netProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'
-                              }`}
+                              className={`text-xs font-mono font-bold ${fin.netProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                                }`}
                             >
                               {fin.netProfit >= 0 ? `+$${fin.netProfit.toLocaleString()}` : `-$${Math.abs(fin.netProfit).toLocaleString()}`}
                               <span className="text-[10px] font-normal ml-1 text-zinc-400">
@@ -1024,19 +1017,17 @@ export function CodeTab({ strategyId, strategyName, versions, runs = [], onVersi
                         <div className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 flex items-center justify-between">
                           <span>Net Result</span>
                           <span
-                            className={`text-[10px] font-mono px-1.5 py-0.5 rounded font-bold ${
-                              currentFin.netProfit >= 0
+                            className={`text-[10px] font-mono px-1.5 py-0.5 rounded font-bold ${currentFin.netProfit >= 0
                                 ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/60'
                                 : 'bg-rose-950/60 text-rose-400 border border-rose-800/60'
-                            }`}
+                              }`}
                           >
                             {currentFin.returnPct >= 0 ? '+' : ''}{currentFin.returnPct}%
                           </span>
                         </div>
                         <div
-                          className={`text-lg font-bold font-mono mt-1 ${
-                            currentFin.netProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'
-                          }`}
+                          className={`text-lg font-bold font-mono mt-1 ${currentFin.netProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                            }`}
                         >
                           {currentFin.netProfit >= 0
                             ? `+$${currentFin.netProfit.toLocaleString()}`

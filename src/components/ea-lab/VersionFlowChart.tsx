@@ -15,7 +15,6 @@ import {
   useNodesState,
   useEdgesState,
 } from '@xyflow/react';
-import '@xyflow/react/dist/style.css';
 import dagre from 'dagre';
 import {
   EaSubVersionType,
@@ -45,13 +44,12 @@ function VersionNode({ data }: { data: VersionNodeData }) {
   return (
     <div
       onClick={() => onSelectVersion(version.id)}
-      className={`w-72 rounded-2xl border transition-all shadow-xl backdrop-blur-md cursor-pointer select-none text-left relative overflow-hidden group ${
-        isSelected
-          ? 'bg-blue-950/80 border-blue-500 shadow-blue-500/20 ring-2 ring-blue-500/40'
-          : isSub
+      className={`w-72 rounded-2xl border transition-all shadow-xl backdrop-blur-md cursor-pointer select-none text-left relative overflow-hidden group ${isSelected
+        ? 'bg-blue-950/80 border-blue-500 shadow-blue-500/20 ring-2 ring-blue-500/40'
+        : isSub
           ? 'bg-zinc-950/95 border-purple-800/60 hover:border-purple-600 shadow-purple-950/30'
           : 'bg-zinc-950/95 border-zinc-800 hover:border-zinc-700'
-      }`}
+        }`}
     >
       {/* Target Connection Handles */}
       <Handle
@@ -69,9 +67,8 @@ function VersionNode({ data }: { data: VersionNodeData }) {
 
       {/* Top Accent Strip */}
       <div
-        className={`h-1.5 w-full ${
-          isSub ? 'bg-gradient-to-r from-purple-500 to-indigo-500' : 'bg-gradient-to-r from-blue-500 to-cyan-500'
-        }`}
+        className={`h-1.5 w-full ${isSub ? 'bg-gradient-to-r from-purple-500 to-indigo-500' : 'bg-gradient-to-r from-blue-500 to-cyan-500'
+          }`}
       />
 
       <div className="p-3.5 space-y-2.5">
@@ -108,9 +105,8 @@ function VersionNode({ data }: { data: VersionNodeData }) {
             <div className="flex items-center justify-between">
               <span className="text-[10px] text-zinc-400 font-sans">Net P&amp;L:</span>
               <span
-                className={`font-bold ${
-                  financials.netProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'
-                }`}
+                className={`font-bold ${financials.netProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                  }`}
               >
                 {financials.netProfit >= 0 ? `+$${financials.netProfit.toLocaleString()}` : `-$${Math.abs(financials.netProfit).toLocaleString()}`}
                 <span className="text-[10px] text-zinc-400 ml-1 font-normal">
@@ -381,9 +377,8 @@ export function VersionFlowChart({
             <button
               type="button"
               onClick={() => setDirection('LR')}
-              className={`px-2.5 py-1 rounded-lg font-medium transition-colors cursor-pointer flex items-center gap-1 ${
-                direction === 'LR' ? 'bg-zinc-800 text-white font-semibold' : 'text-zinc-400 hover:text-white'
-              }`}
+              className={`px-2.5 py-1 rounded-lg font-medium transition-colors cursor-pointer flex items-center gap-1 ${direction === 'LR' ? 'bg-zinc-800 text-white font-semibold' : 'text-zinc-400 hover:text-white'
+                }`}
               title="Horizontal Left-to-Right layout"
             >
               <span className="material-symbols-outlined text-xs">arrow_forward</span>
@@ -392,9 +387,8 @@ export function VersionFlowChart({
             <button
               type="button"
               onClick={() => setDirection('TB')}
-              className={`px-2.5 py-1 rounded-lg font-medium transition-colors cursor-pointer flex items-center gap-1 ${
-                direction === 'TB' ? 'bg-zinc-800 text-white font-semibold' : 'text-zinc-400 hover:text-white'
-              }`}
+              className={`px-2.5 py-1 rounded-lg font-medium transition-colors cursor-pointer flex items-center gap-1 ${direction === 'TB' ? 'bg-zinc-800 text-white font-semibold' : 'text-zinc-400 hover:text-white'
+                }`}
               title="Vertical Top-to-Bottom layout"
             >
               <span className="material-symbols-outlined text-xs">arrow_downward</span>

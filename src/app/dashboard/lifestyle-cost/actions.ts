@@ -21,10 +21,65 @@ export async function getBudgetSettings(userId: string) {
     });
   }
 
+  // Also fetch starred items and checked items from settings table if available
+  let starredItems: string[] = [];
+  let checkedItemsByMonth: Record<string, string[]> = {};
+  try {
+    const starredSetting = await prisma.setting.findUnique({
+      where: { key: `lifestyle_starred_${userId}` }
+    });
+    if (starredSetting?.value && Array.isArray(starredSetting.value)) {
+      starredItems = starredSetting.value as string[];
+    }
+
+    const checkedSetting = await prisma.setting.findUnique({
+      where: { key: `lifestyle_checked_by_month_${userId}` }
+    });
+    if (checkedSetting?.value && typeof checkedSetting.value === "object" && !Array.isArray(checkedSetting.value)) {
+      checkedItemsByMonth = checkedSetting.value as Record<string, string[]>;
+    }
+  } catch (err) {
+    console.error("Failed to load lifestyle priority settings:", err);
+  }
+
   return {
     ...settings,
-    annualReturn: settings.annualReturn.toNumber()
+    annualReturn: settings.annualReturn.toNumber(),
+    starredItems,
+    checkedItemsByMonth
   };
+}
+
+export async function savePriorityList(userId: string, data: { starredItems?: string[]; monthKey?: string; checkedItems?: string[] }) {
+  try {
+    if (data.starredItems !== undefined) {
+      await prisma.setting.upsert({
+        where: { key: `lifestyle_starred_${userId}` },
+        update: { value: data.starredItems },
+        create: { key: `lifestyle_starred_${userId}`, value: data.starredItems }
+      });
+    }
+    if (data.monthKey && data.checkedItems !== undefined) {
+      // Get existing month map
+      const existing = await prisma.setting.findUnique({
+        where: { key: `lifestyle_checked_by_month_${userId}` }
+      });
+      const currentMap: Record<string, string[]> = (existing?.value && typeof existing.value === "object" && !Array.isArray(existing.value))
+        ? (existing.value as Record<string, string[]>)
+        : {};
+      currentMap[data.monthKey] = data.checkedItems;
+
+      await prisma.setting.upsert({
+        where: { key: `lifestyle_checked_by_month_${userId}` },
+        update: { value: currentMap },
+        create: { key: `lifestyle_checked_by_month_${userId}`, value: currentMap }
+      });
+    }
+    return { success: true };
+  } catch (err) {
+    console.error("Failed to save priority list:", err);
+    return { success: false, error: String(err) };
+  }
 }
 
 export async function saveBudgetSettings(userId: string, data: {
@@ -35,13 +90,32 @@ export async function saveBudgetSettings(userId: string, data: {
   annualReturn?: number;
   years?: number;
 }) {
-  return prisma.budgetSettings.update({
+  const updateData: any = { ...data };
+  if (data.annualReturn !== undefined) {
+    updateData.annualReturn = Number(data.annualReturn);
+  }
+  if (data.years !== undefined) {
+    updateData.years = Math.round(Number(data.years));
+  }
+
+  const result = await prisma.budgetSettings.upsert({
     where: { userId },
-    data: {
-      ...data,
-      ...(data.annualReturn !== undefined && { annualReturn: data.annualReturn })
+    update: updateData,
+    create: {
+      userId,
+      incomeSources: data.incomeSources || ["Salary"],
+      categories: data.categories || ["Housing", "Food", "Transport", "Data and utilities", "Family and giving", "Loan", "Other"],
+      savePercent: data.savePercent ?? 20,
+      investPercent: data.investPercent ?? 30,
+      annualReturn: data.annualReturn ?? 10,
+      years: data.years ? Math.round(Number(data.years)) : 5
     }
   });
+
+  return {
+    ...result,
+    annualReturn: typeof result.annualReturn?.toNumber === 'function' ? result.annualReturn.toNumber() : Number(result.annualReturn)
+  };
 }
 
 export async function getMonthlyBudgets(userId: string, year: number) {

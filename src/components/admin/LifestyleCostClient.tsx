@@ -5,9 +5,10 @@ import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { BarChart, Bar, LineChart, Line, AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine, Scatter } from "recharts";
-import { getBudgetSettings, getMonthlyBudgets, saveBudgetSettings, saveMonthlyBudget } from "@/app/dashboard/lifestyle-cost/actions";
+import { getBudgetSettings, getMonthlyBudgets, saveBudgetSettings, saveMonthlyBudget, savePriorityList } from "@/app/dashboard/lifestyle-cost/actions";
 import { calculateMonth, calculateYearSummary, calculateProjection } from "@/lib/lifestyle";
-import { Plus, Trash2, Copy, Save, AlertTriangle, TrendingUp, Wallet, Banknote, ShieldAlert, PiggyBank } from "lucide-react";
+import { Plus, Trash2, Copy, Save, AlertTriangle, TrendingUp, Wallet, Banknote, ShieldAlert, PiggyBank, GripVertical, Star, CheckSquare, Square, CheckCircle2 } from "lucide-react";
+import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 
 import { toast } from "sonner";
 
@@ -41,7 +42,7 @@ const MonthSchema = z.object({
 
 export default function LifestyleCostClient({ userId }: { userId: string }) {
   const [year, setYear] = useState(new Date().getFullYear());
-  
+
   // Local storage for month persistence
   const [selectedMonth, setSelectedMonth] = useState(() => {
     if (typeof window !== "undefined") {
@@ -52,13 +53,21 @@ export default function LifestyleCostClient({ userId }: { userId: string }) {
   });
 
   const [isLoading, setIsLoading] = useState(true);
-  
+
   // Data
   const [settings, setSettings] = useState<any>(null);
   const [monthsData, setMonthsData] = useState<any[]>([]);
+  const [localReturn, setLocalReturn] = useState<string>("");
+  const [localYears, setLocalYears] = useState<string>("");
+  const [isSavingProjection, setIsSavingProjection] = useState(false);
 
   const [showAddModal, setShowAddModal] = useState<'income' | 'expense' | null>(null);
   const [newCatName, setNewCatName] = useState("");
+
+  const [starredItems, setStarredItems] = useState<string[]>([]);
+  const [checkedMap, setCheckedMap] = useState<Record<string, string[]>>({});
+  const monthKey = `${year}-${selectedMonth}`;
+  const currentCheckedItems = checkedMap[monthKey] || [];
 
   // Form
   const form = useForm({
@@ -71,12 +80,12 @@ export default function LifestyleCostClient({ userId }: { userId: string }) {
     }
   });
 
-  const { fields: incFields, append: appendInc, remove: removeInc } = useFieldArray({
+  const { fields: incFields, append: appendInc, remove: removeInc, move: moveInc } = useFieldArray({
     control: form.control,
     name: "incomes"
   });
 
-  const { fields: expFields, append: appendExp, remove: removeExp } = useFieldArray({
+  const { fields: expFields, append: appendExp, remove: removeExp, move: moveExp } = useFieldArray({
     control: form.control,
     name: "expenses"
   });
@@ -96,6 +105,10 @@ export default function LifestyleCostClient({ userId }: { userId: string }) {
           getMonthlyBudgets(userId, year)
         ]);
         setSettings(s);
+        setStarredItems(s?.starredItems || []);
+        setCheckedMap(s?.checkedItemsByMonth || {});
+        setLocalReturn(s?.annualReturn !== undefined ? String(s.annualReturn) : "10");
+        setLocalYears(s?.years !== undefined ? String(s.years) : "5");
         setMonthsData(m);
       } catch (err) {
         console.error("Failed to load lifestyle data:", err);
@@ -110,33 +123,15 @@ export default function LifestyleCostClient({ userId }: { userId: string }) {
   useEffect(() => {
     if (!settings) return;
     localStorage.setItem("lifestyleCostSelectedMonth", selectedMonth.toString());
-    
-    let monthData = monthsData.find(m => m.month === selectedMonth);
-    let isNewEmptyMonth = false;
 
-    // If empty, copy from the most recent prior month
-    if (!monthData) {
-      isNewEmptyMonth = true;
-      const previousMonths = monthsData.filter(m => m.month < selectedMonth).sort((a, b) => b.month - a.month);
-      if (previousMonths.length > 0) {
-        monthData = previousMonths[0]; // Copy previous month's data
-      }
-    }
-    
-    const currentFormValues = form.getValues();
+    const monthData = monthsData.find(m => m.month === selectedMonth);
 
     const incomes = settings.incomeSources.map((src: string) => {
-      // Prefer current unsaved value in form, then saved month data, then 0
-      const current = currentFormValues.incomes?.find((e: any) => e.source === src);
-      if (current) return current;
       const existing = monthData?.incomes?.find((e: any) => e.source === src);
       return { source: src, amount: existing ? existing.amount : 0 };
     });
 
     const expenses = settings.categories.map((cat: string) => {
-      // Prefer current unsaved value in form, then saved month data, then 0
-      const current = currentFormValues.expenses?.find((e: any) => e.category === cat);
-      if (current) return current;
       const existing = monthData?.expenses?.find((e: any) => e.category === cat);
       return { category: cat, amount: existing ? existing.amount : 0 };
     });
@@ -147,25 +142,25 @@ export default function LifestyleCostClient({ userId }: { userId: string }) {
       savePercent: monthData?.savePercent ?? settings.savePercent,
       investPercent: monthData?.investPercent ?? settings.investPercent,
     });
-  }, [selectedMonth, monthsData, settings]); // Removed form from deps to avoid loop
+  }, [selectedMonth, monthsData, settings]); // Clean reset strictly to this month's saved database values
 
   const onSubmit = async (data: any) => {
     setIsSaving(true);
-    
+
     // Artificial minimum delay so the button spin isn't an invisible flash
     await Promise.all([
       saveMonthlyBudget(userId, year, selectedMonth, data),
       new Promise(r => setTimeout(r, 600))
     ]);
-    
+
     // Update local state for immediate feedback
     setMonthsData(prev => {
       const updated = [...prev];
       const idx = updated.findIndex(m => m.month === selectedMonth);
-      const newMonth = { 
-        year, 
-        month: selectedMonth, 
-        incomes: data.incomes, 
+      const newMonth = {
+        year,
+        month: selectedMonth,
+        incomes: data.incomes,
         expenses: data.expenses,
         savePercent: data.savePercent,
         investPercent: data.investPercent
@@ -174,14 +169,14 @@ export default function LifestyleCostClient({ userId }: { userId: string }) {
       else updated.push(newMonth);
       return updated;
     });
-    
+
     setIsSaving(false);
     setIsSaveSuccess(true);
     setLastSaved(new Date());
-    
+
     // Show toast
     toast.success("Settings saved successfully!");
-    
+
     // reset button state after 2 seconds
     setTimeout(() => {
       setIsSaveSuccess(false);
@@ -275,7 +270,7 @@ export default function LifestyleCostClient({ userId }: { userId: string }) {
     return Array.from({ length: 12 }, (_, i) => {
       const isCurrentEditing = i === selectedMonth;
       let inc = 0, exp = 0;
-      
+
       if (isCurrentEditing) {
         inc = (watchedValues.incomes || []).reduce((sum: number, k: any) => sum + (k.amount || 0), 0);
         exp = (watchedValues.expenses || []).reduce((sum: number, e: any) => sum + (e.amount || 0), 0);
@@ -286,10 +281,10 @@ export default function LifestyleCostClient({ userId }: { userId: string }) {
           exp = m.expenses.reduce((sum: number, e: any) => sum + (e.amount || 0), 0);
         }
       }
-      
+
       const leftOver = inc - exp;
       const hasData = inc > 0 || exp > 0;
-      
+
       return {
         name: months[i],
         monthIndex: i,
@@ -307,17 +302,17 @@ export default function LifestyleCostClient({ userId }: { userId: string }) {
   }, [monthsData, selectedMonth, watchedValues]);
 
   const [isAddingCategory, setIsAddingCategory] = useState(false);
-  
+
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [transferMonths, setTransferMonths] = useState<number[]>([]);
   const [isTransferring, setIsTransferring] = useState(false);
 
   const projectionChartData = useMemo(() => {
     if (!settings || !projection) return [];
-    
+
     const data = [];
     const r = (settings.annualReturn / 100) / 12;
-    
+
     for (let y = 1; y <= settings.years; y++) {
       const n = y * 12;
       const totalInvested = projection.monthlyInvest * n;
@@ -327,7 +322,7 @@ export default function LifestyleCostClient({ userId }: { userId: string }) {
       } else {
         futureValue = totalInvested;
       }
-      
+
       data.push({
         year: `Y${y}`,
         totalInvested,
@@ -342,9 +337,9 @@ export default function LifestyleCostClient({ userId }: { userId: string }) {
   const confirmAddCategory = async () => {
     if (!newCatName.trim() || !settings) return;
     const name = newCatName.trim();
-    
+
     setIsAddingCategory(true);
-    
+
     if (showAddModal === 'income') {
       if (settings.incomeSources.includes(name)) {
         alert("Source already exists.");
@@ -364,7 +359,7 @@ export default function LifestyleCostClient({ userId }: { userId: string }) {
       setSettings({ ...settings, categories: newCats });
       await saveBudgetSettings(userId, { categories: newCats });
     }
-    
+
     setIsAddingCategory(false);
     setNewCatName("");
     setShowAddModal(null);
@@ -381,6 +376,90 @@ export default function LifestyleCostClient({ userId }: { userId: string }) {
     }
   };
 
+  const handleDragIncome = async (result: DropResult) => {
+    if (!result.destination || !settings) return;
+    const sourceIndex = result.source.index;
+    const destIndex = result.destination.index;
+    if (sourceIndex === destIndex) return;
+
+    // Move in react-hook-form field array
+    moveInc(sourceIndex, destIndex);
+
+    // Update settings order
+    const newSources = Array.from(settings.incomeSources as string[]);
+    const [moved] = newSources.splice(sourceIndex, 1);
+    newSources.splice(destIndex, 0, moved);
+
+    setSettings({ ...settings, incomeSources: newSources });
+
+    try {
+      await saveBudgetSettings(userId, { incomeSources: newSources });
+      toast.success("Income sources reordered");
+    } catch (err) {
+      console.error("Failed to save reordered income sources:", err);
+      toast.error("Failed to save order");
+    }
+  };
+
+  const handleDragExpense = async (result: DropResult) => {
+    if (!result.destination || !settings) return;
+    const sourceIndex = result.source.index;
+    const destIndex = result.destination.index;
+    if (sourceIndex === destIndex) return;
+
+    // Move in react-hook-form field array
+    moveExp(sourceIndex, destIndex);
+
+    // Update settings order
+    const newCategories = Array.from(settings.categories as string[]);
+    const [moved] = newCategories.splice(sourceIndex, 1);
+    newCategories.splice(destIndex, 0, moved);
+
+    setSettings({ ...settings, categories: newCategories });
+
+    try {
+      await saveBudgetSettings(userId, { categories: newCategories });
+      toast.success("Expense categories reordered");
+    } catch (err) {
+      console.error("Failed to save reordered expense categories:", err);
+      toast.error("Failed to save order");
+    }
+  };
+
+  const handleToggleStar = async (name: string) => {
+    const isCurrentlyStarred = starredItems.includes(name);
+    const updated = isCurrentlyStarred
+      ? starredItems.filter(item => item !== name)
+      : [...starredItems, name];
+
+    setStarredItems(updated);
+    try {
+      await savePriorityList(userId, { starredItems: updated });
+      toast.success(isCurrentlyStarred ? `Removed "${name}" from priority checklist` : `Starred "${name}" for priority checklist`);
+    } catch (err) {
+      console.error("Failed to save starred item:", err);
+      toast.error("Failed to save priority star");
+    }
+  };
+
+  const handleToggleCheck = async (name: string) => {
+    const isCurrentlyChecked = currentCheckedItems.includes(name);
+    const updated = isCurrentlyChecked
+      ? currentCheckedItems.filter(item => item !== name)
+      : [...currentCheckedItems, name];
+
+    setCheckedMap(prev => ({
+      ...prev,
+      [monthKey]: updated
+    }));
+
+    try {
+      await savePriorityList(userId, { monthKey, checkedItems: updated });
+    } catch (err) {
+      console.error("Failed to save checked item:", err);
+    }
+  };
+
   const handleRemoveCategory = async (index: number) => {
     if (!settings) return;
     const cat = expFields[index].category;
@@ -392,21 +471,53 @@ export default function LifestyleCostClient({ userId }: { userId: string }) {
     }
   };
 
+  const handleSaveProjectionSetting = async (field: 'annualReturn' | 'years', rawVal: string) => {
+    const num = parseFloat(rawVal);
+    if (isNaN(num) || num < 0) {
+      // Revert to current saved settings
+      if (field === 'annualReturn') setLocalReturn(String(settings.annualReturn));
+      if (field === 'years') setLocalYears(String(settings.years));
+      return;
+    }
+
+    const valueToSave = field === 'years' ? Math.max(1, Math.round(num)) : num;
+
+    // Update settings immediately for responsive UI
+    const updated = {
+      ...settings,
+      [field]: valueToSave
+    };
+    setSettings(updated);
+    if (field === 'annualReturn') setLocalReturn(String(valueToSave));
+    if (field === 'years') setLocalYears(String(valueToSave));
+
+    try {
+      setIsSavingProjection(true);
+      await saveBudgetSettings(userId, { [field]: valueToSave });
+      toast.success(field === 'annualReturn' ? `Annual return updated to ${valueToSave}%` : `Projection timeline updated to ${valueToSave} years`);
+    } catch (err) {
+      console.error(`Failed to update ${field}:`, err);
+      toast.error(`Failed to save ${field} to database`);
+    } finally {
+      setIsSavingProjection(false);
+    }
+  };
+
   const handleCopySummary = async () => {
     if (!yearSummary) return;
     const text = `Lifestyle Cost Planner ${year}\nIncome: ${formatNGN(yearSummary.totalIncome)}\nExpenses: ${formatNGN(yearSummary.totalExpenses)} (${(yearSummary.expensesPercent * 100).toFixed(1)}%)\nLeft over: ${formatNGN(yearSummary.leftOverSoFar)}\nSaved & Invested: ${formatNGN(yearSummary.totalSaveAndInvest)}`;
     await navigator.clipboard.writeText(text);
     alert("Summary copied to clipboard!");
   };
-  
+
   const handleTransfer = async () => {
     if (transferMonths.length === 0) return;
     setIsTransferring(true);
     const data = form.getValues();
-    
+
     const promises = transferMonths.map(m => saveMonthlyBudget(userId, year, m, data));
     await Promise.all(promises);
-    
+
     // update local state
     setMonthsData(prev => {
       const updated = [...prev];
@@ -418,7 +529,7 @@ export default function LifestyleCostClient({ userId }: { userId: string }) {
       }
       return updated;
     });
-    
+
     setIsTransferring(false);
     setShowTransferModal(false);
     toast.success(`Copied to ${transferMonths.length} month(s)`);
@@ -432,7 +543,7 @@ export default function LifestyleCostClient({ userId }: { userId: string }) {
           <div className="h-8 bg-zinc-800 rounded w-64"></div>
           <div className="h-9 bg-zinc-800 rounded w-32"></div>
         </div>
-        
+
         {/* Top Row: 4 Summary Cards Skeleton */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {[1, 2, 3, 4].map(i => (
@@ -466,7 +577,7 @@ export default function LifestyleCostClient({ userId }: { userId: string }) {
               </div>
             </div>
           </div>
-          
+
           {/* Right Column Skeleton */}
           <div className="lg:col-span-5 space-y-6">
             <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl shadow-sm h-[320px]">
@@ -507,15 +618,15 @@ export default function LifestyleCostClient({ userId }: { userId: string }) {
 
   return (
     <div className="w-[98%] mx-auto space-y-6 pb-20 relative">
-      
+
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl shadow-xl w-full max-w-sm">
             <h3 className="text-lg font-bold text-white mb-4">Add {showAddModal === 'income' ? 'Income Source' : 'Expense Category'}</h3>
-            <input 
-              type="text" 
-              value={newCatName} 
-              onChange={e => setNewCatName(e.target.value)} 
+            <input
+              type="text"
+              value={newCatName}
+              onChange={e => setNewCatName(e.target.value)}
               placeholder="e.g. Loan, Salary, Food"
               className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-4 py-3 text-sm text-white focus:outline-none focus:border-teal-500 mb-4"
               autoFocus
@@ -538,15 +649,14 @@ export default function LifestyleCostClient({ userId }: { userId: string }) {
           <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl shadow-xl w-full max-w-md max-h-[80vh] overflow-y-auto">
             <h3 className="text-lg font-bold text-white mb-2">Copy Settings</h3>
             <p className="text-sm text-zinc-400 mb-4">Select the months you want to overwrite with {["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][selectedMonth]}'s current numbers.</p>
-            
+
             <div className="grid grid-cols-3 gap-3 mb-6">
               {["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].map((m, i) => (
-                <label key={m} className={`flex items-center gap-2 p-3 rounded-xl border cursor-pointer transition-all ${
-                  i === selectedMonth ? "opacity-50 bg-zinc-950/50 border-zinc-800 grayscale cursor-not-allowed" :
+                <label key={m} className={`flex items-center gap-2 p-3 rounded-xl border cursor-pointer transition-all ${i === selectedMonth ? "opacity-50 bg-zinc-950/50 border-zinc-800 grayscale cursor-not-allowed" :
                   transferMonths.includes(i) ? "bg-indigo-500/10 border-indigo-500" : "bg-zinc-950 border-zinc-800 hover:border-zinc-700"
-                }`}>
-                  <input 
-                    type="checkbox" 
+                  }`}>
+                  <input
+                    type="checkbox"
                     disabled={i === selectedMonth}
                     checked={transferMonths.includes(i)}
                     onChange={(e) => {
@@ -612,10 +722,10 @@ export default function LifestyleCostClient({ userId }: { userId: string }) {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
+
         {/* Left Column */}
         <div className="lg:col-span-7 space-y-6">
-          
+
           {/* Chart */}
           <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl shadow-sm">
             <h2 className="text-lg font-bold text-white font-bricolage mb-6">Income vs Expenses</h2>
@@ -623,23 +733,23 @@ export default function LifestyleCostClient({ userId }: { userId: string }) {
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#27272a" />
-                  <XAxis 
-                    dataKey="name" 
-                    stroke="#71717a" 
-                    fontSize={12} 
-                    tickLine={false} 
+                  <XAxis
+                    dataKey="name"
+                    stroke="#71717a"
+                    fontSize={12}
+                    tickLine={false}
                     axisLine={false}
                     onClick={(data) => setSelectedMonth(data.index)}
                     style={{ cursor: 'pointer' }}
                   />
-                  <YAxis 
-                    tickFormatter={shortNGN} 
-                    stroke="#71717a" 
-                    fontSize={12} 
-                    tickLine={false} 
-                    axisLine={false} 
+                  <YAxis
+                    tickFormatter={shortNGN}
+                    stroke="#71717a"
+                    fontSize={12}
+                    tickLine={false}
+                    axisLine={false}
                   />
-                  <Tooltip 
+                  <Tooltip
                     cursor={{ fill: '#27272a', opacity: 0.4 }}
                     contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '12px', color: '#fff' }}
                     formatter={(val: any) => formatNGN(Number(val) || 0)}
@@ -663,23 +773,23 @@ export default function LifestyleCostClient({ userId }: { userId: string }) {
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#27272a" />
-                  <XAxis 
-                    dataKey="name" 
-                    stroke="#71717a" 
-                    fontSize={12} 
-                    tickLine={false} 
+                  <XAxis
+                    dataKey="name"
+                    stroke="#71717a"
+                    fontSize={12}
+                    tickLine={false}
                     axisLine={false}
                     onClick={(data) => setSelectedMonth(data.index)}
                     style={{ cursor: 'pointer' }}
                   />
-                  <YAxis 
-                    tickFormatter={shortNGN} 
-                    stroke="#71717a" 
-                    fontSize={12} 
-                    tickLine={false} 
-                    axisLine={false} 
+                  <YAxis
+                    tickFormatter={shortNGN}
+                    stroke="#71717a"
+                    fontSize={12}
+                    tickLine={false}
+                    axisLine={false}
                   />
-                  <Tooltip 
+                  <Tooltip
                     content={({ active, payload, label }: any) => {
                       if (active && payload && payload.length) {
                         const inc = payload[0].payload.lineIncome;
@@ -721,21 +831,61 @@ export default function LifestyleCostClient({ userId }: { userId: string }) {
               </div>
               <div className="flex gap-4">
                 <div>
-                  <label className="block text-[10px] text-zinc-500 uppercase font-bold mb-1">Return (%)</label>
-                  <input 
-                    type="number" 
-                    value={settings.annualReturn} 
-                    onChange={e => saveBudgetSettings(userId, { annualReturn: Number(e.target.value) }).then(() => setSettings({...settings, annualReturn: Number(e.target.value)}))}
-                    className="w-20 bg-zinc-950 border border-zinc-800 rounded px-2 py-1 text-sm text-white focus:outline-none"
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-[10px] text-zinc-400 uppercase font-bold tracking-wider">Return (%)</label>
+                  </div>
+                  <input
+                    type="number"
+                    step="any"
+                    min="0"
+                    max="100"
+                    value={localReturn}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setLocalReturn(val);
+                      const num = parseFloat(val);
+                      if (!isNaN(num) && num >= 0) {
+                        setSettings((prev: any) => ({ ...prev, annualReturn: num }));
+                      }
+                    }}
+                    onBlur={() => handleSaveProjectionSetting('annualReturn', localReturn)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        (e.target as HTMLInputElement).blur();
+                      }
+                    }}
+                    placeholder="10"
+                    disabled={isSavingProjection}
+                    className="w-20 bg-zinc-950 border border-zinc-700 hover:border-zinc-500 rounded-lg px-2.5 py-1.5 text-sm font-semibold text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all disabled:opacity-50"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] text-zinc-500 uppercase font-bold mb-1">Years</label>
-                  <input 
-                    type="number" 
-                    value={settings.years} 
-                    onChange={e => saveBudgetSettings(userId, { years: Number(e.target.value) }).then(() => setSettings({...settings, years: Number(e.target.value)}))}
-                    className="w-20 bg-zinc-950 border border-zinc-800 rounded px-2 py-1 text-sm text-white focus:outline-none"
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-[10px] text-zinc-400 uppercase font-bold tracking-wider">Years</label>
+                  </div>
+                  <input
+                    type="number"
+                    step="1"
+                    min="1"
+                    max="100"
+                    value={localYears}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setLocalYears(val);
+                      const num = parseInt(val, 10);
+                      if (!isNaN(num) && num > 0) {
+                        setSettings((prev: any) => ({ ...prev, years: num }));
+                      }
+                    }}
+                    onBlur={() => handleSaveProjectionSetting('years', localYears)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        (e.target as HTMLInputElement).blur();
+                      }
+                    }}
+                    placeholder="5"
+                    disabled={isSavingProjection}
+                    className="w-20 bg-zinc-950 border border-zinc-700 hover:border-zinc-500 rounded-lg px-2.5 py-1.5 text-sm font-semibold text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all disabled:opacity-50"
                   />
                 </div>
               </div>
@@ -766,18 +916,18 @@ export default function LifestyleCostClient({ userId }: { userId: string }) {
                 <AreaChart data={projectionChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorGrowth" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#818cf8" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#818cf8" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="#818cf8" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#818cf8" stopOpacity={0} />
                     </linearGradient>
                     <linearGradient id="colorInvested" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3f3f46" stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor="#3f3f46" stopOpacity={0.2}/>
+                      <stop offset="5%" stopColor="#3f3f46" stopOpacity={0.8} />
+                      <stop offset="95%" stopColor="#3f3f46" stopOpacity={0.2} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#27272a" />
                   <XAxis dataKey="year" stroke="#71717a" fontSize={12} tickLine={false} axisLine={false} />
                   <YAxis tickFormatter={shortNGN} stroke="#71717a" fontSize={12} tickLine={false} axisLine={false} />
-                  <Tooltip 
+                  <Tooltip
                     content={({ active, payload, label }: any) => {
                       if (active && payload && payload.length) {
                         const invested = payload.find((p: any) => p.dataKey === 'totalInvested')?.value || 0;
@@ -813,15 +963,291 @@ export default function LifestyleCostClient({ userId }: { userId: string }) {
               An illustration only. Real returns vary and can be negative, and inflation reduces what the money buys.
             </p>
           </div>
+
+          {/* Priority Checklist (Separate Card Under Investment Projection) */}
+          <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl shadow-sm relative overflow-hidden">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-amber-500/10 text-amber-400 rounded-xl border border-amber-500/20">
+                  <Star className="w-5 h-5 fill-amber-400 text-amber-400" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-white font-bricolage flex items-center gap-2">
+                    Priority Checklist
+                    <span className="text-[10px] font-semibold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+                      Take care of first
+                    </span>
+                  </h2>
+                  <p className="text-xs text-zinc-400">
+                    High-priority obligations and critical targets for {["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][selectedMonth]} {year}
+                  </p>
+                </div>
+              </div>
+              <div className="text-right bg-zinc-950 px-3 py-1.5 rounded-xl border border-zinc-800">
+                <span className="text-sm font-bold text-amber-400 font-mono">
+                  {starredItems.filter(item => currentCheckedItems.includes(item)).length + (currentMonthCalc.leftOver > 0 ? (
+                    (currentCheckedItems.includes('split-save') ? 1 : 0) +
+                    (currentCheckedItems.includes('split-invest') ? 1 : 0) +
+                    (currentCheckedItems.includes('split-buffer') ? 1 : 0)
+                  ) : 0)} / {starredItems.length + (currentMonthCalc.leftOver > 0 ? 3 : 0)}
+                </span>
+                <span className="text-[10px] text-zinc-500 block uppercase font-medium">handled</span>
+              </div>
+            </div>
+
+            {starredItems.length === 0 && currentMonthCalc.leftOver <= 0 ? (
+              <div className="bg-zinc-950/60 border border-dashed border-zinc-800 rounded-xl p-5 text-center">
+                <Star className="w-6 h-6 text-zinc-600 mx-auto mb-2" />
+                <p className="text-sm font-medium text-zinc-400">No priority items starred yet</p>
+                <p className="text-xs text-zinc-600 mt-1">
+                  Click the star icon ⭐ beside any income source or expense in the entry list to add it to your monthly priority checklist.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2.5">
+                {starredItems.map((name) => {
+                  const isChecked = currentCheckedItems.includes(name);
+                  // Find amount in current month's entry form
+                  const incMatch = watchedValues.incomes?.find((i: any) => i.source === name);
+                  const expMatch = watchedValues.expenses?.find((e: any) => e.category === name);
+                  const isIncome = !!incMatch;
+                  const amount = incMatch?.amount ?? expMatch?.amount ?? 0;
+
+                  return (
+                    <div
+                      key={name}
+                      onClick={() => handleToggleCheck(name)}
+                      className={`group flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer ${isChecked
+                        ? 'bg-zinc-950/50 border-zinc-800/80 opacity-60'
+                        : 'bg-zinc-950/80 border-amber-500/20 hover:border-amber-500/50 hover:bg-zinc-950'
+                        }`}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleCheck(name);
+                          }}
+                          className={`transition-colors shrink-0 ${isChecked ? 'text-emerald-400' : 'text-zinc-500 group-hover:text-amber-400'}`}
+                        >
+                          {isChecked ? (
+                            <CheckCircle2 className="w-5 h-5 fill-emerald-500/20 text-emerald-400" />
+                          ) : (
+                            <Square className="w-5 h-5" />
+                          )}
+                        </button>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className={`text-sm font-semibold truncate ${isChecked ? 'line-through text-zinc-500' : 'text-white'}`}>
+                              {name}
+                            </span>
+                            <span className={`text-[10px] px-1.5 py-0.2 rounded font-medium shrink-0 ${isIncome ? 'bg-teal-500/10 text-teal-400 border border-teal-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                              }`}>
+                              {isIncome ? 'Income' : 'Expense'}
+                            </span>
+                          </div>
+                          <span className="text-[11px] text-zinc-500">
+                            {isChecked ? 'Handled for this month' : 'Pending obligation'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3 shrink-0">
+                        <span className={`text-sm font-mono font-bold ${isChecked
+                          ? 'line-through text-zinc-500'
+                          : isIncome ? 'text-teal-400' : 'text-amber-400'
+                          }`}>
+                          {formatNGN(amount)}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleStar(name);
+                          }}
+                          title="Remove star"
+                          className="text-amber-400 hover:text-zinc-500 p-1 transition-colors"
+                        >
+                          <Star className="w-4 h-4 fill-amber-400" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Split What is Left Breakdown inside Priority Checklist */}
+            {currentMonthCalc.leftOver > 0 && (
+              <div className="mt-5 pt-4 border-t border-zinc-800">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <span>Split what is left</span>
+                    <span className="text-[10px] text-emerald-400 font-semibold bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 font-mono">
+                      {formatNGN(currentMonthCalc.leftOver)} surplus
+                    </span>
+                  </h4>
+                  <span className="text-[10px] text-zinc-500">From monthly split</span>
+                </div>
+
+                <div className="space-y-2.5">
+                  {/* Save Split Checkable Item */}
+                  {(() => {
+                    const isChecked = currentCheckedItems.includes('split-save');
+                    return (
+                      <div
+                        onClick={() => handleToggleCheck('split-save')}
+                        className={`group flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer ${isChecked
+                          ? 'bg-zinc-950/50 border-zinc-800/80 opacity-60'
+                          : 'bg-zinc-950/80 border-pink-500/20 hover:border-pink-500/50 hover:bg-zinc-950'
+                          }`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleCheck('split-save');
+                            }}
+                            className={`transition-colors shrink-0 ${isChecked ? 'text-emerald-400' : 'text-zinc-500 group-hover:text-pink-400'}`}
+                          >
+                            {isChecked ? (
+                              <CheckCircle2 className="w-5 h-5 fill-emerald-500/20 text-emerald-400" />
+                            ) : (
+                              <Square className="w-5 h-5" />
+                            )}
+                          </button>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className={`text-sm font-semibold truncate flex items-center gap-1.5 ${isChecked ? 'line-through text-zinc-500' : 'text-white'}`}>
+                                <PiggyBank className="w-4 h-4 text-pink-400 shrink-0" />
+                                Save {watchedValues.savePercent}%
+                              </span>
+                              <span className="text-[10px] px-1.5 py-0.2 rounded font-medium shrink-0 bg-pink-500/10 text-pink-400 border border-pink-500/20">
+                                Surplus Split
+                              </span>
+                            </div>
+                            <span className="text-[11px] text-zinc-500">
+                              {isChecked ? 'Allocated to savings' : 'Pending savings transfer'}
+                            </span>
+                          </div>
+                        </div>
+                        <span className={`text-sm font-mono font-bold shrink-0 ${isChecked ? 'line-through text-zinc-500' : 'text-pink-400'}`}>
+                          {formatNGN(currentMonthCalc.saveAmount)}
+                        </span>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Invest Split Checkable Item */}
+                  {(() => {
+                    const isChecked = currentCheckedItems.includes('split-invest');
+                    return (
+                      <div
+                        onClick={() => handleToggleCheck('split-invest')}
+                        className={`group flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer ${isChecked
+                          ? 'bg-zinc-950/50 border-zinc-800/80 opacity-60'
+                          : 'bg-zinc-950/80 border-indigo-500/20 hover:border-indigo-500/50 hover:bg-zinc-950'
+                          }`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleCheck('split-invest');
+                            }}
+                            className={`transition-colors shrink-0 ${isChecked ? 'text-emerald-400' : 'text-zinc-500 group-hover:text-indigo-400'}`}
+                          >
+                            {isChecked ? (
+                              <CheckCircle2 className="w-5 h-5 fill-emerald-500/20 text-emerald-400" />
+                            ) : (
+                              <Square className="w-5 h-5" />
+                            )}
+                          </button>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className={`text-sm font-semibold truncate flex items-center gap-1.5 ${isChecked ? 'line-through text-zinc-500' : 'text-white'}`}>
+                                <TrendingUp className="w-4 h-4 text-indigo-400 shrink-0" />
+                                Invest {watchedValues.investPercent}%
+                              </span>
+                              <span className="text-[10px] px-1.5 py-0.2 rounded font-medium shrink-0 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                                Surplus Split
+                              </span>
+                            </div>
+                            <span className="text-[11px] text-zinc-500">
+                              {isChecked ? 'Allocated to investments' : 'Pending investment deployment'}
+                            </span>
+                          </div>
+                        </div>
+                        <span className={`text-sm font-mono font-bold shrink-0 ${isChecked ? 'line-through text-zinc-500' : 'text-indigo-400'}`}>
+                          {formatNGN(currentMonthCalc.investAmount)}
+                        </span>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Buffer Split Checkable Item */}
+                  {(() => {
+                    const isChecked = currentCheckedItems.includes('split-buffer');
+                    const bufferPercent = Math.max(0, 100 - watchedValues.savePercent - watchedValues.investPercent);
+                    return (
+                      <div
+                        onClick={() => handleToggleCheck('split-buffer')}
+                        className={`group flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer ${isChecked
+                          ? 'bg-zinc-950/50 border-zinc-800/80 opacity-60'
+                          : 'bg-zinc-950/80 border-zinc-700/50 hover:border-zinc-500/50 hover:bg-zinc-950'
+                          }`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleCheck('split-buffer');
+                            }}
+                            className={`transition-colors shrink-0 ${isChecked ? 'text-emerald-400' : 'text-zinc-500 group-hover:text-zinc-300'}`}
+                          >
+                            {isChecked ? (
+                              <CheckCircle2 className="w-5 h-5 fill-emerald-500/20 text-emerald-400" />
+                            ) : (
+                              <Square className="w-5 h-5" />
+                            )}
+                          </button>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className={`text-sm font-semibold truncate ${isChecked ? 'line-through text-zinc-500' : 'text-white'}`}>
+                                Buffer ({bufferPercent}%)
+                              </span>
+                              <span className="text-[10px] px-1.5 py-0.2 rounded font-medium shrink-0 bg-zinc-800 text-zinc-300 border border-zinc-700">
+                                Surplus Split
+                              </span>
+                            </div>
+                            <span className="text-[11px] text-zinc-500">
+                              {isChecked ? 'Reserved as spending buffer' : 'Unallocated cash buffer'}
+                            </span>
+                          </div>
+                        </div>
+                        <span className={`text-sm font-mono font-bold shrink-0 ${isChecked ? 'line-through text-zinc-500' : 'text-zinc-300'}`}>
+                          {formatNGN(currentMonthCalc.bufferAmount)}
+                        </span>
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Right Column */}
         <div className="lg:col-span-5 space-y-6">
-          
+
           {/* Calculation Card */}
           <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl shadow-sm relative overflow-hidden">
             <h2 className="text-lg font-bold text-white font-bricolage mb-6">Calculations for {["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][selectedMonth]}</h2>
-            
+
             <div className="space-y-3 mb-6">
               <div className="flex justify-between items-center text-sm">
                 <span className="text-zinc-400">Income</span>
@@ -847,7 +1273,7 @@ export default function LifestyleCostClient({ userId }: { userId: string }) {
             {currentMonthCalc.leftOver > 0 ? (
               <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-4 space-y-4">
                 <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Split what is left</h4>
-                
+
                 <div className="space-y-4">
                   <div>
                     <div className="flex justify-between text-sm mb-2">
@@ -866,7 +1292,7 @@ export default function LifestyleCostClient({ userId }: { userId: string }) {
                   </div>
 
                   {watchedValues.savePercent + watchedValues.investPercent > 100 && (
-                     <div className="text-xs text-red-400">Cannot exceed 100%</div>
+                    <div className="text-xs text-red-400">Cannot exceed 100%</div>
                   )}
 
                   <div className="pt-2 border-t border-zinc-800 flex justify-between text-xs text-zinc-500">
@@ -898,8 +1324,8 @@ export default function LifestyleCostClient({ userId }: { userId: string }) {
                   </span>
                 ) : null}
               </div>
-              <select 
-                value={selectedMonth} 
+              <select
+                value={selectedMonth}
                 onChange={(e) => setSelectedMonth(Number(e.target.value))}
                 className="bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none"
               >
@@ -918,38 +1344,100 @@ export default function LifestyleCostClient({ userId }: { userId: string }) {
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <div>
                 <div className="flex justify-between items-center mb-2">
-                  <label className="block text-xs font-bold text-teal-500 uppercase tracking-wider">Incomes</label>
+                  <div className="flex items-center gap-1.5">
+                    <label className="block text-xs font-bold text-teal-500 uppercase tracking-wider">Incomes</label>
+                    <span className="text-[10px] text-zinc-500">(Drag to rearrange)</span>
+                  </div>
                   <span className="text-xs text-zinc-500 font-medium">Total: {formatNGN(currentTotalIncome)}</span>
                 </div>
-                
-                <div className="space-y-3">
-                  {incFields.map((field, index) => (
-                    <div key={field.id} className="flex items-center gap-3 bg-zinc-950/40 p-3 rounded-xl border border-zinc-800/50 shadow-inner">
-                      <div className="flex-1">
-                        <label className="block text-[10px] text-zinc-500 mb-1 font-semibold tracking-wide truncate">{field.source}</label>
-                        <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600">₦</span>
-                          <input
-                            type="number"
-                            {...form.register(`incomes.${index}.amount`, { valueAsNumber: true })}
-                            className="w-full bg-zinc-900 border border-zinc-700 shadow-sm rounded-lg pl-8 pr-3 py-2 text-sm text-white focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500/50 transition-all"
-                          />
-                        </div>
-                      </div>
-                      <button 
-                        type="button" 
-                        onClick={() => handleRemoveIncomeSource(index)}
-                        className="mt-5 p-2 text-zinc-500 hover:text-red-400 transition-colors rounded-lg hover:bg-zinc-800/80 hover:shadow-sm"
-                        title="Remove source"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
 
-                <button 
-                  type="button" 
+                <DragDropContext onDragEnd={handleDragIncome}>
+                  <Droppable droppableId="incomes-list">
+                    {(provided) => (
+                      <div
+                        {...provided.droppableProps}
+                        ref={provided.innerRef}
+                        className="space-y-3"
+                      >
+                        {incFields.map((field, index) => {
+                          const isStarred = starredItems.includes(field.source);
+                          return (
+                            <Draggable key={field.id} draggableId={field.id} index={index}>
+                              {(dragProvided, snapshot) => (
+                                <div
+                                  ref={dragProvided.innerRef}
+                                  {...dragProvided.draggableProps}
+                                  className={`flex items-center gap-2.5 bg-zinc-950/40 p-3 rounded-xl border shadow-inner transition-colors ${snapshot.isDragging
+                                    ? "border-teal-500/80 bg-zinc-900 shadow-2xl z-50 ring-1 ring-teal-500/50"
+                                    : isStarred
+                                      ? "border-amber-500/30 bg-amber-500/[0.02]"
+                                      : "border-zinc-800/50 hover:border-zinc-700/60"
+                                    }`}
+                                >
+                                  {/* Drag Handle */}
+                                  <div
+                                    {...dragProvided.dragHandleProps}
+                                    className="cursor-grab active:cursor-grabbing text-zinc-600 hover:text-zinc-300 p-1 -ml-1 transition-colors touch-none"
+                                    title="Drag to rearrange"
+                                  >
+                                    <GripVertical className="w-4 h-4" />
+                                  </div>
+
+                                  {/* Star Priority Button */}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleStar(field.source)}
+                                    title={isStarred ? "Remove from priority checklist" : "Star: add to priority checklist"}
+                                    className={`p-1 rounded transition-colors ${isStarred
+                                      ? "text-amber-400 hover:text-amber-300"
+                                      : "text-zinc-600 hover:text-amber-400"
+                                      }`}
+                                  >
+                                    <Star className={`w-4 h-4 ${isStarred ? "fill-amber-400 text-amber-400" : ""}`} />
+                                  </button>
+
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center justify-between mb-1">
+                                      <label className="text-[10px] text-zinc-400 font-semibold tracking-wide truncate flex items-center gap-1.5">
+                                        <span>{field.source}</span>
+                                        {isStarred && (
+                                          <span className="text-[9px] bg-amber-500/10 text-amber-400 border border-amber-500/20 px-1.5 py-0.2 rounded-full font-bold">
+                                            Priority
+                                          </span>
+                                        )}
+                                      </label>
+                                    </div>
+                                    <div className="relative">
+                                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600">₦</span>
+                                      <input
+                                        type="number"
+                                        {...form.register(`incomes.${index}.amount`, { valueAsNumber: true })}
+                                        className="w-full bg-zinc-900 border border-zinc-700 shadow-sm rounded-lg pl-8 pr-3 py-2 text-sm text-white focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500/50 transition-all"
+                                      />
+                                    </div>
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveIncomeSource(index)}
+                                    className="mt-5 p-2 text-zinc-500 hover:text-red-400 transition-colors rounded-lg hover:bg-zinc-800/80 hover:shadow-sm"
+                                    title="Remove source"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              )}
+                            </Draggable>
+                          );
+                        })}
+                        {provided.placeholder}
+                      </div>
+                    )}
+                  </Droppable>
+                </DragDropContext>
+
+                <button
+                  type="button"
                   onClick={() => setShowAddModal('income')}
                   className="mt-4 flex items-center gap-1.5 text-xs font-medium text-zinc-400 hover:text-white transition-colors"
                 >
@@ -959,54 +1447,115 @@ export default function LifestyleCostClient({ userId }: { userId: string }) {
 
               <div>
                 <div className="flex justify-between items-center mb-2">
-                  <label className="block text-xs font-bold text-amber-500 uppercase tracking-wider">Expenses</label>
+                  <div className="flex items-center gap-1.5">
+                    <label className="block text-xs font-bold text-amber-500 uppercase tracking-wider">Expenses</label>
+                    <span className="text-[10px] text-zinc-500">(Drag to rearrange)</span>
+                  </div>
                   <span className="text-xs text-zinc-500 font-medium">Total: {formatNGN(currentMonthCalc.expenses)}</span>
                 </div>
-                
-                <div className="space-y-3">
-                  {expFields.map((field, index) => (
-                    <div key={field.id} className="flex items-center gap-3 bg-zinc-950/40 p-3 rounded-xl border border-zinc-800/50 shadow-inner">
-                      <div className="flex-1">
-                        <label className="block text-[10px] text-zinc-500 mb-1 font-semibold tracking-wide truncate">{field.category}</label>
-                        <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600">₦</span>
-                          <input
-                            type="number"
-                            {...form.register(`expenses.${index}.amount`, { valueAsNumber: true })}
-                            className="w-full bg-zinc-900 border border-zinc-700 shadow-sm rounded-lg pl-8 pr-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/50 transition-all"
-                          />
-                        </div>
-                      </div>
-                      <button 
-                        type="button" 
-                        onClick={() => handleRemoveCategory(index)}
-                        className="mt-5 p-2 text-zinc-500 hover:text-red-400 transition-colors rounded-lg hover:bg-zinc-800/80 hover:shadow-sm"
-                        title="Remove category"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
 
-                <button 
-                  type="button" 
+                <DragDropContext onDragEnd={handleDragExpense}>
+                  <Droppable droppableId="expenses-list">
+                    {(provided) => (
+                      <div
+                        {...provided.droppableProps}
+                        ref={provided.innerRef}
+                        className="space-y-3"
+                      >
+                        {expFields.map((field, index) => {
+                          const isStarred = starredItems.includes(field.category);
+                          return (
+                            <Draggable key={field.id} draggableId={field.id} index={index}>
+                              {(dragProvided, snapshot) => (
+                                <div
+                                  ref={dragProvided.innerRef}
+                                  {...dragProvided.draggableProps}
+                                  className={`flex items-center gap-2.5 bg-zinc-950/40 p-3 rounded-xl border shadow-inner transition-colors ${snapshot.isDragging
+                                    ? "border-amber-500/80 bg-zinc-900 shadow-2xl z-50 ring-1 ring-amber-500/50"
+                                    : isStarred
+                                      ? "border-amber-500/30 bg-amber-500/[0.02]"
+                                      : "border-zinc-800/50 hover:border-zinc-700/60"
+                                    }`}
+                                >
+                                  {/* Drag Handle */}
+                                  <div
+                                    {...dragProvided.dragHandleProps}
+                                    className="cursor-grab active:cursor-grabbing text-zinc-600 hover:text-zinc-300 p-1 -ml-1 transition-colors touch-none"
+                                    title="Drag to rearrange"
+                                  >
+                                    <GripVertical className="w-4 h-4" />
+                                  </div>
+
+                                  {/* Star Priority Button */}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleStar(field.category)}
+                                    title={isStarred ? "Remove from priority checklist" : "Star: add to priority checklist"}
+                                    className={`p-1 rounded transition-colors ${isStarred
+                                      ? "text-amber-400 hover:text-amber-300"
+                                      : "text-zinc-600 hover:text-amber-400"
+                                      }`}
+                                  >
+                                    <Star className={`w-4 h-4 ${isStarred ? "fill-amber-400 text-amber-400" : ""}`} />
+                                  </button>
+
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center justify-between mb-1">
+                                      <label className="text-[10px] text-zinc-400 font-semibold tracking-wide truncate flex items-center gap-1.5">
+                                        <span>{field.category}</span>
+                                        {isStarred && (
+                                          <span className="text-[9px] bg-amber-500/10 text-amber-400 border border-amber-500/20 px-1.5 py-0.2 rounded-full font-bold">
+                                            Priority
+                                          </span>
+                                        )}
+                                      </label>
+                                    </div>
+                                    <div className="relative">
+                                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600">₦</span>
+                                      <input
+                                        type="number"
+                                        {...form.register(`expenses.${index}.amount`, { valueAsNumber: true })}
+                                        className="w-full bg-zinc-900 border border-zinc-700 shadow-sm rounded-lg pl-8 pr-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/50 transition-all"
+                                      />
+                                    </div>
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveCategory(index)}
+                                    className="mt-5 p-2 text-zinc-500 hover:text-red-400 transition-colors rounded-lg hover:bg-zinc-800/80 hover:shadow-sm"
+                                    title="Remove category"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              )}
+                            </Draggable>
+                          );
+                        })}
+                        {provided.placeholder}
+                      </div>
+                    )}
+                  </Droppable>
+                </DragDropContext>
+
+                <button
+                  type="button"
                   onClick={() => setShowAddModal('expense')}
                   className="mt-4 flex items-center gap-1.5 text-xs font-medium text-zinc-400 hover:text-white transition-colors"
                 >
                   <Plus className="w-3 h-3" /> Add category
                 </button>
               </div>
-              
+
               <div className="pt-6 border-t border-zinc-800 space-y-3">
                 <button
                   type="submit"
                   disabled={isSaving || isSaveSuccess}
-                  className={`w-full font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2 ${
-                    isSaveSuccess 
-                      ? 'bg-emerald-500 text-emerald-950' 
-                      : 'bg-teal-500 hover:bg-teal-600 text-zinc-950 disabled:opacity-50'
-                  }`}
+                  className={`w-full font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2 ${isSaveSuccess
+                    ? 'bg-emerald-500 text-emerald-950'
+                    : 'bg-teal-500 hover:bg-teal-600 text-zinc-950 disabled:opacity-50'
+                    }`}
                 >
                   {isSaving ? (
                     <>
@@ -1023,7 +1572,7 @@ export default function LifestyleCostClient({ userId }: { userId: string }) {
                     </>
                   )}
                 </button>
-                
+
                 <button
                   type="button"
                   onClick={() => setShowTransferModal(true)}

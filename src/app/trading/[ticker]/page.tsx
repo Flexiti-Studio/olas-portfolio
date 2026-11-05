@@ -7,6 +7,8 @@ import { computeBias } from '@/lib/bias/computeBias';
 
 const prisma = new PrismaClient();
 
+export const dynamic = 'force-dynamic';
+
 function getScoreBadgeColor(score: number) {
   if (score > 70) return 'bg-green-500/20 text-green-500';
   if (score >= 40) return 'bg-yellow-500/20 text-yellow-500';

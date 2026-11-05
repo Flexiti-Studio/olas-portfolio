@@ -4,11 +4,11 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-  FileText, 
-  Search, 
-  MessageSquare, 
-  DollarSign, 
+import {
+  FileText,
+  Search,
+  MessageSquare,
+  DollarSign,
   Bell,
   LogOut,
   ChevronRight,
@@ -36,7 +36,8 @@ import {
   PenTool
 } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell, LineChart, Line } from 'recharts';
-import CvTailor from "@/components/admin/CvTailor";
+import dynamic from "next/dynamic";
+const CvTailor = dynamic(() => import("@/components/admin/CvTailor"), { ssr: false });
 import JobWebsites from "@/components/admin/JobWebsites";
 import ApplicationTracker from "@/components/admin/ApplicationTracker";
 import GigsTracker from "@/components/admin/GigsTracker";
@@ -71,6 +72,7 @@ const SIDEBAR_ITEMS = [
   { id: "interview-prep", label: "Interview Prep", icon: MessageSquare, desc: "Notes & questions" },
   { id: "salary-benchmarker", label: "Salary Benchmarker", icon: DollarSign, desc: "Compare offers" },
   { id: "budget-strategy", label: "Budget Strategy", icon: PiggyBank, desc: "50/30/20 Budgeting" },
+  { id: "lifestyle-cost", label: "Lifestyle Cost", icon: PiggyBank, desc: "Income vs Expenses" },
   { id: "bank-accounts", label: "Goals Tracker", icon: Target, desc: "Track progress and timelines", href: "/admin/goals" },
   { id: "focus-mode", label: "Focus Mode", icon: Focus, desc: "Single-project tracking" },
   { id: "knowledge-hub", label: "Knowledge Hub", icon: Brain, desc: "Ideas and facts" },
@@ -79,7 +81,6 @@ const SIDEBAR_ITEMS = [
   { id: "follow-up", label: "Follow-up Reminders", icon: Bell, desc: "Don't miss a beat" },
   { id: "cv-tailor", label: "CV Tailor", icon: FileText, desc: "Manage CV templates" },
   { id: "cover-letters", label: "Cover Letters", icon: Target, desc: "AI Cover Letter Gen" },
-  { id: "lifestyle-cost", label: "Lifestyle Cost", icon: PiggyBank, desc: "Income vs Expenses" },
 ];
 
 export default function AdminDashboard() {
@@ -172,7 +173,7 @@ export default function AdminDashboard() {
       if (res.ok) {
         setStats((prev: any) => {
           if (!prev || !prev.recentProject) return prev;
-          const updatedTasks = prev.recentProject.tasks.map((t: any) => 
+          const updatedTasks = prev.recentProject.tasks.map((t: any) =>
             t.id === taskId ? { ...t, done: isDone } : t
           );
           return {
@@ -198,7 +199,7 @@ export default function AdminDashboard() {
       setIsProjectSelectorOpen(false);
       return;
     }
-    
+
     setIsQuickCreating(true);
     try {
       const res = await fetch("/api/creators");
@@ -254,7 +255,7 @@ export default function AdminDashboard() {
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-zinc-950 p-4">
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="bg-zinc-900 border border-zinc-800 p-8 rounded-2xl shadow-xl max-w-md w-full"
@@ -275,11 +276,11 @@ export default function AdminDashboard() {
                 autoFocus
               />
             </div>
-            
+
             <AnimatePresence>
               {error && (
-                <motion.p 
-                  initial={{ opacity: 0, height: 0 }} 
+                <motion.p
+                  initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: "auto" }}
                   exit={{ opacity: 0, height: 0 }}
                   className="text-red-500 text-sm text-center"
@@ -303,7 +304,7 @@ export default function AdminDashboard() {
 
   const renderActiveComponent = () => {
     const activeItem = SIDEBAR_ITEMS.find(item => item.id === activeTab);
-    
+
     if (activeTab === "overview") {
       const appStagesData = stats ? [
         { name: "Wishlist", count: stats.applications?.stages?.Wishlist || 0, fill: "#71717a" },
@@ -314,7 +315,7 @@ export default function AdminDashboard() {
       ] : [];
 
       return (
-        <motion.div 
+        <motion.div
           key="overview"
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
@@ -334,12 +335,12 @@ export default function AdminDashboard() {
                     {isQuickCreating ? <Loader2 className="w-4 h-4 animate-spin" /> : <PenTool className="w-4 h-4" />}
                     Create Initial Post
                   </button>
-                  
+
                   <AnimatePresence>
                     {isProjectSelectorOpen && (
                       <>
                         <div className="fixed inset-0 z-40" onClick={() => setIsProjectSelectorOpen(false)} />
-                        <motion.div 
+                        <motion.div
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, y: 10 }}
@@ -353,7 +354,7 @@ export default function AdminDashboard() {
                           </div>
                           <div className="max-h-64 overflow-y-auto p-2 space-y-1">
                             {availableProjects.map(proj => (
-                              <button 
+                              <button
                                 key={proj.id}
                                 onClick={() => window.location.href = `/admin/creators/${proj.id}?addContent=true`}
                                 className="w-full text-left px-3 py-2.5 rounded-lg text-sm text-zinc-400 hover:text-white hover:bg-zinc-800/80 transition-colors flex items-center gap-3 group"
@@ -514,11 +515,11 @@ export default function AdminDashboard() {
 
               {/* Stored Knowledge Slider & Recent Project Task Board */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                
+
                 {/* 1. Stored Knowledge Slider Card */}
                 <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl shadow-lg flex flex-col justify-between relative group overflow-hidden h-[320px]">
                   <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
-                  
+
                   <div>
                     <div className="flex items-center justify-between mb-6">
                       <h3 className="text-sm font-bold text-zinc-400 flex items-center gap-2">
@@ -526,7 +527,7 @@ export default function AdminDashboard() {
                       </h3>
                       {stats.knowledge?.length > 0 && (
                         <div className="flex items-center gap-2">
-                          <button 
+                          <button
                             onClick={() => setKnowledgeIndex(prev => prev === 0 ? stats.knowledge.length - 1 : prev - 1)}
                             className="p-1.5 bg-zinc-950 border border-zinc-800 rounded-lg hover:border-zinc-700 hover:text-white transition-colors"
                           >
@@ -535,7 +536,7 @@ export default function AdminDashboard() {
                           <span className="text-xs text-zinc-500 font-semibold select-none">
                             {knowledgeIndex + 1} / {stats.knowledge.length}
                           </span>
-                          <button 
+                          <button
                             onClick={() => setKnowledgeIndex(prev => prev === stats.knowledge.length - 1 ? 0 : prev + 1)}
                             className="p-1.5 bg-zinc-950 border border-zinc-800 rounded-lg hover:border-zinc-700 hover:text-white transition-colors"
                           >
@@ -556,7 +557,7 @@ export default function AdminDashboard() {
                               {stats.knowledge[knowledgeIndex].content}
                             </p>
                           </div>
-                          
+
                           {stats.knowledge[knowledgeIndex].tags?.length > 0 && (
                             <div className="flex flex-wrap gap-1.5 mt-4">
                               {stats.knowledge[knowledgeIndex].tags.map((tag: string, i: number) => (
@@ -587,7 +588,7 @@ export default function AdminDashboard() {
                 {/* 2. Recent Project Task Board Card */}
                 <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl shadow-lg flex flex-col justify-between relative group overflow-hidden h-[320px]">
                   <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
-                  
+
                   <div>
                     <h3 className="text-sm font-bold text-zinc-400 flex items-center gap-2 mb-6">
                       <LayoutDashboard size={16} className="text-amber-400" /> Focus Tracker: Most Recent Project
@@ -609,15 +610,14 @@ export default function AdminDashboard() {
                           {stats.recentProject.tasks?.length > 0 ? (
                             stats.recentProject.tasks.map((task: any) => (
                               <div key={task.id} className="flex items-center gap-3 py-2 px-3 bg-zinc-900 hover:bg-zinc-850 border border-zinc-850/50 rounded-lg group/task">
-                                <input 
-                                  type="checkbox" 
+                                <input
+                                  type="checkbox"
                                   checked={task.done}
                                   onChange={(e) => toggleTask(task.id, e.target.checked)}
                                   className="w-4 h-4 rounded border-zinc-700 bg-zinc-950 text-indigo-600 focus:ring-indigo-600 cursor-pointer"
                                 />
-                                <span className={`text-xs font-semibold select-none cursor-pointer flex-1 transition-all ${
-                                  task.done ? 'line-through text-zinc-500' : 'text-zinc-200'
-                                }`} onClick={() => toggleTask(task.id, !task.done)}>
+                                <span className={`text-xs font-semibold select-none cursor-pointer flex-1 transition-all ${task.done ? 'line-through text-zinc-500' : 'text-zinc-200'
+                                  }`} onClick={() => toggleTask(task.id, !task.done)}>
                                   {task.title}
                                 </span>
                               </div>
@@ -648,7 +648,7 @@ export default function AdminDashboard() {
                 {/* 3. Goals Tracker Card */}
                 <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl shadow-lg flex flex-col justify-between relative group overflow-hidden h-[320px]">
                   <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
-                  
+
                   <div>
                     <h3 className="text-sm font-bold text-zinc-400 flex items-center gap-2 mb-6">
                       <Target size={16} className="text-emerald-400 animate-pulse" /> Goals Tracker: Current Goal
@@ -662,13 +662,13 @@ export default function AdminDashboard() {
 
                       let timelineItems: any[] = [];
                       try {
-                        timelineItems = typeof currentGoal.timeline === 'string' 
-                          ? JSON.parse(currentGoal.timeline) 
+                        timelineItems = typeof currentGoal.timeline === 'string'
+                          ? JSON.parse(currentGoal.timeline)
                           : (currentGoal.timeline || []);
                       } catch (e) {
                         timelineItems = [];
                       }
-                      
+
                       const totalTimeline = timelineItems.length;
                       const completedTimeline = timelineItems.filter((item: any) => item.completed).length;
                       const timelinePercent = totalTimeline > 0 ? Math.round((completedTimeline / totalTimeline) * 100) : 0;
@@ -680,7 +680,7 @@ export default function AdminDashboard() {
                               {currentGoal.status}
                             </span>
                             <h4 className="text-white font-bold text-base truncate">{currentGoal.title}</h4>
-                            
+
                             {hasAmounts ? (
                               <div className="mt-3">
                                 <div className="flex justify-between text-xs text-zinc-400 mb-1">
@@ -720,8 +720,8 @@ export default function AdminDashboard() {
                       <span>
                         {currentGoal.deadline ? `Deadline: ${new Date(currentGoal.deadline).toLocaleDateString()}` : "No deadline"}
                       </span>
-                      <Link 
-                        href="/admin/goals" 
+                      <Link
+                        href="/admin/goals"
                         className="text-emerald-400 hover:text-emerald-300 font-semibold flex items-center gap-1 cursor-pointer transition-colors"
                       >
                         <span>Open Goals Page</span> <ChevronRight size={14} />
@@ -739,7 +739,7 @@ export default function AdminDashboard() {
 
               {/* Side-by-side Pipeline status & Recent Activities */}
               <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-                
+
                 {/* Application stage pipeline */}
                 <div className="lg:col-span-3 bg-zinc-900 border border-zinc-800 p-6 rounded-2xl flex flex-col justify-between shadow-lg">
                   <div>
@@ -753,7 +753,7 @@ export default function AdminDashboard() {
                         <CartesianGrid strokeDasharray="3 3" stroke="#27272a" horizontal={false} />
                         <XAxis type="number" stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} />
                         <YAxis dataKey="name" type="category" stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} width={80} />
-                        <Tooltip 
+                        <Tooltip
                           contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '12px', color: '#fff' }}
                         />
                         <Bar dataKey="count" radius={[0, 4, 4, 0]} barSize={20}>
@@ -816,7 +816,7 @@ export default function AdminDashboard() {
 
               {/* Line Charts Trends section */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                
+
                 {/* General Job Hunt Application Velocity over time */}
                 <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl shadow-lg">
                   <h3 className="text-sm font-bold text-zinc-400 flex items-center gap-2 mb-6">
@@ -829,7 +829,7 @@ export default function AdminDashboard() {
                           <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
                           <XAxis dataKey="date" stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} />
                           <YAxis stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} allowDecimals={false} />
-                          <Tooltip 
+                          <Tooltip
                             contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '12px', color: '#fff' }}
                           />
                           <Line type="monotone" dataKey="count" stroke="#6366f1" strokeWidth={3} activeDot={{ r: 6 }} dot={{ r: 4 }} name="Applications" />
@@ -855,7 +855,7 @@ export default function AdminDashboard() {
                           <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
                           <XAxis dataKey="date" stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} />
                           <YAxis stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} allowDecimals={false} />
-                          <Tooltip 
+                          <Tooltip
                             contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '12px', color: '#fff' }}
                           />
                           <Line type="monotone" dataKey="applied" stroke="#f59e0b" strokeWidth={3} activeDot={{ r: 6 }} dot={{ r: 4 }} name="Links Submitted" />
@@ -883,7 +883,7 @@ export default function AdminDashboard() {
 
     if (activeTab === "widget-updates") {
       return (
-        <motion.div 
+        <motion.div
           key="widget-updates"
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
@@ -913,7 +913,7 @@ export default function AdminDashboard() {
 
     if (activeTab === "cv-tailor") {
       return (
-        <motion.div 
+        <motion.div
           key="cv-tailor"
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
@@ -924,10 +924,10 @@ export default function AdminDashboard() {
         </motion.div>
       );
     }
-    
+
     if (activeTab === "job-websites") {
       return (
-        <motion.div 
+        <motion.div
           key="job-websites"
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
@@ -941,7 +941,7 @@ export default function AdminDashboard() {
 
     if (activeTab === "job-tracker") {
       return (
-        <motion.div 
+        <motion.div
           key="job-tracker"
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
@@ -955,7 +955,7 @@ export default function AdminDashboard() {
 
     if (activeTab === "gigs-tracker") {
       return (
-        <motion.div 
+        <motion.div
           key="gigs-tracker"
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
@@ -969,7 +969,7 @@ export default function AdminDashboard() {
 
     if (activeTab === "cover-letters") {
       return (
-        <motion.div 
+        <motion.div
           key="cover-letters"
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
@@ -1165,7 +1165,7 @@ export default function AdminDashboard() {
 
 
     return (
-      <motion.div 
+      <motion.div
         key={activeTab}
         initial={{ opacity: 0, x: 20 }}
         animate={{ opacity: 1, x: 0 }}
@@ -1176,7 +1176,7 @@ export default function AdminDashboard() {
           <h2 className="text-3xl font-bold text-white">{activeItem?.label}</h2>
           <p className="text-zinc-400 mt-2">{activeItem?.desc}</p>
         </div>
-        
+
         <div className="flex-1 bg-zinc-900/50 border border-zinc-800 rounded-2xl p-8 flex items-center justify-center">
           <div className="text-center">
             <div className="inline-block p-4 bg-zinc-900 border border-zinc-800 rounded-full mb-4">
@@ -1201,7 +1201,7 @@ export default function AdminDashboard() {
         <div>
           <h1 className="text-xl font-bold tracking-tight">Career Hub</h1>
         </div>
-        <button 
+        <button
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
           className="p-2 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
         >
@@ -1211,14 +1211,14 @@ export default function AdminDashboard() {
 
       {/* Sidebar Overlay for Mobile */}
       {isSidebarOpen && (
-        <div 
-          className="md:hidden fixed inset-0 bg-black/60 z-40" 
+        <div
+          className="md:hidden fixed inset-0 bg-black/60 z-40"
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
 
       {/* Sidebar - always fixed */}
-      <div 
+      <div
         className={`fixed inset-y-0 left-0 z-50 border-r border-zinc-800 bg-zinc-950 flex flex-col transition-all duration-300 
           ${isSidebarOpen ? "w-72 md:w-64 p-4 md:p-6 translate-x-0" : "w-20 p-4 items-center -translate-x-full md:translate-x-0"}
         `}
@@ -1231,14 +1231,14 @@ export default function AdminDashboard() {
               <p className="text-xs text-zinc-500 mt-1 hidden md:block">Admin Dashboard</p>
             </div>
           )}
-          <button 
+          <button
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
             className="p-2 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors hidden md:block"
             title="Toggle Sidebar"
           >
             <Menu size={20} />
           </button>
-          <button 
+          <button
             onClick={() => setIsSidebarOpen(false)}
             className="p-2 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors md:hidden"
             title="Close Sidebar"
@@ -1262,13 +1262,11 @@ export default function AdminDashboard() {
                   setActiveTab(item.id);
                   if (window.innerWidth < 768) setIsSidebarOpen(false);
                 }}
-                className={`flex items-center transition-all ${
-                  isSidebarOpen ? "w-full justify-between p-3 rounded-xl" : "w-12 h-12 justify-center rounded-xl mx-auto"
-                } ${
-                  isActive 
-                    ? "bg-white text-black shadow-md" 
+                className={`flex items-center transition-all ${isSidebarOpen ? "w-full justify-between p-3 rounded-xl" : "w-12 h-12 justify-center rounded-xl mx-auto"
+                  } ${isActive
+                    ? "bg-white text-black shadow-md"
                     : "text-zinc-400 hover:bg-zinc-800/50 hover:text-white"
-                }`}
+                  }`}
                 title={!isSidebarOpen ? item.label : undefined}
               >
                 <div className="flex items-center gap-3">
@@ -1280,7 +1278,7 @@ export default function AdminDashboard() {
             );
           })}
         </nav>
-        
+
         <div className={`pt-6 mt-6 border-t border-zinc-800 w-full ${!isSidebarOpen && "flex flex-col items-center gap-4"}`}>
           {isSidebarOpen ? (
             <div className="flex items-center justify-between p-3 bg-zinc-900 border border-zinc-800 rounded-xl w-full">
@@ -1293,7 +1291,7 @@ export default function AdminDashboard() {
                   <p className="text-xs text-zinc-500">Admin Mode</p>
                 </div>
               </div>
-              <button 
+              <button
                 onClick={handleLogout}
                 className="p-2 text-zinc-500 hover:text-red-400 hover:bg-zinc-800 rounded-lg transition-colors flex-shrink-0 cursor-pointer"
                 title="Lock Dashboard"
@@ -1306,7 +1304,7 @@ export default function AdminDashboard() {
               <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold mx-auto flex-shrink-0">
                 OP
               </div>
-              <button 
+              <button
                 onClick={handleLogout}
                 className="p-3 text-zinc-500 hover:text-red-400 hover:bg-zinc-800 rounded-xl transition-colors mx-auto cursor-pointer"
                 title="Lock Dashboard"
@@ -1320,9 +1318,8 @@ export default function AdminDashboard() {
 
       {/* Main Content - pushed right by sidebar width on desktop */}
       <div
-        className={`min-h-screen p-4 md:p-8 transition-all duration-300 ease-in-out ${
-          isSidebarOpen ? "md:ml-64" : "md:ml-20"
-        }`}
+        className={`min-h-screen p-4 md:p-8 transition-all duration-300 ease-in-out ${isSidebarOpen ? "md:ml-64" : "md:ml-20"
+          }`}
       >
         <AnimatePresence mode="wait">
           {renderActiveComponent()}

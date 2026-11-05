@@ -48,6 +48,7 @@ export const ADMIN_SIDEBAR_ITEMS: SidebarItem[] = [
   { id: "interview-prep", label: "Interview Prep", icon: MessageSquare, desc: "Notes & questions" },
   { id: "salary-benchmarker", label: "Salary Benchmarker", icon: DollarSign, desc: "Compare offers" },
   { id: "budget-strategy", label: "Budget Strategy", icon: PiggyBank, desc: "50/30/20 Budgeting" },
+  { id: "lifestyle-cost", label: "Lifestyle Cost", icon: PiggyBank, desc: "Income vs Expenses" },
   { id: "bank-accounts", label: "Goals Tracker", icon: Target, desc: "Track progress and timelines", href: "/admin/goals" },
   { id: "focus-mode", label: "Focus Mode", icon: Focus, desc: "Single-project tracking" },
   { id: "knowledge-hub", label: "Knowledge Hub", icon: Brain, desc: "Ideas and facts" },
@@ -56,7 +57,6 @@ export const ADMIN_SIDEBAR_ITEMS: SidebarItem[] = [
   { id: "follow-up", label: "Follow-up Reminders", icon: Bell, desc: "Don't miss a beat" },
   { id: "cv-tailor", label: "CV Tailor", icon: FileText, desc: "Manage CV templates" },
   { id: "cover-letters", label: "Cover Letters", icon: Target, desc: "AI Cover Letter Gen" },
-  { id: "lifestyle-cost", label: "Lifestyle Cost", icon: PiggyBank, desc: "Income vs Expenses" },
 ];
 
 interface AdminSidebarProps {
@@ -134,17 +134,15 @@ export default function AdminSidebar({
 
       {/* Sidebar - fixed left */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 border-r border-zinc-800 bg-zinc-950 flex flex-col transition-all duration-300 ${
-          isSidebarOpen
+        className={`fixed inset-y-0 left-0 z-50 border-r border-zinc-800 bg-zinc-950 flex flex-col transition-all duration-300 ${isSidebarOpen
             ? "w-72 md:w-64 p-4 md:p-6 translate-x-0"
             : "w-20 p-4 items-center -translate-x-full md:translate-x-0"
-        }`}
+          }`}
       >
         {/* Header / Brand */}
         <div
-          className={`mb-8 flex items-center w-full ${
-            isSidebarOpen ? "justify-between" : "justify-center flex-col gap-4"
-          }`}
+          className={`mb-8 flex items-center w-full ${isSidebarOpen ? "justify-between" : "justify-center flex-col gap-4"
+            }`}
         >
           {isSidebarOpen && (
             <div>
@@ -185,15 +183,13 @@ export default function AdminSidebar({
               <button
                 key={item.id}
                 onClick={() => handleItemClick(item)}
-                className={`flex items-center transition-all cursor-pointer ${
-                  isSidebarOpen
+                className={`flex items-center transition-all cursor-pointer ${isSidebarOpen
                     ? "w-full justify-between p-3 rounded-xl"
                     : "w-12 h-12 justify-center rounded-xl mx-auto"
-                } ${
-                  isActive
+                  } ${isActive
                     ? "bg-white text-black shadow-md font-semibold"
                     : "text-zinc-400 hover:bg-zinc-900 hover:text-white"
-                }`}
+                  }`}
                 title={!isSidebarOpen ? item.label : undefined}
               >
                 <div className="flex items-center gap-3 min-w-0">
@@ -217,9 +213,8 @@ export default function AdminSidebar({
 
         {/* User Card & Logout */}
         <div
-          className={`pt-4 mt-2 border-t border-zinc-800 w-full ${
-            !isSidebarOpen && "flex flex-col items-center gap-4"
-          }`}
+          className={`pt-4 mt-2 border-t border-zinc-800 w-full ${!isSidebarOpen && "flex flex-col items-center gap-4"
+            }`}
         >
           {isSidebarOpen ? (
             <div className="flex items-center justify-between p-3 bg-zinc-900 border border-zinc-800 rounded-xl w-full">

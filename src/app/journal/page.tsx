@@ -4,6 +4,8 @@ import { JournalList } from './JournalList';
 import { MiniCalendar } from './MiniCalendar';
 import { JournalEntryForm } from '@/components/JournalEntryForm';
 
+export const dynamic = 'force-dynamic';
+
 export default async function JournalPage() {
   const entries = await prisma.journalEntry.findMany({
     orderBy: { date: 'desc' }
