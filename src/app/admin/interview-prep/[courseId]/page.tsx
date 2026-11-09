@@ -2,7 +2,11 @@
 import { useState, useEffect, use, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronRight, CheckCircle2, XCircle, RefreshCw, Shuffle, Check, X, Loader2, Target, Brain, ArrowLeft, Clock, Timer, LineChart as LineChartIcon, Video, Upload, Trash2, Film, Plus, Copy } from "lucide-react";
+import { ChevronLeft, ChevronRight, CheckCircle2, XCircle, RefreshCw, Shuffle, Check, X, Loader2, Target, Brain, ArrowLeft, Clock, Timer, LineChart as LineChartIcon, Video, Upload, Trash2, Film, Plus, Copy, ListFilter, Sparkles, BookOpen } from "lucide-react";
+import { FormattedMathText } from "@/components/admin/interview-prep/FormattedMathText";
+import AddSectionModal from "@/components/admin/interview-prep/AddSectionModal";
+import { CodeSectionViewer } from "@/components/admin/interview-prep/CodeSectionViewer";
+import { getEmbedVideoUrl, isEmbeddableVideoUrl } from "@/lib/videoUtils";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
 export default function CourseView({ params }: { params: Promise<{ courseId: string }> }) {
@@ -12,17 +16,17 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
   const [loading, setLoading] = useState(true);
   const [activeModuleId, setActiveModuleId] = useState<string>("");
   const [activeViewId, setActiveViewId] = useState<string>(""); // lessonId, "final-quiz", "flashcards"
-  
+
   const [flashcardIndex, setFlashcardIndex] = useState(0);
   const [cardFlipped, setCardFlipped] = useState(false);
   const [flashcardSessionFinished, setFlashcardSessionFinished] = useState(false);
   const [flashcardSessionScores, setFlashcardSessionScores] = useState<number[]>([]);
   const [flashcardSessionScoreAverage, setFlashcardSessionScoreAverage] = useState<number>(0);
-  
+
   const [quizAnswers, setQuizAnswers] = useState<Record<string, any>>({});
   const [quizResults, setQuizResults] = useState<any>(null);
   const [quizStarted, setQuizStarted] = useState(false);
-  
+
   const [quizStep, setQuizStep] = useState(0);
   const [isGrading, setIsGrading] = useState(false);
   const [isCompletingLesson, setIsCompletingLesson] = useState(false);
@@ -56,6 +60,11 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [copiedSectionIdx, setCopiedSectionIdx] = useState<number | null>(null);
+
+  // Add section modal & AI formatting state
+  const [showAddSectionModal, setShowAddSectionModal] = useState(false);
+  const [isSavingSections, setIsSavingSections] = useState(false);
+  const [isGeneratingAssessments, setIsGeneratingAssessments] = useState(false);
 
   const handleCopyCode = (code: string, idx: number) => {
     navigator.clipboard.writeText(code).then(() => {
@@ -96,8 +105,8 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
         setCourse(data);
         if (data.modules?.length) {
           setActiveModuleId(data.modules[0].id);
-          if (data.modules[0].lessons?.length) setActiveViewId(data.modules[0].lessons[0].id);
-          else setActiveViewId("final-quiz");
+          // Default to Table of Contents view first
+          setActiveViewId("table-of-contents");
         }
         setLoading(false);
       })
@@ -226,7 +235,7 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
     try {
       const existingContent = activeLesson.content || {};
       const existingSections = Array.isArray(existingContent.sections) ? [...existingContent.sections] : [];
-      
+
       const newVideoSection = {
         type: "video",
         heading: videoTitle || "Video Resource",
@@ -335,7 +344,7 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
 
   const handleLessonComplete = async () => {
     if (!activeLesson || !activeModule) return;
-    
+
     setIsCompletingLesson(true);
     const success = await updateProgress(activeLesson.id);
     if (!success) {
@@ -392,7 +401,7 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
 
     const pct = Math.round((score / total) * 100);
     const passed = pct >= 80;
-    
+
     setQuizResults({ score: pct, passed });
 
     try {
@@ -400,8 +409,8 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
         method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ finalQuizScore: pct })
       });
       setCourse((c: any) => ({ ...c, progress: { ...c.progress, quiz_average: pct } }));
-    } catch {}
-    
+    } catch { }
+
     setIsGrading(false);
   };
 
@@ -447,7 +456,7 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
     let score = 0;
     if (rating === "know_it") score = 100;
     else if (rating === "almost") score = 50;
-    
+
     const newScores = [...flashcardSessionScores, score];
     setFlashcardSessionScores(newScores);
 
@@ -458,11 +467,11 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
       if (res.ok) {
         const data = await res.json();
         if (typeof data.mastery === 'number') {
-           setCourse((c: any) => ({ ...c, progress: { ...c.progress, flashcard_mastery: data.mastery } }));
+          setCourse((c: any) => ({ ...c, progress: { ...c.progress, flashcard_mastery: data.mastery } }));
         }
       }
-    } catch {}
-    
+    } catch { }
+
     setCardFlipped(false);
     if (flashcardIndex < allFlashcards.length - 1) {
       setFlashcardIndex(prev => prev + 1);
@@ -471,10 +480,134 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
     }
   };
 
+  const handleSaveAddedSections = async (newSections: any[]) => {
+    if (!activeLesson) return;
+    setIsSavingSections(true);
+
+    try {
+      const existingSections = activeLesson.content?.sections || [];
+      const updatedSections = [...existingSections, ...newSections];
+      const updatedContent = {
+        ...(activeLesson.content || {}),
+        sections: updatedSections,
+      };
+
+      const res = await fetch(`/api/interview-prep/${courseId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          activeLessonId: activeLesson.id,
+          updatedContent,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to save sections");
+      }
+
+      // Update state locally
+      setCourse((prevCourse: any) => {
+        if (!prevCourse) return prevCourse;
+        const newModules = prevCourse.modules.map((m: any) => {
+          if (m.id !== activeModuleId) return m;
+          const newLessons = m.lessons.map((l: any) => {
+            if (l.id !== activeLesson.id) return l;
+            return { ...l, content: updatedContent };
+          });
+          return { ...m, lessons: newLessons };
+        });
+        return { ...prevCourse, modules: newModules };
+      });
+
+      showToast(`Added ${newSections.length} section(s) to "${activeLesson.title}"!`, "success");
+    } catch (err: any) {
+      console.error(err);
+      showToast(err.message || "Failed to save sections", "error");
+    } finally {
+      setIsSavingSections(false);
+    }
+  };
+
+  const handleUpdateCodeSection = async (sectionIdx: number, newCode: string, newHeading?: string, newLanguage?: string) => {
+    if (!activeLesson) return;
+
+    try {
+      const existingSections = [...(activeLesson.content?.sections || [])];
+      if (existingSections[sectionIdx]) {
+        existingSections[sectionIdx] = {
+          ...existingSections[sectionIdx],
+          body: newCode,
+          heading: newHeading || existingSections[sectionIdx].heading,
+          language: newLanguage || existingSections[sectionIdx].language,
+        };
+      }
+
+      const updatedContent = {
+        ...(activeLesson.content || {}),
+        sections: existingSections,
+      };
+
+      const res = await fetch(`/api/interview-prep/${courseId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          activeLessonId: activeLesson.id,
+          updatedContent,
+        }),
+      });
+
+      if (!res.ok) throw new Error("Failed to update code section");
+
+      setCourse((prevCourse: any) => {
+        if (!prevCourse) return prevCourse;
+        const newModules = prevCourse.modules.map((m: any) => {
+          if (m.id !== activeModuleId) return m;
+          const newLessons = m.lessons.map((l: any) => {
+            if (l.id !== activeLesson.id) return l;
+            return { ...l, content: updatedContent };
+          });
+          return { ...m, lessons: newLessons };
+        });
+        return { ...prevCourse, modules: newModules };
+      });
+
+      showToast("Code section updated and reformatted!", "success");
+    } catch (err: any) {
+      console.error(err);
+      showToast(err.message || "Failed to update code", "error");
+    }
+  };
+
+  const handleGenerateCourseAssessments = async () => {
+    setIsGeneratingAssessments(true);
+    try {
+      const res = await fetch("/api/interview-prep/generate-assessments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ courseId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to generate assessment");
+
+      // Reload course
+      const refreshRes = await fetch(`/api/interview-prep/${courseId}`);
+      if (refreshRes.ok) {
+        const refreshedCourse = await refreshRes.json();
+        setCourse(refreshedCourse);
+      }
+      showToast("Quizzes and flashcards generated successfully!", "success");
+    } catch (err: any) {
+      console.error(err);
+      showToast(err.message || "Failed to generate assessment", "error");
+    } finally {
+      setIsGeneratingAssessments(false);
+    }
+  };
+
   const finishFlashcardSession = async (scoresToUse = flashcardSessionScores) => {
     setFlashcardSessionFinished(true);
     if (scoresToUse.length === 0) return;
-    
+
     const avg = Math.round(scoresToUse.reduce((a, b) => a + b, 0) / scoresToUse.length);
     setFlashcardSessionScoreAverage(avg);
 
@@ -486,18 +619,18 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
         const prog = await res.json();
         setCourse((c: any) => ({ ...c, progress: prog }));
       }
-    } catch {}
+    } catch { }
   };
 
   if (loading) return <div className="min-h-screen bg-zinc-950 flex justify-center items-center"><Loader2 className="animate-spin text-indigo-400" size={32} /></div>;
   if (!course) return <div className="min-h-screen bg-zinc-950 text-white p-8">Course not found.</div>;
 
   return (
-    <div className="min-h-screen md:h-screen bg-zinc-950 text-white flex flex-col md:flex-row overflow-hidden relative">
+    <div className="min-h-screen md:h-screen bg-zinc-950 text-white flex flex-col md:flex-row relative">
       {/* Mobile Top Header */}
       <div className="md:hidden flex items-center justify-between p-4 border-b border-zinc-800 bg-zinc-900/80 backdrop-blur-md sticky top-0 z-30 w-full shrink-0">
-        <button 
-          onClick={() => setSidebarOpen(true)} 
+        <button
+          onClick={() => setSidebarOpen(true)}
           className="p-2 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition-colors"
         >
           <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -510,21 +643,20 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
 
       {/* Mobile Sidebar Overlay Backdrop */}
       {sidebarOpen && (
-        <div 
-          onClick={() => setSidebarOpen(false)} 
+        <div
+          onClick={() => setSidebarOpen(false)}
           className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden"
         />
       )}
 
       {/* Left Sidebar */}
-      <div className={`fixed inset-y-0 left-0 z-50 w-64 border-r border-zinc-800 bg-zinc-900/95 flex flex-col shrink-0 transition-transform duration-300 md:static md:translate-x-0 md:bg-zinc-900/50 ${
-        sidebarOpen ? "translate-x-0" : "-translate-x-full"
-      }`}>
+      <div className={`fixed inset-y-0 left-0 z-50 w-64 border-r border-zinc-800 bg-zinc-900/95 flex flex-col shrink-0 transition-transform duration-300 md:static md:translate-x-0 md:bg-zinc-900/50 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        }`}>
         <div className="p-4 border-b border-zinc-800 shrink-0">
           <div className="flex justify-between items-center mb-3">
             <button onClick={() => router.push("/admin/interview-prep")} className="text-xs text-zinc-400 hover:text-white flex items-center gap-1"><ArrowLeft size={12} /> Back to Courses</button>
-            <button 
-              onClick={() => setSidebarOpen(false)} 
+            <button
+              onClick={() => setSidebarOpen(false)}
               className="md:hidden p-1 text-zinc-400 hover:text-white rounded hover:bg-zinc-800"
             >
               <X size={16} />
@@ -533,11 +665,25 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
           <h2 className="font-semibold text-sm leading-tight">{course.title}</h2>
           <div className="mt-3">
             <div className="flex justify-between text-xs text-zinc-500 mb-1"><span>Progress</span><span>{course.progress?.overall_percentage || 0}%</span></div>
-            <div className="w-full bg-zinc-800 rounded-full h-1"><div className="bg-indigo-500 h-1 rounded-full transition-all" style={{width: `${course.progress?.overall_percentage || 0}%`}} /></div>
+            <div className="w-full bg-zinc-800 rounded-full h-1"><div className="bg-indigo-500 h-1 rounded-full transition-all" style={{ width: `${course.progress?.overall_percentage || 0}%` }} /></div>
           </div>
         </div>
-        
+
         <div className="flex-1 overflow-y-auto p-3">
+          {/* Table of Contents Button */}
+          <div className="mb-4">
+            <button
+              onClick={() => { setActiveViewId("table-of-contents"); setSidebarOpen(false); }}
+              className={`w-full text-left text-xs font-semibold px-3 py-2.5 rounded-xl flex items-center gap-2 border transition-all ${activeViewId === "table-of-contents"
+                ? "bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-600/25"
+                : "bg-zinc-950/60 text-zinc-300 border-zinc-800 hover:border-zinc-700 hover:text-white"
+                }`}
+            >
+              <BookOpen size={15} className={activeViewId === "table-of-contents" ? "text-white" : "text-indigo-400"} />
+              <span className="flex-1">Table of Contents</span>
+            </button>
+          </div>
+
           <div className="space-y-4">
             {(course?.modules ?? []).map((m: any, i: number) => {
               const modDone = m.lessons?.every((l: any) => completedLessons.includes(l.id)) ?? false;
@@ -569,7 +715,7 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
               );
             })}
           </div>
- 
+
           <div className="mt-8 mb-4 px-3 text-xs font-semibold text-zinc-500 uppercase tracking-wider">Course Assessment</div>
           <div className="space-y-1">
             <button onClick={() => { setActiveViewId("final-quiz"); setQuizResults(null); setQuizStep(0); setSidebarOpen(false); }} className={`w-full text-left text-sm px-3 py-2.5 rounded-lg flex items-center gap-2 ${activeViewId === "final-quiz" ? "bg-indigo-950/40 text-indigo-300" : "text-zinc-300 hover:bg-zinc-800/50"}`}>
@@ -589,31 +735,40 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
           </div>
         </div>
       </div>
- 
+
       {/* Centre Panel */}
-      <div className="flex-1 overflow-y-auto bg-zinc-950 relative md:h-full">
+      <div className="flex-1 overflow-y-auto overscroll-contain bg-zinc-950 relative md:h-full">
         <div className="max-w-4xl mx-auto py-10 px-8 pb-32">
           {activeLesson ? (
-            <motion.div initial={{opacity:0, y:10}} animate={{opacity:1, y:0}} key={activeLesson.id} className="max-w-3xl mx-auto">
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} key={activeLesson.id} className="max-w-3xl mx-auto">
               {/* Lesson Header */}
               <div className="flex items-center justify-between mb-3">
                 <div className="inline-flex items-center gap-2 text-xs font-bold text-indigo-400 uppercase tracking-wider bg-indigo-950/30 px-3 py-1 rounded-full border border-indigo-800/50">
                   {activeModule?.title}
                 </div>
-                <button
-                  onClick={() => setShowVideoModal(true)}
-                  className="text-xs px-3 py-1.5 rounded-lg bg-indigo-950/40 border border-indigo-800/60 text-indigo-300 hover:text-white hover:bg-indigo-900/60 flex items-center gap-1.5 font-medium transition-colors"
-                >
-                  <Video size={14} />
-                  <span>+ Add Video</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShowAddSectionModal(true)}
+                    className="text-xs px-3 py-1.5 rounded-lg bg-emerald-950/40 border border-emerald-800/60 text-emerald-300 hover:text-white hover:bg-emerald-900/60 flex items-center gap-1.5 font-medium transition-colors shadow-sm"
+                  >
+                    <Plus size={14} />
+                    <span>+ Add Section</span>
+                  </button>
+                  <button
+                    onClick={() => setShowVideoModal(true)}
+                    className="text-xs px-3 py-1.5 rounded-lg bg-indigo-950/40 border border-indigo-800/60 text-indigo-300 hover:text-white hover:bg-indigo-900/60 flex items-center gap-1.5 font-medium transition-colors"
+                  >
+                    <Video size={14} />
+                    <span>+ Add Video</span>
+                  </button>
+                </div>
               </div>
 
               <h1 className="text-3xl font-bold mb-2 leading-tight">{activeLesson.title}</h1>
               <div className="flex items-center gap-4 text-sm text-zinc-500 mb-8">
-                <span className="flex items-center gap-1"><Clock size={13}/> {activeLesson.estimated_minutes} min read</span>
+                <span className="flex items-center gap-1"><Clock size={13} /> {activeLesson.estimated_minutes} min read</span>
                 {completedLessons.includes(activeLesson.id) && (
-                  <span className="flex items-center gap-1 text-emerald-400"><CheckCircle2 size={13}/> Completed</span>
+                  <span className="flex items-center gap-1 text-emerald-400"><CheckCircle2 size={13} /> Completed</span>
                 )}
               </div>
 
@@ -625,7 +780,7 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
               )}
 
               {/* Cover Image */}
-              <input 
+              <input
                 ref={imageFileRef}
                 type="file"
                 accept="image/*"
@@ -641,19 +796,19 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
                 <div className="mb-8 relative group rounded-2xl overflow-hidden border border-zinc-800 shadow-2xl aspect-video w-full bg-zinc-950">
                   <img src={activeLesson.content.coverImage} alt="Lesson Cover" className="w-full h-full object-cover" />
                   <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
-                    <button 
+                    <button
                       onClick={() => setPreviewImageUrl(activeLesson.content.coverImage)}
                       className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-500 transition-colors"
                     >
                       Preview
                     </button>
-                    <button 
+                    <button
                       onClick={() => imageFileRef.current?.click()}
                       className="px-4 py-2 rounded-xl bg-white text-zinc-950 text-xs font-bold hover:bg-zinc-200 transition-colors"
                     >
                       Change Image
                     </button>
-                    <button 
+                    <button
                       onClick={handleRemoveCoverImage}
                       className="px-4 py-2 rounded-xl bg-red-600 text-white text-xs font-bold hover:bg-red-500 transition-colors flex items-center gap-1.5"
                     >
@@ -663,7 +818,7 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
                   </div>
                 </div>
               ) : (
-                <div 
+                <div
                   onClick={() => imageFileRef.current?.click()}
                   className="mb-8 border-2 border-dashed border-zinc-800 rounded-2xl p-8 flex flex-col items-center justify-center gap-3 text-zinc-600 hover:border-zinc-700 hover:text-zinc-500 transition-colors cursor-pointer group"
                 >
@@ -673,86 +828,93 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
                 </div>
               )}
 
+              {/* If lesson has no content sections yet */}
+              {(!activeLesson.content?.sections || activeLesson.content.sections.length === 0) && (
+                <div className="p-8 border-2 border-dashed border-zinc-800 rounded-2xl text-center bg-zinc-900/30 my-6">
+                  <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center mx-auto mb-3 border border-indigo-500/20">
+                    <Sparkles size={24} />
+                  </div>
+                  <h3 className="text-base font-bold text-white mb-1">No content sections added yet</h3>
+                  <p className="text-xs text-zinc-400 max-w-md mx-auto mb-5 leading-relaxed">
+                    You can paste your topic notes, code snippets, lists, or math formulas. AI will automatically format them into structured module sections, or you can add them manually.
+                  </p>
+                  <button
+                    onClick={() => setShowAddSectionModal(true)}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition-all shadow-lg shadow-indigo-600/30"
+                  >
+                    <Plus size={15} /> Add First Section (AI / Manual)
+                  </button>
+                </div>
+              )}
+
               {/* Content Sections */}
               <div className="space-y-6">
                 {(activeLesson.content?.sections ?? []).map((sec: any, i: number) => {
-                  if (sec.type === "video") return (
-                    <div key={i} className="space-y-3 bg-zinc-900/60 p-5 rounded-2xl border border-zinc-800 shadow-xl">
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-base font-semibold text-zinc-200 flex items-center gap-2">
-                          <Video size={18} className="text-indigo-400" />{sec.heading || "Video Explanation"}
-                        </h4>
-                        <button onClick={() => handleDeleteVideoSection(i)} className="text-xs text-red-400 hover:text-red-300 p-1.5 hover:bg-red-950/40 rounded-lg transition-colors flex items-center gap-1">
-                          <Trash2 size={13} /><span>Remove</span>
-                        </button>
+                  if (sec.type === "video") {
+                    const videoSrc = sec.video_url || sec.body || "";
+                    const isEmbed = isEmbeddableVideoUrl(videoSrc);
+                    return (
+                      <div key={i} className="space-y-3 bg-zinc-900/60 p-5 rounded-2xl border border-zinc-800 shadow-xl">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-base font-semibold text-zinc-200 flex items-center gap-2">
+                            <Video size={18} className="text-red-400" />{sec.heading || "YouTube Walkthrough"}
+                          </h4>
+                          <button onClick={() => handleDeleteVideoSection(i)} className="text-xs text-red-400 hover:text-red-300 p-1.5 hover:bg-red-950/40 rounded-lg transition-colors flex items-center gap-1">
+                            <Trash2 size={13} /><span>Remove</span>
+                          </button>
+                        </div>
+                        {isEmbed ? (
+                          <div className="w-full aspect-video rounded-xl border border-zinc-800 bg-black overflow-hidden shadow-inner">
+                            <iframe
+                              src={getEmbedVideoUrl(videoSrc)}
+                              className="w-full h-full"
+                              allowFullScreen
+                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            />
+                          </div>
+                        ) : (
+                          <video src={videoSrc} controls className="w-full rounded-xl border border-zinc-800 bg-black aspect-video shadow-2xl" />
+                        )}
+                        {sec.body && sec.body !== sec.video_url && <p className="text-xs text-zinc-400 italic bg-zinc-950/40 p-3 rounded-lg border border-zinc-800/50">{sec.body}</p>}
                       </div>
-                      {sec.video_url?.includes("youtube.com") || sec.video_url?.includes("youtu.be") || sec.video_url?.includes("vimeo.com") ? (
-                        <iframe src={sec.video_url.replace("watch?v=", "embed/")} className="w-full aspect-video rounded-xl border border-zinc-800 bg-black shadow-inner" allowFullScreen />
-                      ) : (
-                        <video src={sec.video_url || sec.body} controls className="w-full rounded-xl border border-zinc-800 bg-black aspect-video shadow-2xl" />
-                      )}
-                      {sec.body && sec.body !== sec.video_url && <p className="text-xs text-zinc-400 italic bg-zinc-950/40 p-3 rounded-lg border border-zinc-800/50">{sec.body}</p>}
-                    </div>
-                  );
+                    );
+                  }
                   if (sec.type === "paragraph") return (
                     <div key={i} className="space-y-2">
-                      {sec.heading && <h3 className="text-xl font-bold text-white flex items-center gap-2 mt-4"><span className="w-1 h-5 bg-indigo-500 rounded-full inline-block"/>{sec.heading}</h3>}
-                      <p className="text-zinc-300 text-[15px] leading-relaxed pl-3">{sec.body}</p>
+                      {sec.heading && <h3 className="text-xl font-bold text-white flex items-center gap-2 mt-4"><span className="w-1 h-5 bg-indigo-500 rounded-full inline-block" />{sec.heading}</h3>}
+                      <p className="text-zinc-300 text-[15px] leading-relaxed pl-3">
+                        <FormattedMathText text={sec.body} />
+                      </p>
                     </div>
                   );
                   if (sec.type === "callout") return (
                     <div key={i} className="p-5 bg-indigo-950/30 border-l-4 border-indigo-500 rounded-r-2xl shadow-lg">
                       {sec.heading && <div className="text-xs font-bold text-indigo-400 uppercase tracking-wider mb-2">💡 {sec.heading}</div>}
-                      <p className="text-indigo-100 text-[15px] leading-relaxed">{sec.body}</p>
+                      <p className="text-indigo-100 text-[15px] leading-relaxed">
+                        <FormattedMathText text={sec.body} />
+                      </p>
                     </div>
                   );
                   if (sec.type === "code") return (
-                    <div key={i} className="space-y-0">
-                      {sec.heading && <h3 className="text-xl font-bold text-white flex items-center gap-2 mt-4 mb-2"><span className="w-1 h-5 bg-emerald-500 rounded-full inline-block"/>{sec.heading}</h3>}
-                      {sec.description && (
-                        <p className="text-zinc-400 text-sm mb-2 leading-relaxed">{sec.description}</p>
-                      )}
-                      <div className="relative rounded-xl overflow-hidden border border-zinc-700/60 shadow-2xl">
-                        {/* Top bar */}
-                        <div className="flex items-center justify-between px-4 h-10 bg-zinc-800/90 border-b border-zinc-700/50">
-                          <div className="flex items-center gap-2">
-                            <span className="w-3 h-3 rounded-full bg-red-500/70"/>
-                            <span className="w-3 h-3 rounded-full bg-yellow-500/70"/>
-                            <span className="w-3 h-3 rounded-full bg-green-500/70"/>
-                            {sec.language && (
-                              <span className="ml-3 text-xs font-mono font-semibold px-2 py-0.5 rounded bg-emerald-900/60 text-emerald-400 border border-emerald-700/50 uppercase tracking-wider">
-                                {sec.language}
-                              </span>
-                            )}
-                          </div>
-                          <button
-                            onClick={() => handleCopyCode(sec.body || "", i)}
-                            className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-lg transition-all ${
-                              copiedSectionIdx === i
-                                ? "bg-emerald-900/60 text-emerald-400 border border-emerald-700/50"
-                                : "bg-zinc-700/60 text-zinc-400 hover:text-white hover:bg-zinc-600/60 border border-zinc-600/40"
-                            }`}
-                          >
-                            {copiedSectionIdx === i ? (
-                              <><Check size={12} /> Copied!</>
-                            ) : (
-                              <><Copy size={12} /> Copy</>
-                            )}
-                          </button>
-                        </div>
-                        {/* Code body */}
-                        <pre className="py-5 px-5 bg-zinc-950/90 overflow-x-auto text-sm font-mono text-emerald-300 leading-relaxed whitespace-pre">{sec.body}</pre>
-                      </div>
-                    </div>
+                    <CodeSectionViewer
+                      key={i}
+                      section={sec}
+                      sectionIndex={i}
+                      onUpdateCode={(newCode, newHeading, newLang) => handleUpdateCodeSection(i, newCode, newHeading, newLang)}
+                      copiedSectionIdx={copiedSectionIdx}
+                      onCopyCode={handleCopyCode}
+                    />
                   );
                   if (sec.type === "bullets") return (
                     <div key={i} className="space-y-3">
-                      {sec.heading && <h3 className="text-xl font-bold text-white flex items-center gap-2 mt-4"><span className="w-1 h-5 bg-purple-500 rounded-full inline-block"/>{sec.heading}</h3>}
+                      {sec.heading && <h3 className="text-xl font-bold text-white flex items-center gap-2 mt-4"><span className="w-1 h-5 bg-purple-500 rounded-full inline-block" />{sec.heading}</h3>}
                       <ul className="space-y-2">
                         {sec.items?.map((item: string, j: number) => (
                           <li key={j} className="flex items-start gap-3 p-3 bg-zinc-900/40 rounded-xl border border-zinc-800/50 hover:border-zinc-700 transition-colors">
-                            <span className="w-5 h-5 rounded-full bg-indigo-600/30 text-indigo-400 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">{j+1}</span>
-                            <span className="text-zinc-300 text-sm leading-relaxed">{item}</span>
+                            <span className="w-5 h-5 rounded-full bg-indigo-600/30 text-indigo-400 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">{j + 1}</span>
+                            <span className="text-zinc-300 text-sm leading-relaxed">
+                              <FormattedMathText text={item} />
+                            </span>
                           </li>
                         ))}
                       </ul>
@@ -760,13 +922,15 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
                   );
                   if (sec.type === "steps") return (
                     <div key={i} className="space-y-3">
-                      {sec.heading && <h3 className="text-xl font-bold text-white flex items-center gap-2 mt-4"><span className="w-1 h-5 bg-amber-500 rounded-full inline-block"/>{sec.heading}</h3>}
+                      {sec.heading && <h3 className="text-xl font-bold text-white flex items-center gap-2 mt-4"><span className="w-1 h-5 bg-amber-500 rounded-full inline-block" />{sec.heading}</h3>}
                       <ol className="space-y-3">
                         {sec.items?.map((item: string, j: number) => (
                           <li key={j} className="flex items-start gap-4">
-                            <span className="w-8 h-8 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center text-sm font-bold shrink-0">{j+1}</span>
+                            <span className="w-8 h-8 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center text-sm font-bold shrink-0">{j + 1}</span>
                             <div className="flex-1 p-3 bg-zinc-900/50 rounded-xl border border-zinc-800/50">
-                              <p className="text-zinc-300 text-sm leading-relaxed">{item}</p>
+                              <p className="text-zinc-300 text-sm leading-relaxed">
+                                <FormattedMathText text={item} />
+                              </p>
                             </div>
                           </li>
                         ))}
@@ -775,13 +939,15 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
                   );
                   if (sec.type === "table") return (
                     <div key={i} className="space-y-3">
-                      {sec.heading && <h3 className="text-xl font-bold text-white flex items-center gap-2 mt-4"><span className="w-1 h-5 bg-indigo-500 rounded-full inline-block"/>{sec.heading}</h3>}
+                      {sec.heading && <h3 className="text-xl font-bold text-white flex items-center gap-2 mt-4"><span className="w-1 h-5 bg-indigo-500 rounded-full inline-block" />{sec.heading}</h3>}
                       <div className="overflow-x-auto border border-zinc-800 rounded-2xl bg-zinc-900/40">
                         <table className="w-full text-left text-sm border-collapse">
                           <thead>
                             <tr className="border-b border-zinc-800 bg-zinc-900/80">
                               {sec.headers?.map((h: string, idx: number) => (
-                                <th key={idx} className="px-5 py-3.5 font-bold text-zinc-300 uppercase tracking-wider text-xs">{h}</th>
+                                <th key={idx} className="px-5 py-3.5 font-bold text-zinc-300 uppercase tracking-wider text-xs">
+                                  <FormattedMathText text={h} />
+                                </th>
                               ))}
                             </tr>
                           </thead>
@@ -789,7 +955,9 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
                             {sec.rows?.map((row: string[], rIdx: number) => (
                               <tr key={rIdx} className="hover:bg-zinc-800/20 transition-colors">
                                 {row.map((cell: string, cIdx: number) => (
-                                  <td key={cIdx} className="px-5 py-4 text-zinc-300 leading-relaxed font-medium">{cell}</td>
+                                  <td key={cIdx} className="px-5 py-4 text-zinc-300 leading-relaxed font-medium">
+                                    <FormattedMathText text={cell} />
+                                  </td>
                                 ))}
                               </tr>
                             ))}
@@ -807,7 +975,9 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
                         {sec.heading && <div className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-3">📖 {sec.heading}</div>}
                         <div className="flex flex-col gap-1">
                           <span className="text-white font-bold text-lg">{term}</span>
-                          <span className="text-zinc-400 text-sm leading-relaxed">{def}</span>
+                          <span className="text-zinc-400 text-sm leading-relaxed">
+                            <FormattedMathText text={def} />
+                          </span>
                         </div>
                       </div>
                     );
@@ -820,16 +990,25 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
               {activeLesson.content?.whyThisMatters && (
                 <div className="mt-10 p-6 bg-gradient-to-br from-amber-950/30 to-orange-950/20 border border-amber-900/50 rounded-2xl shadow-lg">
                   <h4 className="text-sm font-bold text-amber-400 mb-3 flex items-center gap-2">
-                    <Target size={16}/> Why This Matters in an Interview
+                    <Target size={16} /> Why This Matters in an Interview
                   </h4>
                   <p className="text-amber-100/80 text-[15px] leading-relaxed">{activeLesson.content.whyThisMatters}</p>
                 </div>
               )}
 
               {/* Tip banner */}
-              <div className="mt-8 p-4 bg-zinc-900/50 border border-zinc-800 rounded-xl flex items-center gap-3 text-sm text-zinc-500">
-                <Video size={16} className="text-indigo-400 shrink-0" />
-                <span>Use <strong className="text-zinc-300">+ Add Video</strong> above to attach videos, demos, or walkthroughs to this lesson.</span>
+              <div className="mt-8 p-4 bg-zinc-900/50 border border-zinc-800 rounded-xl flex items-center justify-between gap-3 text-sm text-zinc-400">
+                <div className="flex items-center gap-3">
+                  <Sparkles size={16} className="text-emerald-400 shrink-0" />
+                  <span className="text-xs text-zinc-400">Add more explanations, code examples, or math formulas anytime:</span>
+                </div>
+                <button
+                  onClick={() => setShowAddSectionModal(true)}
+                  className="text-xs px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold transition-colors flex items-center gap-1.5 shrink-0 shadow-md"
+                >
+                  <Plus size={13} />
+                  <span>+ Add Section</span>
+                </button>
               </div>
 
               {/* Footer */}
@@ -840,34 +1019,144 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
                 <button
                   onClick={handleLessonComplete}
                   disabled={isCompletingLesson || completedLessons.includes(activeLesson.id)}
-                  className={`px-6 py-3 rounded-xl font-semibold flex items-center gap-2 transition-all disabled:opacity-60 shadow-lg ${
-                    completedLessons.includes(activeLesson.id)
-                      ? "bg-emerald-950/50 text-emerald-400 border border-emerald-800/50"
-                      : "bg-indigo-600 text-white hover:bg-indigo-500"
-                  }`}
+                  className={`px-6 py-3 rounded-xl font-semibold flex items-center gap-2 transition-all disabled:opacity-60 shadow-lg ${completedLessons.includes(activeLesson.id)
+                    ? "bg-emerald-950/50 text-emerald-400 border border-emerald-800/50"
+                    : "bg-indigo-600 text-white hover:bg-indigo-500"
+                    }`}
                 >
-                  {isCompletingLesson ? <Loader2 size={18} className="animate-spin" /> : completedLessons.includes(activeLesson.id) ? <CheckCircle2 size={18}/> : null}
+                  {isCompletingLesson ? <Loader2 size={18} className="animate-spin" /> : completedLessons.includes(activeLesson.id) ? <CheckCircle2 size={18} /> : null}
                   {isCompletingLesson ? "Saving..." : completedLessons.includes(activeLesson.id) ? "✓ Completed" : "Mark as Complete →"}
                 </button>
               </div>
             </motion.div>
 
+          ) : activeViewId === "table-of-contents" ? (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} key="table-of-contents" className="max-w-3xl mx-auto space-y-8">
+              {/* Table of Contents Hero Header */}
+              <div className="border-b border-zinc-800 pb-6">
+                <div className="inline-flex items-center gap-2 text-xs font-bold text-indigo-400 uppercase tracking-wider bg-indigo-950/40 px-3 py-1 rounded-full border border-indigo-800/40 mb-3">
+                  <BookOpen size={13} /> Curriculum Overview
+                </div>
+                <h1 className="text-3xl font-extrabold text-white leading-tight mb-2">
+                  Table of Contents
+                </h1>
+                <p className="text-zinc-400 text-sm leading-relaxed max-w-2xl">
+                  {course.description || "Complete curriculum outline with modules and sub-heading topics."}
+                </p>
+                <div className="flex flex-wrap items-center gap-4 mt-4 text-xs text-zinc-500">
+                  <span className="flex items-center gap-1.5 font-medium text-zinc-300">
+                    <BookOpen size={14} className="text-indigo-400" />
+                    {course.modules?.length || 0} Modules
+                  </span>
+                  <span>•</span>
+                  <span className="flex items-center gap-1.5 font-medium text-zinc-300">
+                    <ListFilter size={14} className="text-emerald-400" />
+                    {(course.modules ?? []).reduce((acc: number, m: any) => acc + (m.lessons?.length || 0), 0)} Topics
+                  </span>
+                  {course.estimated_duration && (
+                    <>
+                      <span>•</span>
+                      <span className="flex items-center gap-1.5 font-medium text-zinc-300">
+                        <Clock size={14} className="text-amber-400" />
+                        {course.estimated_duration}
+                      </span>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Modules & Topics Tree */}
+              <div className="space-y-6">
+                {(course.modules ?? []).map((mod: any, mIdx: number) => {
+                  const modDone = mod.lessons?.length > 0 && mod.lessons.every((l: any) => completedLessons.includes(l.id));
+                  return (
+                    <div
+                      key={mod.id}
+                      className="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-6 shadow-xl hover:border-zinc-700 transition-colors"
+                    >
+                      <div className="flex items-start justify-between gap-4 mb-4">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="px-2 py-0.5 rounded text-[11px] font-bold tracking-wider uppercase bg-indigo-950/60 text-indigo-400 border border-indigo-800/50">
+                              Module {mIdx + 1}
+                            </span>
+                            {modDone && (
+                              <span className="px-2 py-0.5 rounded text-[11px] font-bold tracking-wider uppercase bg-emerald-950/60 text-emerald-400 border border-emerald-800/50 flex items-center gap-1">
+                                <CheckCircle2 size={11} /> Done
+                              </span>
+                            )}
+                          </div>
+                          <h2 className="text-xl font-bold text-white">{mod.title}</h2>
+                          {mod.description && (
+                            <p className="text-xs text-zinc-400 mt-1">{mod.description}</p>
+                          )}
+                        </div>
+                        <span className="text-xs font-semibold text-zinc-500 bg-zinc-950 px-2.5 py-1 rounded-lg border border-zinc-800 shrink-0">
+                          {mod.lessons?.length || 0} topics
+                        </span>
+                      </div>
+
+                      {/* Sub-headings / Topic list */}
+                      <div className="grid grid-cols-1 gap-2 pt-2 border-t border-zinc-800/80">
+                        {(mod.lessons ?? []).map((les: any, lIdx: number) => {
+                          const isDone = completedLessons.includes(les.id);
+                          const hasSections = les.content?.sections && les.content.sections.length > 0;
+                          return (
+                            <button
+                              key={les.id}
+                              onClick={() => {
+                                setActiveModuleId(mod.id);
+                                setActiveViewId(les.id);
+                              }}
+                              className="w-full text-left p-3.5 rounded-xl bg-zinc-950/70 hover:bg-zinc-800/60 border border-zinc-800/60 hover:border-indigo-500/50 flex items-center justify-between gap-3 group transition-all"
+                            >
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 transition-colors ${isDone
+                                  ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                                  : "bg-zinc-800 text-zinc-400 group-hover:bg-indigo-600 group-hover:text-white"
+                                  }`}>
+                                  {isDone ? <Check size={12} /> : lIdx + 1}
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="text-sm font-semibold text-zinc-200 group-hover:text-white truncate">
+                                    {les.title}
+                                  </div>
+                                  <div className="text-[11px] text-zinc-500 flex items-center gap-2 mt-0.5">
+                                    <span>{les.estimated_minutes || 5} min read</span>
+                                    <span>•</span>
+                                    <span className={hasSections ? "text-emerald-400" : "text-amber-400/90"}>
+                                      {hasSections ? `${les.content.sections.length} content sections` : "Needs content sections"}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                              <span className="text-xs text-indigo-400 font-semibold group-hover:translate-x-1 transition-transform flex items-center gap-1 shrink-0">
+                                Open Topic <ChevronRight size={14} />
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </motion.div>
+
           ) : activeViewId === "final-quiz" ? (
-            <motion.div initial={{opacity:0, y:10}} animate={{opacity:1, y:0}} key="final-quiz" className="max-w-3xl mx-auto">
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} key="final-quiz" className="max-w-3xl mx-auto">
 
               {/* ─── Quiz Results ─── */}
               {quizResults ? (
                 <div className="mt-4">
                   {/* Score Hero */}
-                  <div className={`rounded-3xl p-10 text-center mb-8 border ${
-                    quizResults.passed
-                      ? "bg-gradient-to-br from-emerald-950/60 to-zinc-900 border-emerald-800/50"
-                      : "bg-gradient-to-br from-amber-950/60 to-zinc-900 border-amber-800/50"
-                  }`}>
+                  <div className={`rounded-3xl p-10 text-center mb-8 border ${quizResults.passed
+                    ? "bg-gradient-to-br from-emerald-950/60 to-zinc-900 border-emerald-800/50"
+                    : "bg-gradient-to-br from-amber-950/60 to-zinc-900 border-amber-800/50"
+                    }`}>
                     <div className="text-7xl mb-4">{quizResults.passed ? "🎉" : "📚"}</div>
-                    <div className={`text-8xl font-black mb-3 ${
-                      quizResults.passed ? "text-emerald-400" : "text-amber-400"
-                    }`}>{quizResults.score}%</div>
+                    <div className={`text-8xl font-black mb-3 ${quizResults.passed ? "text-emerald-400" : "text-amber-400"
+                      }`}>{quizResults.score}%</div>
                     <h2 className="text-2xl font-bold mb-1">{quizResults.passed ? "Assessment Passed!" : "Keep Studying"}</h2>
                     <p className="text-zinc-400 text-sm">
                       {quizResults.correct} correct out of {allQuestions.length} questions
@@ -877,7 +1166,7 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
                         Retake Quiz
                       </button>
                       <button onClick={() => { setActiveViewId("flashcards"); setCardFlipped(false); setFlashcardSessionFinished(false); setFlashcardIndex(0); setFlashcardSessionScores([]); }} className="px-6 py-2.5 rounded-xl font-bold bg-fuchsia-600 hover:bg-fuchsia-500 text-white transition-colors flex items-center gap-2">
-                        <Brain size={16}/> Practice Flashcards
+                        <Brain size={16} /> Practice Flashcards
                       </button>
                     </div>
                   </div>
@@ -892,13 +1181,11 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
                       const opts = q.options?.length ? q.options : ["True", "False"];
                       const letters = ["A", "B", "C", "D", "E"];
                       return (
-                        <div key={q.id} className={`rounded-2xl border p-5 ${
-                          isRight ? "bg-emerald-950/20 border-emerald-800/40" : "bg-red-950/20 border-red-800/40"
-                        }`}>
+                        <div key={q.id} className={`rounded-2xl border p-5 ${isRight ? "bg-emerald-950/20 border-emerald-800/40" : "bg-red-950/20 border-red-800/40"
+                          }`}>
                           <div className="flex items-start gap-3 mb-3">
-                            <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 ${
-                              isRight ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"
-                            }`}>{i + 1}</span>
+                            <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 ${isRight ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"
+                              }`}>{i + 1}</span>
                             <p className="text-zinc-200 font-medium text-[15px] leading-snug">{q.question}</p>
                           </div>
                           <div className="space-y-1.5 pl-10">
@@ -912,8 +1199,8 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
                                 <div key={opt} className={`flex items-center gap-3 px-3 py-2 rounded-lg border text-sm ${cls}`}>
                                   <span className="w-5 h-5 rounded border border-current flex items-center justify-center text-xs font-bold shrink-0">{letters[j]}</span>
                                   <span className="flex-1">{opt}</span>
-                                  {isCorrect && <CheckCircle2 size={14} className="text-emerald-400 shrink-0"/>}
-                                  {isChosen && !isCorrect && <XCircle size={14} className="text-red-400 shrink-0"/>}
+                                  {isCorrect && <CheckCircle2 size={14} className="text-emerald-400 shrink-0" />}
+                                  {isChosen && !isCorrect && <XCircle size={14} className="text-red-400 shrink-0" />}
                                 </div>
                               );
                             })}
@@ -933,7 +1220,7 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
                 /* ─── Quiz Start Screen ─── */
                 <div className="flex flex-col items-center justify-center min-h-[70vh] text-center">
                   <div className="w-24 h-24 bg-indigo-500/20 rounded-3xl flex items-center justify-center border border-indigo-500/30 mb-6 shadow-2xl shadow-indigo-900/20">
-                    <Target size={44} className="text-indigo-400"/>
+                    <Target size={44} className="text-indigo-400" />
                   </div>
                   <h1 className="text-4xl font-black mb-2 bg-gradient-to-r from-white to-zinc-400 bg-clip-text text-transparent">Course Assessment</h1>
                   <p className="text-zinc-400 text-lg mb-8 max-w-sm">
@@ -965,7 +1252,7 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
                     onClick={() => { setQuizStarted(true); setQuizStep(0); setQuizAnswers({}); }}
                     className="px-12 py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-lg rounded-2xl transition-all hover:scale-105 shadow-2xl shadow-indigo-900/40 flex items-center gap-3"
                   >
-                    <Target size={22}/> Start Quiz
+                    <Target size={22} /> Start Quiz
                   </button>
                 </div>
 
@@ -975,13 +1262,12 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
                   {/* Progress bar */}
                   <div className="flex items-center gap-4 mb-2">
                     <div className="flex-1 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-                      <div className="h-full bg-indigo-500 rounded-full transition-all duration-500" style={{width: `${((quizStep + 1) / allQuestions.length) * 100}%`}} />
+                      <div className="h-full bg-indigo-500 rounded-full transition-all duration-500" style={{ width: `${((quizStep + 1) / allQuestions.length) * 100}%` }} />
                     </div>
                     <div className="text-sm font-semibold text-zinc-400 shrink-0">{quizStep + 1}/{allQuestions.length}</div>
-                    <div className={`text-sm font-bold px-3 py-1 rounded-full border flex items-center gap-1.5 shrink-0 ${
-                      timeLeft && timeLeft < 60 ? "bg-red-950/40 text-red-400 border-red-500/50 animate-pulse" : "bg-zinc-900 text-zinc-300 border-zinc-700"
-                    }`}>
-                      <Timer size={14}/> {formatTime(timeLeft)}
+                    <div className={`text-sm font-bold px-3 py-1 rounded-full border flex items-center gap-1.5 shrink-0 ${timeLeft && timeLeft < 60 ? "bg-red-950/40 text-red-400 border-red-500/50 animate-pulse" : "bg-zinc-900 text-zinc-300 border-zinc-700"
+                      }`}>
+                      <Timer size={14} /> {formatTime(timeLeft)}
                     </div>
                   </div>
 
@@ -992,11 +1278,10 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
                       const active = i === quizStep;
                       return (
                         <button key={q.id} onClick={() => setQuizStep(i)}
-                          className={`w-9 h-9 rounded-full text-xs font-bold transition-all ${
-                            active ? "bg-indigo-600 text-white ring-2 ring-indigo-400 ring-offset-1 ring-offset-zinc-950 scale-110"
+                          className={`w-9 h-9 rounded-full text-xs font-bold transition-all ${active ? "bg-indigo-600 text-white ring-2 ring-indigo-400 ring-offset-1 ring-offset-zinc-950 scale-110"
                             : answered ? "bg-indigo-950 text-indigo-300 border border-indigo-800"
-                            : "bg-zinc-800 text-zinc-500 hover:bg-zinc-700"
-                          }`}>
+                              : "bg-zinc-800 text-zinc-500 hover:bg-zinc-700"
+                            }`}>
                           {i + 1}
                         </button>
                       );
@@ -1026,18 +1311,16 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
                           const selected = quizAnswers[allQuestions[quizStep].id] === opt;
                           return (
                             <button key={opt}
-                              onClick={() => setQuizAnswers(p => ({...p, [allQuestions[quizStep].id]: opt}))}
-                              className={`w-full text-left p-4 rounded-xl border-2 transition-all flex items-center gap-4 group ${
-                                selected
-                                  ? "bg-indigo-900/60 border-indigo-500 text-white shadow-lg shadow-indigo-900/20"
-                                  : "bg-zinc-900/60 border-zinc-700/60 hover:border-zinc-500 text-zinc-300 hover:bg-zinc-800/60"
-                              }`}
+                              onClick={() => setQuizAnswers(p => ({ ...p, [allQuestions[quizStep].id]: opt }))}
+                              className={`w-full text-left p-4 rounded-xl border-2 transition-all flex items-center gap-4 group ${selected
+                                ? "bg-indigo-900/60 border-indigo-500 text-white shadow-lg shadow-indigo-900/20"
+                                : "bg-zinc-900/60 border-zinc-700/60 hover:border-zinc-500 text-zinc-300 hover:bg-zinc-800/60"
+                                }`}
                             >
-                              <span className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-black shrink-0 transition-colors ${
-                                selected ? "bg-indigo-600 text-white" : "bg-zinc-800 text-zinc-400 group-hover:bg-zinc-700"
-                              }`}>{letters[oi]}</span>
+                              <span className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-black shrink-0 transition-colors ${selected ? "bg-indigo-600 text-white" : "bg-zinc-800 text-zinc-400 group-hover:bg-zinc-700"
+                                }`}>{letters[oi]}</span>
                               <span className="font-medium text-[15px] flex-1">{opt}</span>
-                              {selected && <CheckCircle2 size={20} className="text-indigo-400 shrink-0"/>}
+                              {selected && <CheckCircle2 size={20} className="text-indigo-400 shrink-0" />}
                             </button>
                           );
                         })}
@@ -1049,18 +1332,18 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
                   <div className="flex items-center justify-between pt-2">
                     <button onClick={() => setQuizStep(p => Math.max(0, p - 1))} disabled={quizStep === 0 || isGrading}
                       className="px-5 py-2.5 rounded-xl font-medium bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 text-white flex items-center gap-2 transition-colors">
-                      <ChevronLeft size={18}/> Back
+                      <ChevronLeft size={18} /> Back
                     </button>
                     <div className="flex items-center gap-3">
                       {quizStep < allQuestions.length - 1 ? (
                         <button onClick={() => setQuizStep(p => Math.min(allQuestions.length - 1, p + 1))} disabled={isGrading}
                           className="px-6 py-2.5 rounded-xl font-bold bg-indigo-600 hover:bg-indigo-500 text-white flex items-center gap-2 transition-colors shadow-lg shadow-indigo-900/30">
-                          Next <ChevronRight size={18}/>
+                          Next <ChevronRight size={18} />
                         </button>
                       ) : (
                         <button onClick={() => submitQuiz(false)} disabled={isGrading}
                           className="px-8 py-2.5 rounded-xl font-bold bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-2 transition-colors shadow-lg shadow-emerald-900/30">
-                          {isGrading ? <Loader2 size={18} className="animate-spin"/> : "Submit Quiz ✓"}
+                          {isGrading ? <Loader2 size={18} className="animate-spin" /> : "Submit Quiz ✓"}
                         </button>
                       )}
                     </div>
@@ -1068,16 +1351,35 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
                 </div>
 
               ) : (
-                <div className="text-center text-zinc-500 mt-12 bg-zinc-900/50 p-12 rounded-3xl border border-zinc-800">
-                  <Target size={48} className="mx-auto mb-4 opacity-40"/>
-                  <h3 className="text-xl font-medium text-zinc-400">No Assessment Available</h3>
-                  <p className="mt-2 text-sm">Generate a course to create quiz questions.</p>
+                <div className="text-center text-zinc-500 mt-12 bg-zinc-900/50 p-12 rounded-3xl border border-zinc-800 max-w-lg mx-auto">
+                  <Target size={48} className="mx-auto mb-4 text-indigo-400/60" />
+                  <h3 className="text-xl font-medium text-zinc-200">No Assessment Available Yet</h3>
+                  <p className="mt-2 text-sm text-zinc-400">
+                    This course has no quiz questions yet. You can automatically generate questions based on the course topics and saved content.
+                  </p>
+                  <button
+                    onClick={handleGenerateCourseAssessments}
+                    disabled={isGeneratingAssessments}
+                    className="mt-6 inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-medium shadow-lg shadow-indigo-900/30 transition-all disabled:opacity-50"
+                  >
+                    {isGeneratingAssessments ? (
+                      <>
+                        <Loader2 size={18} className="animate-spin" />
+                        Generating Quizzes & Flashcards...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles size={18} />
+                        Generate Quizzes & Flashcards with AI
+                      </>
+                    )}
+                  </button>
                 </div>
               )}
             </motion.div>
 
           ) : activeViewId === "flashcards" ? (
-            <motion.div initial={{opacity:0, y:10}} animate={{opacity:1, y:0}} key="flashcards" className="max-w-2xl mx-auto">
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} key="flashcards" className="max-w-2xl mx-auto">
 
               {flashcardSessionFinished ? (
                 /* ─── Session Results ─── */
@@ -1094,8 +1396,8 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
                   <div className="flex gap-4 mb-10">
                     {[
                       { label: "Know It", color: "text-emerald-400", count: flashcardSessionScores.filter(s => s === 100).length },
-                      { label: "Almost",  color: "text-amber-400",   count: flashcardSessionScores.filter(s => s === 50).length  },
-                      { label: "No Idea", color: "text-red-400",     count: flashcardSessionScores.filter(s => s === 0).length   },
+                      { label: "Almost", color: "text-amber-400", count: flashcardSessionScores.filter(s => s === 50).length },
+                      { label: "No Idea", color: "text-red-400", count: flashcardSessionScores.filter(s => s === 0).length },
                     ].map(({ label, color, count }) => (
                       <div key={label} className="bg-zinc-900 border border-zinc-800 rounded-2xl px-6 py-4 text-center">
                         <div className={`text-2xl font-bold ${color}`}>{count}</div>
@@ -1111,7 +1413,7 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
                     </button>
                     <button onClick={() => { setActiveViewId("final-quiz"); setQuizStarted(false); setQuizResults(null); setQuizStep(0); }}
                       className="px-6 py-3 rounded-xl font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition-colors flex items-center gap-2">
-                      <Target size={16}/> Take Quiz
+                      <Target size={16} /> Take Quiz
                     </button>
                   </div>
                 </div>
@@ -1121,7 +1423,7 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
                   {/* Header */}
                   <div className="text-center mb-8 pt-4">
                     <div className="flex items-center justify-center gap-3 mb-1">
-                      <Brain size={20} className="text-fuchsia-400"/>
+                      <Brain size={20} className="text-fuchsia-400" />
                       <h1 className="text-2xl font-bold">Flashcards</h1>
                     </div>
                     <p className="text-zinc-500 text-sm">
@@ -1139,13 +1441,12 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
                     {allFlashcards.map((_: any, i: number) => {
                       const s = flashcardSessionScores[i];
                       return (
-                        <div key={i} className={`h-1.5 rounded-full transition-all ${
-                          i === flashcardIndex ? "w-6 bg-fuchsia-400"
+                        <div key={i} className={`h-1.5 rounded-full transition-all ${i === flashcardIndex ? "w-6 bg-fuchsia-400"
                           : s === 100 ? "w-3 bg-emerald-500"
-                          : s === 50  ? "w-3 bg-amber-500"
-                          : s === 0   ? "w-3 bg-red-500"
-                          : "w-3 bg-zinc-700"
-                        }`}/>
+                            : s === 50 ? "w-3 bg-amber-500"
+                              : s === 0 ? "w-3 bg-red-500"
+                                : "w-3 bg-zinc-700"
+                          }`} />
                       );
                     })}
                   </div>
@@ -1153,14 +1454,12 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
                   {/* Swipeable Card */}
                   <div className="relative">
                     {/* Swipe hint labels */}
-                    <div className={`absolute left-4 top-1/2 -translate-y-1/2 z-10 transition-opacity duration-200 ${
-                      dragX < -30 ? "opacity-100" : "opacity-0"
-                    }`}>
+                    <div className={`absolute left-4 top-1/2 -translate-y-1/2 z-10 transition-opacity duration-200 ${dragX < -30 ? "opacity-100" : "opacity-0"
+                      }`}>
                       <span className="bg-red-500/80 text-white text-xs font-black px-3 py-1.5 rounded-lg rotate-[-8deg] block">NOPE</span>
                     </div>
-                    <div className={`absolute right-4 top-1/2 -translate-y-1/2 z-10 transition-opacity duration-200 ${
-                      dragX > 30 ? "opacity-100" : "opacity-0"
-                    }`}>
+                    <div className={`absolute right-4 top-1/2 -translate-y-1/2 z-10 transition-opacity duration-200 ${dragX > 30 ? "opacity-100" : "opacity-0"
+                      }`}>
                       <span className="bg-emerald-500/80 text-white text-xs font-black px-3 py-1.5 rounded-lg rotate-[8deg] block">GOT IT</span>
                     </div>
 
@@ -1203,7 +1502,7 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
                             <div className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-6">Question</div>
                             <h3 className="text-2xl font-bold text-white leading-relaxed mb-8">{allFlashcards[flashcardIndex].front}</h3>
                             <div className="flex items-center gap-2 text-zinc-600 text-xs">
-                              <RefreshCw size={12}/> Tap to reveal · Swipe to rate
+                              <RefreshCw size={12} /> Tap to reveal · Swipe to rate
                             </div>
                           </div>
                           {/* Back */}
@@ -1211,7 +1510,7 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
                             <div className="text-xs font-bold text-indigo-400 uppercase tracking-widest mb-6">Answer</div>
                             <p className="text-xl text-zinc-100 leading-relaxed mb-8">{allFlashcards[flashcardIndex].back}</p>
                             <div className="flex items-center gap-2 text-indigo-700 text-xs">
-                              <RefreshCw size={12}/> Swipe right = know it · Swipe left = no idea
+                              <RefreshCw size={12} /> Swipe right = know it · Swipe left = no idea
                             </div>
                           </div>
                         </motion.div>
@@ -1222,7 +1521,7 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
                   {/* Rating buttons (shown after flip) */}
                   <AnimatePresence>
                     {cardFlipped ? (
-                      <motion.div initial={{opacity:0, y:20}} animate={{opacity:1, y:0}} exit={{opacity:0, y:20}}
+                      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
                         className="flex gap-3 mt-6"
                       >
                         <button onClick={(e) => { e.stopPropagation(); rateFlashcard("no_idea"); }}
@@ -1239,22 +1538,22 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
                         </button>
                       </motion.div>
                     ) : (
-                      <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+                      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                         className="flex justify-center gap-4 mt-6"
                       >
                         <button onClick={(e) => { e.stopPropagation(); setCardFlipped(false); setFlashcardIndex(p => Math.max(0, p - 1)); }}
                           disabled={flashcardIndex === 0}
                           className="w-12 h-12 rounded-full bg-zinc-800 hover:bg-zinc-700 disabled:opacity-30 flex items-center justify-center text-white shadow-lg transition-colors">
-                          <ChevronLeft size={20}/>
+                          <ChevronLeft size={20} />
                         </button>
                         <button onClick={(e) => { e.stopPropagation(); setFlashcardIndex(Math.floor(Math.random() * allFlashcards.length)); setCardFlipped(false); }}
                           className="w-12 h-12 rounded-full bg-zinc-800 hover:bg-zinc-700 flex items-center justify-center text-white shadow-lg transition-colors" title="Shuffle">
-                          <Shuffle size={18}/>
+                          <Shuffle size={18} />
                         </button>
                         <button onClick={(e) => { e.stopPropagation(); setCardFlipped(false); setFlashcardIndex(p => Math.min(allFlashcards.length - 1, p + 1)); }}
                           disabled={flashcardIndex === allFlashcards.length - 1}
                           className="w-12 h-12 rounded-full bg-zinc-800 hover:bg-zinc-700 disabled:opacity-30 flex items-center justify-center text-white shadow-lg transition-colors">
-                          <ChevronRight size={20}/>
+                          <ChevronRight size={20} />
                         </button>
                       </motion.div>
                     )}
@@ -1270,20 +1569,39 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
                 </div>
 
               ) : (
-                <div className="text-center text-zinc-500 mt-12 bg-zinc-900/50 p-12 rounded-3xl border border-zinc-800">
-                  <Brain size={48} className="mx-auto mb-4 opacity-40"/>
-                  <h3 className="text-xl font-medium text-zinc-400">No Flashcards Available</h3>
-                  <p className="mt-2 text-sm">Generate a course to create flashcards.</p>
+                <div className="text-center text-zinc-500 mt-12 bg-zinc-900/50 p-12 rounded-3xl border border-zinc-800 max-w-lg mx-auto">
+                  <Brain size={48} className="mx-auto mb-4 text-purple-400/60" />
+                  <h3 className="text-xl font-medium text-zinc-200">No Flashcards Available Yet</h3>
+                  <p className="mt-2 text-sm text-zinc-400">
+                    This course has no flashcards yet. Generate active-recall flashcards directly from the course syllabus and sections.
+                  </p>
+                  <button
+                    onClick={handleGenerateCourseAssessments}
+                    disabled={isGeneratingAssessments}
+                    className="mt-6 inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-medium shadow-lg shadow-purple-900/30 transition-all disabled:opacity-50"
+                  >
+                    {isGeneratingAssessments ? (
+                      <>
+                        <Loader2 size={18} className="animate-spin" />
+                        Generating Quizzes & Flashcards...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles size={18} />
+                        Generate Quizzes & Flashcards with AI
+                      </>
+                    )}
+                  </button>
                 </div>
               )}
             </motion.div>
 
 
           ) : activeViewId === "assessment-history" ? (
-            <motion.div initial={{opacity:0, y:10}} animate={{opacity:1, y:0}} key="history" className="max-w-3xl mx-auto mt-8">
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} key="history" className="max-w-3xl mx-auto mt-8">
               <div className="text-center mb-10">
                 <div className="w-16 h-16 bg-blue-500/20 text-blue-400 rounded-3xl flex items-center justify-center border border-blue-500/30 mx-auto mb-6">
-                  <LineChartIcon size={32}/>
+                  <LineChartIcon size={32} />
                 </div>
                 <h1 className="text-3xl font-bold mb-2">Performance History</h1>
                 <p className="text-zinc-500 text-lg">Track your quiz scores over time</p>
@@ -1299,7 +1617,7 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
                           <CartesianGrid strokeDasharray="3 3" stroke="#3f3f46" vertical={false} />
                           <XAxis dataKey="attempt" stroke="#71717a" fontSize={12} tickLine={false} axisLine={false} />
                           <YAxis stroke="#71717a" fontSize={12} tickLine={false} axisLine={false} domain={[0, 100]} />
-                          <Tooltip 
+                          <Tooltip
                             contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '12px', color: '#fff' }}
                             itemStyle={{ color: '#818cf8' }}
                           />
@@ -1327,9 +1645,9 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
                             <td className="px-6 py-4 font-bold">{h.score}%</td>
                             <td className="px-6 py-4">
                               {h.score >= 80 ? (
-                                <span className="inline-flex items-center gap-1 text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded-md text-xs font-semibold"><CheckCircle2 size={14}/> Passed</span>
+                                <span className="inline-flex items-center gap-1 text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded-md text-xs font-semibold"><CheckCircle2 size={14} /> Passed</span>
                               ) : (
-                                <span className="inline-flex items-center gap-1 text-amber-400 bg-amber-400/10 px-2 py-1 rounded-md text-xs font-semibold"><XCircle size={14}/> Needs Review</span>
+                                <span className="inline-flex items-center gap-1 text-amber-400 bg-amber-400/10 px-2 py-1 rounded-md text-xs font-semibold"><XCircle size={14} /> Needs Review</span>
                               )}
                             </td>
                           </tr>
@@ -1340,7 +1658,7 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
                 </div>
               ) : (
                 <div className="text-center text-zinc-500 mt-12 bg-zinc-900/50 p-12 rounded-3xl border border-zinc-800">
-                  <LineChartIcon size={48} className="mx-auto mb-4 opacity-50"/>
+                  <LineChartIcon size={48} className="mx-auto mb-4 opacity-50" />
                   <h3 className="text-xl font-medium text-zinc-400">No Assessment Data</h3>
                   <p className="mt-2 text-sm">Complete your first quiz to see your performance history.</p>
                 </div>
@@ -1352,16 +1670,16 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
                     <h2 className="text-2xl font-bold mb-2">Flashcard Mastery</h2>
                     <p className="text-zinc-500">Track your practice session scores</p>
                   </div>
-                  
+
                   <div className="bg-zinc-900/50 border border-zinc-800 p-8 rounded-3xl">
-                    <h3 className="text-lg font-semibold mb-6 flex items-center gap-2"><Brain size={18} className="text-fuchsia-400"/> Flashcard Session Trend</h3>
+                    <h3 className="text-lg font-semibold mb-6 flex items-center gap-2"><Brain size={18} className="text-fuchsia-400" /> Flashcard Session Trend</h3>
                     <div className="h-64">
                       <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={(course?.progress?.flashcard_history ?? []).map((h: any, i: number) => ({ session: `Session ${i + 1}`, score: h.score, date: new Date(h.date).toLocaleDateString() }))}>
                           <CartesianGrid strokeDasharray="3 3" stroke="#3f3f46" vertical={false} />
                           <XAxis dataKey="session" stroke="#71717a" fontSize={12} tickLine={false} axisLine={false} />
                           <YAxis stroke="#71717a" fontSize={12} tickLine={false} axisLine={false} domain={[0, 100]} />
-                          <Tooltip 
+                          <Tooltip
                             contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '12px', color: '#fff' }}
                             itemStyle={{ color: '#e879f9' }}
                           />
@@ -1453,9 +1771,8 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
                       />
                       <label
                         htmlFor="video-file-input"
-                        className={`flex-1 py-2.5 px-4 rounded-xl border border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-medium cursor-pointer flex items-center justify-center gap-2 transition-all ${
-                          isUploadingVideo ? "opacity-50 pointer-events-none" : ""
-                        }`}
+                        className={`flex-1 py-2.5 px-4 rounded-xl border border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-medium cursor-pointer flex items-center justify-center gap-2 transition-all ${isUploadingVideo ? "opacity-50 pointer-events-none" : ""
+                          }`}
                       >
                         {isUploadingVideo ? (
                           <>
@@ -1485,17 +1802,18 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
                       <div className="mt-3">
                         <div className="text-[11px] text-zinc-500 font-semibold uppercase mb-1">Preview Player</div>
                         <div className="w-full aspect-video rounded-xl border border-zinc-800 bg-black overflow-hidden flex items-center justify-center relative shadow-inner">
-                          {videoUrlInput.includes("youtube.com") || videoUrlInput.includes("youtu.be") || videoUrlInput.includes("vimeo.com") ? (
-                            <iframe 
-                              src={videoUrlInput.replace("watch?v=", "embed/")} 
-                              className="w-full h-full" 
-                              allowFullScreen 
+                          {isEmbeddableVideoUrl(videoUrlInput) ? (
+                            <iframe
+                              src={getEmbedVideoUrl(videoUrlInput)}
+                              className="w-full h-full"
+                              allowFullScreen
+                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                             />
                           ) : (
-                            <video 
-                              src={videoUrlInput} 
-                              controls 
-                              className="w-full h-full object-contain" 
+                            <video
+                              src={videoUrlInput}
+                              controls
+                              className="w-full h-full object-contain"
                             />
                           )}
                         </div>
@@ -1555,11 +1873,10 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
             initial={{ opacity: 0, y: 50, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.9 }}
-            className={`fixed bottom-8 left-1/2 -translate-x-1/2 px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 z-50 border ${
-              toast.type === "error" ? "bg-red-950/90 border-red-900/50 text-red-200" : 
-              toast.type === "success" ? "bg-emerald-950/90 border-emerald-900/50 text-emerald-200" : 
-              "bg-zinc-900 border-zinc-800 text-white"
-            }`}
+            className={`fixed bottom-8 left-1/2 -translate-x-1/2 px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 z-50 border ${toast.type === "error" ? "bg-red-950/90 border-red-900/50 text-red-200" :
+              toast.type === "success" ? "bg-emerald-950/90 border-emerald-900/50 text-emerald-200" :
+                "bg-zinc-900 border-zinc-800 text-white"
+              }`}
           >
             {toast.type === "error" ? <XCircle size={18} className="text-red-400" /> : <CheckCircle2 size={18} className="text-emerald-400" />}
             <span className="text-sm font-medium">{toast.message}</span>
@@ -1602,7 +1919,7 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
       {/* Image Preview Lightbox */}
       <AnimatePresence>
         {previewImageUrl && (
-          <div 
+          <div
             onClick={() => setPreviewImageUrl(null)}
             className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md cursor-zoom-out"
           >
@@ -1614,7 +1931,7 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
               onClick={(e) => e.stopPropagation()}
             >
               <img src={previewImageUrl} alt="Preview" className="max-w-full max-h-[80vh] object-contain" />
-              <button 
+              <button
                 onClick={() => setPreviewImageUrl(null)}
                 className="absolute top-4 right-4 p-2 bg-black/60 text-white hover:bg-black/85 rounded-full transition-colors cursor-pointer"
               >
@@ -1624,6 +1941,18 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
           </div>
         )}
       </AnimatePresence>
+
+      {/* Add Content Section Modal */}
+      {activeLesson && (
+        <AddSectionModal
+          isOpen={showAddSectionModal}
+          onClose={() => setShowAddSectionModal(false)}
+          onAddSections={handleSaveAddedSections}
+          courseTitle={course?.title || "Study Course"}
+          moduleTitle={activeModule?.title || "Module"}
+          lessonTitle={activeLesson?.title || "Topic"}
+        />
+      )}
     </div>
   );
 }

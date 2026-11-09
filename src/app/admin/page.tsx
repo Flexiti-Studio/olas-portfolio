@@ -69,7 +69,7 @@ const SIDEBAR_ITEMS = [
   { id: "gigs-tracker", label: "Gigs Tracker", icon: Briefcase, desc: "Freelance & gigs pipeline" },
   { id: "job-websites", label: "Job Websites", icon: Building, desc: "Saved career pages" },
   { id: "company-research", label: "Company Research", icon: Search, desc: "Deep dive companies" },
-  { id: "interview-prep", label: "Interview Prep", icon: MessageSquare, desc: "Notes & questions" },
+  { id: "interview-prep", label: "Study", icon: MessageSquare, desc: "Notes & questions" },
   { id: "salary-benchmarker", label: "Salary Benchmarker", icon: DollarSign, desc: "Compare offers" },
   { id: "budget-strategy", label: "Budget Strategy", icon: PiggyBank, desc: "50/30/20 Budgeting" },
   { id: "lifestyle-cost", label: "Lifestyle Cost", icon: PiggyBank, desc: "Income vs Expenses" },

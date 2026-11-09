@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { BookOpen, Plus, Trash2, Briefcase, GraduationCap, Clock, BarChart2, Zap, FileText, XCircle, CheckCircle2, X, ChevronRight, Activity, Award } from "lucide-react";
+import { BookOpen, Plus, Trash2, Briefcase, GraduationCap, Clock, BarChart2, Zap, FileText, XCircle, CheckCircle2, X, ChevronRight, Activity, Award, Sparkles, BookMarked, ListFilter } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 
 export default function InterviewPrepList() {
@@ -20,6 +20,9 @@ export default function InterviewPrepList() {
     onConfirm: () => void;
   } | null>(null);
 
+  // Creation Mode Selection Modal
+  const [creationModalOpen, setCreationModalOpen] = useState(false);
+
   useEffect(() => { fetchCourses(); }, []);
 
   const fetchCourses = async () => {
@@ -29,7 +32,7 @@ export default function InterviewPrepList() {
       if (r.ok) {
         setCourses(await r.json());
       }
-    } catch {} 
+    } catch { }
     finally { setLoading(false); }
   };
 
@@ -81,7 +84,7 @@ export default function InterviewPrepList() {
   const totalCourses = courses.length;
   const inProgressCount = courses.filter(c => c.progress && c.progress.overall_percentage > 0 && c.progress.overall_percentage < 100).length;
   const completedCount = courses.filter(c => c.progress?.overall_percentage === 100).length;
-  
+
   const quizScores = courses.map(c => c.progress?.quiz_average || 0).filter(s => s > 0);
   const avgQuizScore = quizScores.length ? Math.round(quizScores.reduce((a, b) => a + b, 0) / quizScores.length) : 0;
 
@@ -94,15 +97,15 @@ export default function InterviewPrepList() {
   return (
     <div className="min-h-screen bg-zinc-950 text-white p-4 md:p-8">
       <div className="max-w-6xl mx-auto space-y-8">
-        
+
         {/* Top Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-zinc-800 pb-6">
           <div>
             <h1 className="text-3xl font-bold flex items-center gap-3"><GraduationCap className="text-indigo-400" /> Prep Dashboard</h1>
             <p className="text-zinc-500 mt-1">Track and manage your AI-generated technical interview preparations</p>
           </div>
-          <button 
-            onClick={() => router.push("/admin/interview-prep/new")}
+          <button
+            onClick={() => setCreationModalOpen(true)}
             className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-5 py-3 rounded-xl transition-all shadow-lg hover:shadow-indigo-500/20 shrink-0"
           >
             <Plus size={18} /> New Prep Course
@@ -112,7 +115,7 @@ export default function InterviewPrepList() {
         {/* Dashboard Analytics & Metrics Section */}
         {courses.length > 0 && (
           <div className="space-y-6">
-            
+
             {/* Quick Metrics Grid */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-zinc-900 border border-zinc-800 p-5 rounded-2xl flex flex-col justify-between">
@@ -135,7 +138,7 @@ export default function InterviewPrepList() {
 
             {/* Hero current focus & chart side-by-side */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              
+
               {/* Left Column: Hero current focus */}
               {lastStudiedCourse && (
                 <div className="lg:col-span-1 bg-gradient-to-br from-indigo-950/30 to-zinc-900 border border-indigo-900/50 p-6 rounded-2xl flex flex-col justify-between shadow-2xl relative overflow-hidden group">
@@ -158,14 +161,14 @@ export default function InterviewPrepList() {
                         <span className="font-bold text-indigo-300">{lastStudiedCourse.progress?.overall_percentage || 0}%</span>
                       </div>
                       <div className="w-full bg-zinc-800/80 rounded-full h-2 border border-zinc-850">
-                        <div 
-                          className="bg-indigo-500 h-2 rounded-full transition-all duration-700" 
-                          style={{ width: `${lastStudiedCourse.progress?.overall_percentage || 0}%` }} 
+                        <div
+                          className="bg-indigo-500 h-2 rounded-full transition-all duration-700"
+                          style={{ width: `${lastStudiedCourse.progress?.overall_percentage || 0}%` }}
                         />
                       </div>
                     </div>
                   </div>
-                  <button 
+                  <button
                     onClick={() => router.push(`/admin/interview-prep/${lastStudiedCourse.id}`)}
                     className="mt-6 w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md group-hover:translate-y-[-2px]"
                   >
@@ -188,7 +191,7 @@ export default function InterviewPrepList() {
                       <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
                       <XAxis dataKey="name" stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} />
                       <YAxis stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} domain={[0, 100]} />
-                      <Tooltip 
+                      <Tooltip
                         contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '12px', color: '#fff' }}
                         itemStyle={{ fontSize: '11px' }}
                       />
@@ -210,10 +213,10 @@ export default function InterviewPrepList() {
             <h2 className="text-xl font-bold text-zinc-100 flex items-center gap-2">
               <Award size={18} className="text-indigo-400" /> Your Study Material
             </h2>
-            
+
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex bg-zinc-900 border border-zinc-800 rounded-xl p-1 gap-1">
-                {[["all","All"],["in_progress","In Progress"],["completed","Completed"],["linked","Linked"]].map(([id,label]) => (
+                {[["all", "All"], ["in_progress", "In Progress"], ["completed", "Completed"], ["linked", "Linked"]].map(([id, label]) => (
                   <button key={id} onClick={() => setFilter(id)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${filter === id ? "bg-zinc-800 text-white" : "text-zinc-500 hover:text-zinc-300"}`}>{label}</button>
                 ))}
@@ -316,6 +319,84 @@ export default function InterviewPrepList() {
         </div>
 
       </div>
+
+      {/* Creation Mode Selection Modal */}
+      <AnimatePresence>
+        {creationModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-zinc-900 border border-zinc-800 w-full max-w-lg rounded-2xl shadow-2xl p-6 relative overflow-hidden"
+            >
+              <div className="flex items-center justify-between mb-4 pb-3 border-b border-zinc-800">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-xl border border-indigo-500/20">
+                    <GraduationCap size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-white">Create New Course</h3>
+                    <p className="text-xs text-zinc-400">Choose how you want to build this study course</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setCreationModalOpen(false)}
+                  className="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 my-2">
+                {/* Automatic Generation Card */}
+                <button
+                  onClick={() => {
+                    setCreationModalOpen(false);
+                    router.push("/admin/interview-prep/new");
+                  }}
+                  className="group relative flex flex-col items-start p-5 rounded-2xl bg-zinc-950/80 border border-zinc-800 hover:border-indigo-500/70 hover:bg-indigo-950/15 transition-all text-left shadow-lg"
+                >
+                  <div className="p-2.5 rounded-xl bg-indigo-500/20 text-indigo-400 group-hover:scale-110 transition-transform mb-3 border border-indigo-500/30">
+                    <Sparkles size={22} />
+                  </div>
+                  <span className="text-sm font-bold text-white group-hover:text-indigo-300 transition-colors">
+                    Automatic Generation
+                  </span>
+                  <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
+                    Upload a PDF or paste documents. AI analyzes and creates all modules, lessons, quizzes, and flashcards end-to-end.
+                  </p>
+                  <span className="mt-4 text-[11px] font-semibold text-indigo-400 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                    Select Automatic <ChevronRight size={13} />
+                  </span>
+                </button>
+
+                {/* Manual Topics Card */}
+                <button
+                  onClick={() => {
+                    setCreationModalOpen(false);
+                    router.push("/admin/interview-prep/new?mode=manual");
+                  }}
+                  className="group relative flex flex-col items-start p-5 rounded-2xl bg-zinc-950/80 border border-zinc-800 hover:border-emerald-500/70 hover:bg-emerald-950/15 transition-all text-left shadow-lg"
+                >
+                  <div className="p-2.5 rounded-xl bg-emerald-500/20 text-emerald-400 group-hover:scale-110 transition-transform mb-3 border border-emerald-500/30">
+                    <ListFilter size={22} />
+                  </div>
+                  <span className="text-sm font-bold text-white group-hover:text-emerald-300 transition-colors">
+                    Manual Topics / TOC
+                  </span>
+                  <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
+                    Paste your custom list of topics. AI structures the Table of Contents, names the course, and lets you craft module sections.
+                  </p>
+                  <span className="mt-4 text-[11px] font-semibold text-emerald-400 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                    Select Manual <ChevronRight size={13} />
+                  </span>
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Confirmation Modal */}
       <AnimatePresence>

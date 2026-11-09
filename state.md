@@ -1,5 +1,64 @@
 # Project State
 
+- Build Verification & Typecheck Success (`package.json`, `src/app/admin/career/[id]/page.tsx`, `src/app/admin/interview-prep/[courseId]/page.tsx`):
+  - **Successful Production Build (`npm run build`)**:
+    - Build compiled and generated all 73 routes (static and dynamic) with exit code 0.
+    - Resolved Next.js route type constraint failure in `src/app/admin/career/[id]/page.tsx` by unexporting the helper component `StrictModeDroppable` (Next.js route pages only allow standard page exports).
+    - Resolved duplicate declarations in `src/app/admin/interview-prep/[courseId]/page.tsx`.
+    - Configured `"build": "next build --webpack"` in `package.json` for stable production builds on Windows.
+
+- Assessment Generator Integration & Trackpad Scrolling Suite (`src/app/admin/interview-prep/[courseId]/page.tsx`, `src/app/api/interview-prep/generate-assessments/route.ts`, `src/components/layout/SmoothScroll.tsx`):
+  - **1-Click AI Assessment Generation on Empty States**:
+    - Connected `/api/interview-prep/generate-assessments` directly to the course detail view.
+    - When a manually assembled topic course has no questions or flashcards, the "Take Final Quiz" and "Practice Flashcards" empty states present a **"Generate Quizzes & Flashcards with AI"** button with a loading state and instant local state refresh.
+    - Quizzes, grading, performance history chart tracking (`assessment_history`), and flashcard active-recall rating (`know_it`, `almost`, `dont_know`) work seamlessly with the newly created manual topic courses.
+  - **Native Trackpad Gesture Scrolling**:
+    - Bypassed global Lenis wheel/touch interception on `/admin` routes in `SmoothScroll.tsx`.
+    - Removed restrictive body/outer `overflow-hidden` constraints and added `overscroll-contain` on scroll containers to ensure smooth two-finger trackpad scrolling.
+  - **Type Checking Verification**:
+    - Clean compilation with 0 TypeScript errors across all interview prep pages, components, and endpoints.
+
+- Code Snippet Formatting, Color Syntax Highlighting & Reformat Controls (`src/components/admin/interview-prep/HighlightedCode.tsx`, `CodeSectionViewer.tsx`, `src/app/api/interview-prep/reformat-code/route.ts`, `src/app/api/interview-prep/format-section/route.ts`):
+  - **Syntax Highlighting & Color Themes**:
+    - Created `HighlightedCode.tsx` with color-coded syntax tokens (keywords in purple, string literals in amber, numbers in orange, types/booleans in cyan, function invocations in blue, comments in italic zinc, and line numbers).
+    - Automatically cleans unescaped `\n` characters so code never gets flattened or glued onto a single line.
+  - **Multi-Line Prompt Enforcement in AI**:
+    - Updated `/api/interview-prep/format-section` system prompt with strict rules instructing the model to always output clean, multi-line code with 2-space indentation and line breaks after semicolons and brackets.
+  - **Edit & Auto-Reformat Suite on Every Code Block**:
+    - Built `CodeSectionViewer.tsx` replacing static code blocks.
+    - Each code block has a dedicated **"Edit / Reformat"** action.
+    - Inside edit mode, users can manually adjust indentation or click **"Auto-Format"** (backed by `/api/interview-prep/reformat-code` and algorithmic line-break fallback) to transform single-line code into clean, indented multi-line code instantly.
+    - Includes language switching, heading editing, and instant save to PostgreSQL (`prisma.lesson.update`).
+
+- YouTube & Video Embedding in Study Modules (`src/lib/videoUtils.ts`, `src/components/admin/interview-prep/AddSectionModal.tsx`, `src/app/api/interview-prep/format-section/route.ts`, `src/app/admin/interview-prep/[courseId]/page.tsx`):
+  - **Direct YouTube URL Support**:
+    - Created `videoUtils.ts` with robust regex parsing for all YouTube formats: standard (`youtube.com/watch?v=...`), shortlinks (`youtu.be/...`), YouTube Shorts (`youtube.com/shorts/...`), and Vimeo. Converts them to responsive embed iframes.
+  - **YouTube Section in Add Section Modal**:
+    - Added dedicated **"YouTube / Video"** section type in the manual section creator with interactive live player preview and video notes.
+    - Enhanced AI auto-formatting to detect pasted YouTube URLs and automatically transform them into embedded video sections within the topic.
+  - **Native Responsive Player**:
+    - Embedded YouTube videos render in responsive 16:9 aspect ratio player cards with optional custom headings and notes.
+
+- Study Prep Course Creation & Manual Topics TOC Suite (`src/app/admin/interview-prep/page.tsx`, `new/page.tsx`, `[courseId]/page.tsx`, `api/interview-prep/generate-toc/route.ts`, `api/interview-prep/format-section/route.ts`, `components/admin/interview-prep/AddSectionModal.tsx`, `components/admin/interview-prep/FormattedMathText.tsx`):
+  - **Creation Mode Selection Modal**:
+    - Clicking "New Prep Course" in the Study dashboard presents a choice between **Automatic Generation** (documents/PDF full course generation) and **Manual Topics / TOC**.
+  - **Manual Topics to Table of Contents Workflow**:
+    - Users paste a custom list of topics, notes, or bullet points.
+    - AI (`/api/interview-prep/generate-toc`) groups the topics into logical Modules, creates structured topic sub-headings, gives the course an engaging title and duration, and saves the course shell into PostgreSQL.
+    - Redirects directly to `/admin/interview-prep/[courseId]`.
+  - **Table of Contents First View in Course**:
+    - On loading any course, the comprehensive **Table of Contents** view is displayed first instead of module 1, listing all modules, descriptions, sub-headings, duration, and section readiness tags with 1-click topic opening.
+  - **Empty Topic Header & Modular Section Builder (AI & Manual)**:
+    - Topics start clean with their topic title header.
+    - Prominent **"+ Add Section"** controls allow users to paste notes/material for that topic.
+    - AI (`/api/interview-prep/format-section`) analyzes and converts raw text into styled module sections (paragraphs, code blocks with syntax highlighting & copy buttons, bullet points, numbered steps, comparison tables, definitions, and callouts).
+    - Supports LaTeX math formatting ($...$ inline and $$...$$ display equations) rendered via `FormattedMathText`.
+    - Includes a full manual section creator to craft custom content directly.
+
+- Admin Sidebar Item Renamed (`src/components/admin/AdminSidebar.tsx`, `src/app/admin/page.tsx`):
+  - Changed the "Interview Prep" sidebar item label to "Study".
+
+
 - Build Verification & Static Prerendering Optimization (`src/app/journal`, `src/app/trading`, `src/app/watchlist`, `src/app/pairs`):
   - **Successful Production Build (`npm run build`)**:
     - Build compiled and generated all 69 static & dynamic routes with exit code 0.

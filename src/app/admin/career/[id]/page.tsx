@@ -11,7 +11,7 @@ import remarkGfm from "remark-gfm";
 
 const queryClient = new QueryClient();
 
-export const StrictModeDroppable = ({ children, ...props }: DroppableProps) => {
+const StrictModeDroppable = ({ children, ...props }: DroppableProps) => {
   const [enabled, setEnabled] = useState(false);
   useEffect(() => {
     const animation = requestAnimationFrame(() => setEnabled(true));
@@ -24,20 +24,20 @@ export const StrictModeDroppable = ({ children, ...props }: DroppableProps) => {
   return <Droppable {...props}>{children}</Droppable>;
 };
 
-function DataEditorModal({ 
-  isOpen, 
-  onClose, 
-  title, 
-  type, 
-  initialData, 
+function DataEditorModal({
+  isOpen,
+  onClose,
+  title,
+  type,
+  initialData,
   onSave,
   isPending
-}: { 
-  isOpen: boolean, 
-  onClose: () => void, 
-  title: string, 
-  type: "skills" | "timeline" | "education" | "certification", 
-  initialData: any[], 
+}: {
+  isOpen: boolean,
+  onClose: () => void,
+  title: string,
+  type: "skills" | "timeline" | "education" | "certification",
+  initialData: any[],
   onSave: (data: any[]) => void,
   isPending: boolean
 }) {
@@ -50,8 +50,8 @@ function DataEditorModal({
   if (!isOpen) return null;
 
   const handleCopyFormat = () => {
-    const format = type !== "timeline" 
-      ? '[\n  {\n    "name": "React",\n    "status": "have",\n    "desc": "3 years experience"\n  }\n]' 
+    const format = type !== "timeline"
+      ? '[\n  {\n    "name": "React",\n    "status": "have",\n    "desc": "3 years experience"\n  }\n]'
       : '[\n  {\n    "title": "Phase 1",\n    "date": "Jan 2024",\n    "status": "completed",\n    "desc": "Did stuff"\n  }\n]';
     navigator.clipboard.writeText(format);
     setCopiedFormat(true);
@@ -87,8 +87,8 @@ function DataEditorModal({
   };
 
   const addItem = () => {
-    const newItem = type !== "timeline" 
-      ? { name: "", status: "need" } 
+    const newItem = type !== "timeline"
+      ? { name: "", status: "need" }
       : { title: "", date: "", status: "upcoming", desc: "" };
     const newItems = [...items, newItem];
     setItems(newItems);
@@ -97,7 +97,7 @@ function DataEditorModal({
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         className="bg-zinc-950 border border-zinc-800 p-6 rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col"
@@ -110,13 +110,13 @@ function DataEditorModal({
         </div>
 
         <div className="flex items-center gap-2 mb-6 p-1 bg-zinc-900 rounded-lg">
-          <button 
+          <button
             onClick={() => setActiveTab("manual")}
             className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === "manual" ? "bg-zinc-800 text-white shadow" : "text-zinc-400 hover:text-zinc-200"}`}
           >
             Manual Entry
           </button>
-          <button 
+          <button
             onClick={() => setActiveTab("json")}
             className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === "json" ? "bg-zinc-800 text-white shadow" : "text-zinc-400 hover:text-zinc-200"}`}
           >
@@ -129,7 +129,7 @@ function DataEditorModal({
             <div className="flex flex-col h-full">
               <div className="flex justify-between items-end mb-2">
                 <p className="text-xs text-zinc-400">Paste a JSON array of objects.</p>
-                <button 
+                <button
                   onClick={handleCopyFormat}
                   className="flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 transition-colors bg-blue-500/10 px-2 py-1 rounded-md"
                 >
@@ -137,7 +137,7 @@ function DataEditorModal({
                   {copiedFormat ? "Copied!" : "Copy Example JSON"}
                 </button>
               </div>
-              <textarea 
+              <textarea
                 value={jsonText}
                 onChange={(e) => handleJsonChange(e.target.value)}
                 className="w-full flex-1 bg-zinc-900 border border-zinc-800 rounded-xl p-4 text-emerald-400 font-mono text-sm focus:outline-none focus:border-zinc-700 min-h-[300px]"
@@ -149,7 +149,7 @@ function DataEditorModal({
             <div className="space-y-4">
               <AnimatePresence>
                 {items.map((item, index) => (
-                  <motion.div 
+                  <motion.div
                     key={index}
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: "auto" }}
@@ -159,14 +159,14 @@ function DataEditorModal({
                     {type !== "timeline" ? (
                       <div className="flex flex-col gap-3">
                         <div className="flex flex-col md:flex-row gap-3 items-center">
-                          <input 
+                          <input
                             type="text"
                             value={item.name || ""}
                             onChange={(e) => handleManualChange(index, "name", e.target.value)}
                             placeholder={type === "education" ? "Degree/Course (e.g. BSc CS)" : type === "certification" ? "Certification (e.g. AWS)" : "Skill Name (e.g. React.js)"}
                             className="flex-1 w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-zinc-700"
                           />
-                          <select 
+                          <select
                             value={item.status || "need"}
                             onChange={(e) => handleManualChange(index, "status", e.target.value)}
                             className="w-full md:w-32 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-300 focus:outline-none focus:border-zinc-700 shrink-0"
@@ -175,7 +175,7 @@ function DataEditorModal({
                             <option value="progress">In Progress</option>
                             <option value="need">Target</option>
                           </select>
-                          <button 
+                          <button
                             onClick={() => removeItem(index)}
                             className="p-2 bg-red-500/10 text-red-500 rounded-lg hover:bg-red-500/20 flex items-center justify-center shrink-0"
                             title={`Remove ${type === "education" ? "Education" : type === "certification" ? "Certification" : "Skill"}`}
@@ -183,7 +183,7 @@ function DataEditorModal({
                             <Trash2 size={16} />
                           </button>
                         </div>
-                        <input 
+                        <input
                           type="text"
                           value={item.desc || ""}
                           onChange={(e) => handleManualChange(index, "desc", e.target.value)}
@@ -194,21 +194,21 @@ function DataEditorModal({
                     ) : (
                       <div className="flex flex-col gap-3">
                         <div className="flex flex-col md:flex-row gap-3 items-center">
-                          <input 
+                          <input
                             type="text"
                             value={item.title || ""}
                             onChange={(e) => handleManualChange(index, "title", e.target.value)}
                             placeholder="Stage Title"
                             className="flex-1 w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-zinc-700"
                           />
-                          <input 
+                          <input
                             type="text"
                             value={item.date || ""}
                             onChange={(e) => handleManualChange(index, "date", e.target.value)}
                             placeholder="Date"
                             className="w-full md:w-28 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-zinc-700 shrink-0"
                           />
-                          <select 
+                          <select
                             value={item.status || "upcoming"}
                             onChange={(e) => handleManualChange(index, "status", e.target.value)}
                             className="w-full md:w-32 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-300 focus:outline-none focus:border-zinc-700 shrink-0"
@@ -217,7 +217,7 @@ function DataEditorModal({
                             <option value="current">Current</option>
                             <option value="upcoming">Upcoming</option>
                           </select>
-                          <button 
+                          <button
                             onClick={() => removeItem(index)}
                             className="p-2 bg-red-500/10 text-red-500 rounded-lg hover:bg-red-500/20 flex items-center justify-center shrink-0"
                             title="Remove Stage"
@@ -225,7 +225,7 @@ function DataEditorModal({
                             <Trash2 size={16} />
                           </button>
                         </div>
-                        <input 
+                        <input
                           type="text"
                           value={item.desc || ""}
                           onChange={(e) => handleManualChange(index, "desc", e.target.value)}
@@ -237,8 +237,8 @@ function DataEditorModal({
                   </motion.div>
                 ))}
               </AnimatePresence>
-              
-              <button 
+
+              <button
                 onClick={addItem}
                 className="w-full py-3 border border-dashed border-zinc-700 rounded-xl text-zinc-400 hover:text-white hover:border-zinc-500 hover:bg-zinc-800/30 transition-colors flex items-center justify-center gap-2 text-sm font-medium"
               >
@@ -249,13 +249,13 @@ function DataEditorModal({
         </div>
 
         <div className="pt-6 mt-6 border-t border-zinc-800 flex justify-end gap-3">
-          <button 
+          <button
             onClick={onClose}
             className="px-4 py-2 rounded-xl text-zinc-400 hover:text-white transition-colors font-medium text-sm"
           >
             Cancel
           </button>
-          <button 
+          <button
             onClick={() => !jsonError && onSave(items)}
             disabled={!!jsonError || isPending}
             className="px-4 py-2 rounded-xl bg-white text-black hover:bg-zinc-200 transition-colors font-semibold text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -273,7 +273,7 @@ function SkillDetailsModal({ skill, onClose }: { skill: any, onClose: () => void
   if (!skill) return null;
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         className="bg-zinc-950 border border-zinc-800 p-6 rounded-2xl shadow-xl w-full max-w-sm flex flex-col"
@@ -320,7 +320,7 @@ function BasicInfoEditorModal({
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         className="bg-zinc-950 border border-zinc-800 p-6 rounded-2xl shadow-xl w-full max-w-lg flex flex-col"
@@ -335,7 +335,7 @@ function BasicInfoEditorModal({
         <div className="space-y-4">
           <div>
             <label className="text-xs text-zinc-500 font-medium mb-1 block">Title</label>
-            <input 
+            <input
               type="text" value={title} onChange={(e) => setTitle(e.target.value)}
               className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-zinc-700"
             />
@@ -363,7 +363,7 @@ function BasicInfoEditorModal({
           </div>
           <div>
             <label className="text-xs text-zinc-500 font-medium mb-1 block">Target / Completion Date</label>
-            <input 
+            <input
               type="text" value={date} onChange={(e) => setDate(e.target.value)}
               placeholder="e.g. Jan 2024 or 2024-05-12"
               className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-zinc-700"
@@ -371,7 +371,7 @@ function BasicInfoEditorModal({
           </div>
           <div>
             <label className="text-xs text-zinc-500 font-medium mb-1 block">Description & Notes</label>
-            <textarea 
+            <textarea
               value={description} onChange={(e) => setDescription(e.target.value)}
               className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-zinc-700 min-h-[120px]"
             />
@@ -382,7 +382,7 @@ function BasicInfoEditorModal({
           <button onClick={onClose} className="px-4 py-2 rounded-xl text-zinc-400 hover:text-white transition-colors font-medium text-sm">
             Cancel
           </button>
-          <button 
+          <button
             onClick={() => onSave({ title, category, status, date, description })}
             disabled={isPending}
             className="px-4 py-2 rounded-xl bg-white text-black hover:bg-zinc-200 transition-colors font-semibold text-sm flex items-center gap-2 disabled:opacity-50"
@@ -474,7 +474,7 @@ function CareerDetailsContent() {
               {/* Skills Block */}
               <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 h-96" />
             </div>
-            
+
             <div className="lg:col-span-1 space-y-6">
               {/* Timeline Info Block */}
               <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 h-32" />
@@ -522,16 +522,16 @@ function CareerDetailsContent() {
     }
   };
 
-  const skills = Array.isArray(career.skills) && career.skills.length > 0 
-    ? career.skills 
+  const skills = Array.isArray(career.skills) && career.skills.length > 0
+    ? career.skills
     : [];
 
-  const education = Array.isArray(career.education) && career.education.length > 0 
-    ? career.education 
+  const education = Array.isArray(career.education) && career.education.length > 0
+    ? career.education
     : [];
 
-  const certifications = Array.isArray(career.certifications) && career.certifications.length > 0 
-    ? career.certifications 
+  const certifications = Array.isArray(career.certifications) && career.certifications.length > 0
+    ? career.certifications
     : [];
 
   const timeline = Array.isArray(career.timeline) && career.timeline.length > 0
@@ -614,10 +614,10 @@ function CareerDetailsContent() {
   const needCertifications = certificationsWithIndex.filter((s: any) => normalizeStatus(s.status) === "need");
 
   const renderSkillList = (
-    list: any[], 
-    page: number, 
-    setPage: (p: number) => void, 
-    colorClass: string, 
+    list: any[],
+    page: number,
+    setPage: (p: number) => void,
+    colorClass: string,
     bgClass: string,
     emptyMessage: string,
     droppableId: string,
@@ -630,48 +630,48 @@ function CareerDetailsContent() {
       <div className="flex flex-col h-full">
         <StrictModeDroppable droppableId={droppableId}>
           {(provided) => (
-            <ul 
+            <ul
               className="space-y-2 flex-1 min-h-[100px]"
               {...provided.droppableProps}
               ref={provided.innerRef}
             >
               {paginatedList.map((s: any, i: number) => {
-                 const actualIndex = (page - 1) * ITEMS_PER_PAGE + i + 1;
-                 const draggableId = `${type}-${s._originalIndex}`;
-                 return (
-                   <Draggable key={draggableId} draggableId={draggableId} index={i}>
-                     {(provided, snapshot) => (
-                       <li
-                         ref={provided.innerRef}
-                         {...provided.draggableProps}
-                         {...provided.dragHandleProps}
-                         className={`rounded-lg mb-2 ${snapshot.isDragging ? "opacity-90 shadow-2xl scale-[1.02] z-50 relative ring-2 ring-white/20 bg-zinc-900" : ""}`}
-                         style={provided.draggableProps.style}
-                       >
-                         <button 
-                           onClick={() => setSelectedSkillForDetails(s)}
-                           className={`w-full text-left px-3 py-2 rounded-lg text-sm flex items-center justify-between gap-2 border hover:opacity-80 transition-opacity ${bgClass}`}
-                         >
-                           <div className="flex items-center gap-2 overflow-hidden">
-                             <GripVertical size={14} className="text-zinc-500 shrink-0 mr-1 opacity-50 cursor-grab" />
-                             <span className={`font-bold opacity-70 shrink-0 ${colorClass}`}>{actualIndex}.</span>
-                             <span className={`font-medium truncate ${colorClass}`}>{s.name}</span>
-                           </div>
-                         </button>
-                       </li>
-                     )}
-                   </Draggable>
-                 );
+                const actualIndex = (page - 1) * ITEMS_PER_PAGE + i + 1;
+                const draggableId = `${type}-${s._originalIndex}`;
+                return (
+                  <Draggable key={draggableId} draggableId={draggableId} index={i}>
+                    {(provided, snapshot) => (
+                      <li
+                        ref={provided.innerRef}
+                        {...provided.draggableProps}
+                        {...provided.dragHandleProps}
+                        className={`rounded-lg mb-2 ${snapshot.isDragging ? "opacity-90 shadow-2xl scale-[1.02] z-50 relative ring-2 ring-white/20 bg-zinc-900" : ""}`}
+                        style={provided.draggableProps.style}
+                      >
+                        <button
+                          onClick={() => setSelectedSkillForDetails(s)}
+                          className={`w-full text-left px-3 py-2 rounded-lg text-sm flex items-center justify-between gap-2 border hover:opacity-80 transition-opacity ${bgClass}`}
+                        >
+                          <div className="flex items-center gap-2 overflow-hidden">
+                            <GripVertical size={14} className="text-zinc-500 shrink-0 mr-1 opacity-50 cursor-grab" />
+                            <span className={`font-bold opacity-70 shrink-0 ${colorClass}`}>{actualIndex}.</span>
+                            <span className={`font-medium truncate ${colorClass}`}>{s.name}</span>
+                          </div>
+                        </button>
+                      </li>
+                    )}
+                  </Draggable>
+                );
               })}
               {provided.placeholder}
               {list.length === 0 && <p className="text-xs text-zinc-500 italic mt-2 text-center pointer-events-none">{emptyMessage}</p>}
             </ul>
           )}
         </StrictModeDroppable>
-        
+
         {totalPages > 1 && (
           <div className="flex items-center justify-between mt-4 pt-3 border-t border-zinc-800/50">
-            <button 
+            <button
               onClick={() => setPage(Math.max(1, page - 1))}
               disabled={page === 1}
               className="text-xs font-medium text-zinc-400 hover:text-white disabled:opacity-30 transition-colors"
@@ -679,7 +679,7 @@ function CareerDetailsContent() {
               Prev
             </button>
             <span className="text-xs text-zinc-500">{page} / {totalPages}</span>
-            <button 
+            <button
               onClick={() => setPage(Math.min(totalPages, page + 1))}
               disabled={page === totalPages}
               className="text-xs font-medium text-zinc-400 hover:text-white disabled:opacity-30 transition-colors"
@@ -694,7 +694,7 @@ function CareerDetailsContent() {
 
   return (
     <div className="bg-zinc-950 text-white min-h-screen p-4 md:p-8">
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         className="flex flex-col w-full max-w-[1400px] mx-auto"
@@ -707,7 +707,7 @@ function CareerDetailsContent() {
             <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
             <span>Back to Admin Dashboard</span>
           </button>
-          
+
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-2xl shadow-inner">
@@ -732,242 +732,240 @@ function CareerDetailsContent() {
 
         <DragDropContext onDragEnd={onDragEnd}>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-8">
-            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 shadow-sm relative group">
-              <button 
-                onClick={() => setIsEditingDetails(true)}
-                className="absolute top-6 right-6 p-2 bg-zinc-800 text-zinc-400 hover:text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                title="Edit Details"
-              >
-                <Edit2 size={16} />
-              </button>
-              <h2 className="text-xl font-bold text-white mb-6 border-b border-zinc-800 pb-4 pr-10">Details & Notes</h2>
-              {career.description ? (
-                <div className="relative">
-                  <div className={`prose prose-invert prose-zinc max-w-none text-zinc-300 leading-relaxed transition-all duration-300 whitespace-pre-wrap ${!isDescriptionExpanded ? "max-h-[300px] overflow-hidden" : ""}`}>
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {career.description}
-                    </ReactMarkdown>
-                  </div>
-                  {!isDescriptionExpanded && (
-                    <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-zinc-900 to-transparent pointer-events-none" />
-                  )}
-                  <button 
-                    onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
-                    className="mt-4 text-sm font-medium text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1"
-                  >
-                    {isDescriptionExpanded ? "Show Less" : "Read More"}
-                  </button>
-                </div>
-              ) : (
-                <p className="text-zinc-500 italic">No additional notes provided for this entry.</p>
-              )}
-            </div>
-
-            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 shadow-sm relative group">
-              <button 
-                onClick={() => setIsEditingSkills(true)}
-                className="absolute top-6 right-6 p-2 bg-zinc-800 text-zinc-400 hover:text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                title="Edit Skills"
-              >
-                <Edit2 size={16} />
-              </button>
-
-              <div className="flex items-center gap-2 mb-6 border-b border-zinc-800 pb-4 pr-10">
-                <Sparkles size={20} className="text-purple-400" />
-                <h2 className="text-xl font-bold text-white">Skills Tracker</h2>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Have */}
-                <div className="space-y-4 flex flex-col">
-                  <h3 className="text-sm font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
-                    <CheckCircle2 size={16} /> Acquired
-                  </h3>
-                  {renderSkillList(haveSkills, pageHave, setPageHave, "text-emerald-400", "bg-emerald-500/10 border-emerald-500/20", "None yet.", "skills-have", "skills")}
-                </div>
-
-                {/* In Progress */}
-                <div className="space-y-4 flex flex-col">
-                  <h3 className="text-sm font-bold text-blue-400 uppercase tracking-wider flex items-center gap-2">
-                    <CircleDashed size={16} /> In Progress
-                  </h3>
-                  {renderSkillList(progressSkills, pageProgress, setPageProgress, "text-blue-400", "bg-blue-500/10 border-blue-500/20", "None currently.", "skills-progress", "skills")}
-                </div>
-
-                {/* Need */}
-                <div className="space-y-4 flex flex-col">
-                  <h3 className="text-sm font-bold text-yellow-400 uppercase tracking-wider flex items-center gap-2">
-                    <Target size={16} /> Target
-                  </h3>
-                  {renderSkillList(needSkills, pageNeed, setPageNeed, "text-yellow-400", "bg-yellow-500/10 border-yellow-500/20 border-dashed", "No targets set.", "skills-need", "skills")}
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 shadow-sm relative group">
-              <button 
-                onClick={() => setIsEditingEducation(true)}
-                className="absolute top-6 right-6 p-2 bg-zinc-800 text-zinc-400 hover:text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                title="Edit Education"
-              >
-                <Edit2 size={16} />
-              </button>
-
-              <div className="flex items-center gap-2 mb-6 border-b border-zinc-800 pb-4 pr-10">
-                <GraduationCap size={20} className="text-blue-400" />
-                <h2 className="text-xl font-bold text-white">Education Tracker</h2>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="space-y-4 flex flex-col">
-                  <h3 className="text-sm font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
-                    <CheckCircle2 size={16} /> Acquired
-                  </h3>
-                  {renderSkillList(haveEducation, eduPageHave, setEduPageHave, "text-emerald-400", "bg-emerald-500/10 border-emerald-500/20", "None yet.", "education-have", "education")}
-                </div>
-                <div className="space-y-4 flex flex-col">
-                  <h3 className="text-sm font-bold text-blue-400 uppercase tracking-wider flex items-center gap-2">
-                    <CircleDashed size={16} /> In Progress
-                  </h3>
-                  {renderSkillList(progressEducation, eduPageProgress, setEduPageProgress, "text-blue-400", "bg-blue-500/10 border-blue-500/20", "None currently.", "education-progress", "education")}
-                </div>
-                <div className="space-y-4 flex flex-col">
-                  <h3 className="text-sm font-bold text-yellow-400 uppercase tracking-wider flex items-center gap-2">
-                    <Target size={16} /> Target
-                  </h3>
-                  {renderSkillList(needEducation, eduPageNeed, setEduPageNeed, "text-yellow-400", "bg-yellow-500/10 border-yellow-500/20 border-dashed", "No targets set.", "education-need", "education")}
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 shadow-sm relative group">
-              <button 
-                onClick={() => setIsEditingCertifications(true)}
-                className="absolute top-6 right-6 p-2 bg-zinc-800 text-zinc-400 hover:text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                title="Edit Certifications"
-              >
-                <Edit2 size={16} />
-              </button>
-
-              <div className="flex items-center gap-2 mb-6 border-b border-zinc-800 pb-4 pr-10">
-                <Award size={20} className="text-yellow-400" />
-                <h2 className="text-xl font-bold text-white">Certifications Tracker</h2>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="space-y-4 flex flex-col">
-                  <h3 className="text-sm font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
-                    <CheckCircle2 size={16} /> Acquired
-                  </h3>
-                  {renderSkillList(haveCertifications, certPageHave, setCertPageHave, "text-emerald-400", "bg-emerald-500/10 border-emerald-500/20", "None yet.", "certification-have", "certification")}
-                </div>
-                <div className="space-y-4 flex flex-col">
-                  <h3 className="text-sm font-bold text-blue-400 uppercase tracking-wider flex items-center gap-2">
-                    <CircleDashed size={16} /> In Progress
-                  </h3>
-                  {renderSkillList(progressCertifications, certPageProgress, setCertPageProgress, "text-blue-400", "bg-blue-500/10 border-blue-500/20", "None currently.", "certification-progress", "certification")}
-                </div>
-                <div className="space-y-4 flex flex-col">
-                  <h3 className="text-sm font-bold text-yellow-400 uppercase tracking-wider flex items-center gap-2">
-                    <Target size={16} /> Target
-                  </h3>
-                  {renderSkillList(needCertifications, certPageNeed, setCertPageNeed, "text-yellow-400", "bg-yellow-500/10 border-yellow-500/20 border-dashed", "No targets set.", "certification-need", "certification")}
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          <div className="lg:col-span-1 space-y-6">
-            <div className="bg-zinc-900/50 border border-zinc-800 rounded-3xl p-6">
-              <h3 className="text-sm font-bold text-zinc-400 uppercase tracking-wider mb-4">Timeline Info</h3>
-              
-              <div className="flex items-start gap-3 mb-4">
-                <div className="mt-0.5 p-2 bg-zinc-800 rounded-lg text-zinc-400">
-                  <Calendar size={16} />
-                </div>
-                <div>
-                  <p className="text-xs text-zinc-500 font-medium mb-1">Target / Completion Date</p>
-                  <p className="text-white font-medium">
-                    {career.date && !isNaN(new Date(career.date).getTime()) 
-                      ? new Date(career.date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) 
-                      : "Not specified"}
-                  </p>
-                </div>
-              </div>
-              
-              <div className="flex items-start gap-3">
-                <div className="mt-0.5 p-2 bg-zinc-800 rounded-lg text-zinc-400">
-                  <Target size={16} />
-                </div>
-                <div>
-                  <p className="text-xs text-zinc-500 font-medium mb-1">Current Status</p>
-                  <p className="text-white font-medium">{career.status}</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Vertical Timeline */}
-            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 shadow-sm relative group">
-              <button 
-                onClick={() => setIsEditingTimeline(true)}
-                className="absolute top-4 right-4 p-2 bg-zinc-800 text-zinc-400 hover:text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                title="Edit Stages"
-              >
-                <Edit2 size={16} />
-              </button>
-
-              <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-6 flex items-center gap-2 pr-10">
-                <Clock size={16} className="text-zinc-400" /> Stages
-              </h3>
-              
-              <div className="relative border-l-2 border-zinc-800 ml-3 space-y-8 pb-4">
-                {timeline.map((stage: any, i: number) => {
-                  const isCompleted = stage.status?.toLowerCase() === 'completed';
-                  const isCurrent = stage.status?.toLowerCase() === 'current';
-                  
-                  return (
-                    <div key={i} className="relative pl-6">
-                      {/* Timeline Dot */}
-                      <div className={`absolute -left-[9px] top-1 w-4 h-4 rounded-full border-4 border-zinc-900 ${
-                        isCompleted ? 'bg-emerald-500' :
-                        isCurrent ? 'bg-blue-500 ring-2 ring-blue-500/30' :
-                        'bg-zinc-600'
-                      }`} />
-                      
-                      {/* Optional Connecting Line (shows green track for completed stages) */}
-                      {isCompleted && i < timeline.length - 1 && (
-                        <div className="absolute -left-[2px] top-5 w-[2px] h-[calc(100%+16px)] bg-emerald-500" />
-                      )}
-                      
-                      <div className="flex flex-col">
-                        <span className="text-xs font-bold text-zinc-500 mb-1">{stage.date}</span>
-                        <h4 className={`text-base font-semibold ${
-                          isCompleted ? 'text-zinc-200' :
-                          isCurrent ? 'text-blue-400' :
-                          'text-zinc-500'
-                        }`}>
-                          {stage.title}
-                        </h4>
-                        {stage.desc && (
-                          <p className="text-sm text-zinc-400 mt-1 leading-snug">
-                            {stage.desc}
-                          </p>
-                        )}
-                      </div>
+            <div className="lg:col-span-2 space-y-8">
+              <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 shadow-sm relative group">
+                <button
+                  onClick={() => setIsEditingDetails(true)}
+                  className="absolute top-6 right-6 p-2 bg-zinc-800 text-zinc-400 hover:text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                  title="Edit Details"
+                >
+                  <Edit2 size={16} />
+                </button>
+                <h2 className="text-xl font-bold text-white mb-6 border-b border-zinc-800 pb-4 pr-10">Details & Notes</h2>
+                {career.description ? (
+                  <div className="relative">
+                    <div className={`prose prose-invert prose-zinc max-w-none text-zinc-300 leading-relaxed transition-all duration-300 whitespace-pre-wrap ${!isDescriptionExpanded ? "max-h-[300px] overflow-hidden" : ""}`}>
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {career.description}
+                      </ReactMarkdown>
                     </div>
-                  );
-                })}
-                {timeline.length === 0 && (
-                  <div className="relative pl-6">
-                     <div className="absolute -left-[9px] top-1 w-4 h-4 rounded-full border-4 border-zinc-900 bg-zinc-600" />
-                     <p className="text-zinc-500 italic text-sm">No timeline stages defined.</p>
+                    {!isDescriptionExpanded && (
+                      <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-zinc-900 to-transparent pointer-events-none" />
+                    )}
+                    <button
+                      onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
+                      className="mt-4 text-sm font-medium text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1"
+                    >
+                      {isDescriptionExpanded ? "Show Less" : "Read More"}
+                    </button>
                   </div>
+                ) : (
+                  <p className="text-zinc-500 italic">No additional notes provided for this entry.</p>
                 )}
               </div>
+
+              <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 shadow-sm relative group">
+                <button
+                  onClick={() => setIsEditingSkills(true)}
+                  className="absolute top-6 right-6 p-2 bg-zinc-800 text-zinc-400 hover:text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                  title="Edit Skills"
+                >
+                  <Edit2 size={16} />
+                </button>
+
+                <div className="flex items-center gap-2 mb-6 border-b border-zinc-800 pb-4 pr-10">
+                  <Sparkles size={20} className="text-purple-400" />
+                  <h2 className="text-xl font-bold text-white">Skills Tracker</h2>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {/* Have */}
+                  <div className="space-y-4 flex flex-col">
+                    <h3 className="text-sm font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
+                      <CheckCircle2 size={16} /> Acquired
+                    </h3>
+                    {renderSkillList(haveSkills, pageHave, setPageHave, "text-emerald-400", "bg-emerald-500/10 border-emerald-500/20", "None yet.", "skills-have", "skills")}
+                  </div>
+
+                  {/* In Progress */}
+                  <div className="space-y-4 flex flex-col">
+                    <h3 className="text-sm font-bold text-blue-400 uppercase tracking-wider flex items-center gap-2">
+                      <CircleDashed size={16} /> In Progress
+                    </h3>
+                    {renderSkillList(progressSkills, pageProgress, setPageProgress, "text-blue-400", "bg-blue-500/10 border-blue-500/20", "None currently.", "skills-progress", "skills")}
+                  </div>
+
+                  {/* Need */}
+                  <div className="space-y-4 flex flex-col">
+                    <h3 className="text-sm font-bold text-yellow-400 uppercase tracking-wider flex items-center gap-2">
+                      <Target size={16} /> Target
+                    </h3>
+                    {renderSkillList(needSkills, pageNeed, setPageNeed, "text-yellow-400", "bg-yellow-500/10 border-yellow-500/20 border-dashed", "No targets set.", "skills-need", "skills")}
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 shadow-sm relative group">
+                <button
+                  onClick={() => setIsEditingEducation(true)}
+                  className="absolute top-6 right-6 p-2 bg-zinc-800 text-zinc-400 hover:text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                  title="Edit Education"
+                >
+                  <Edit2 size={16} />
+                </button>
+
+                <div className="flex items-center gap-2 mb-6 border-b border-zinc-800 pb-4 pr-10">
+                  <GraduationCap size={20} className="text-blue-400" />
+                  <h2 className="text-xl font-bold text-white">Education Tracker</h2>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="space-y-4 flex flex-col">
+                    <h3 className="text-sm font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
+                      <CheckCircle2 size={16} /> Acquired
+                    </h3>
+                    {renderSkillList(haveEducation, eduPageHave, setEduPageHave, "text-emerald-400", "bg-emerald-500/10 border-emerald-500/20", "None yet.", "education-have", "education")}
+                  </div>
+                  <div className="space-y-4 flex flex-col">
+                    <h3 className="text-sm font-bold text-blue-400 uppercase tracking-wider flex items-center gap-2">
+                      <CircleDashed size={16} /> In Progress
+                    </h3>
+                    {renderSkillList(progressEducation, eduPageProgress, setEduPageProgress, "text-blue-400", "bg-blue-500/10 border-blue-500/20", "None currently.", "education-progress", "education")}
+                  </div>
+                  <div className="space-y-4 flex flex-col">
+                    <h3 className="text-sm font-bold text-yellow-400 uppercase tracking-wider flex items-center gap-2">
+                      <Target size={16} /> Target
+                    </h3>
+                    {renderSkillList(needEducation, eduPageNeed, setEduPageNeed, "text-yellow-400", "bg-yellow-500/10 border-yellow-500/20 border-dashed", "No targets set.", "education-need", "education")}
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 shadow-sm relative group">
+                <button
+                  onClick={() => setIsEditingCertifications(true)}
+                  className="absolute top-6 right-6 p-2 bg-zinc-800 text-zinc-400 hover:text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                  title="Edit Certifications"
+                >
+                  <Edit2 size={16} />
+                </button>
+
+                <div className="flex items-center gap-2 mb-6 border-b border-zinc-800 pb-4 pr-10">
+                  <Award size={20} className="text-yellow-400" />
+                  <h2 className="text-xl font-bold text-white">Certifications Tracker</h2>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="space-y-4 flex flex-col">
+                    <h3 className="text-sm font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
+                      <CheckCircle2 size={16} /> Acquired
+                    </h3>
+                    {renderSkillList(haveCertifications, certPageHave, setCertPageHave, "text-emerald-400", "bg-emerald-500/10 border-emerald-500/20", "None yet.", "certification-have", "certification")}
+                  </div>
+                  <div className="space-y-4 flex flex-col">
+                    <h3 className="text-sm font-bold text-blue-400 uppercase tracking-wider flex items-center gap-2">
+                      <CircleDashed size={16} /> In Progress
+                    </h3>
+                    {renderSkillList(progressCertifications, certPageProgress, setCertPageProgress, "text-blue-400", "bg-blue-500/10 border-blue-500/20", "None currently.", "certification-progress", "certification")}
+                  </div>
+                  <div className="space-y-4 flex flex-col">
+                    <h3 className="text-sm font-bold text-yellow-400 uppercase tracking-wider flex items-center gap-2">
+                      <Target size={16} /> Target
+                    </h3>
+                    {renderSkillList(needCertifications, certPageNeed, setCertPageNeed, "text-yellow-400", "bg-yellow-500/10 border-yellow-500/20 border-dashed", "No targets set.", "certification-need", "certification")}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="lg:col-span-1 space-y-6">
+              <div className="bg-zinc-900/50 border border-zinc-800 rounded-3xl p-6">
+                <h3 className="text-sm font-bold text-zinc-400 uppercase tracking-wider mb-4">Timeline Info</h3>
+
+                <div className="flex items-start gap-3 mb-4">
+                  <div className="mt-0.5 p-2 bg-zinc-800 rounded-lg text-zinc-400">
+                    <Calendar size={16} />
+                  </div>
+                  <div>
+                    <p className="text-xs text-zinc-500 font-medium mb-1">Target / Completion Date</p>
+                    <p className="text-white font-medium">
+                      {career.date && !isNaN(new Date(career.date).getTime())
+                        ? new Date(career.date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+                        : "Not specified"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 p-2 bg-zinc-800 rounded-lg text-zinc-400">
+                    <Target size={16} />
+                  </div>
+                  <div>
+                    <p className="text-xs text-zinc-500 font-medium mb-1">Current Status</p>
+                    <p className="text-white font-medium">{career.status}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Vertical Timeline */}
+              <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 shadow-sm relative group">
+                <button
+                  onClick={() => setIsEditingTimeline(true)}
+                  className="absolute top-4 right-4 p-2 bg-zinc-800 text-zinc-400 hover:text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                  title="Edit Stages"
+                >
+                  <Edit2 size={16} />
+                </button>
+
+                <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-6 flex items-center gap-2 pr-10">
+                  <Clock size={16} className="text-zinc-400" /> Stages
+                </h3>
+
+                <div className="relative border-l-2 border-zinc-800 ml-3 space-y-8 pb-4">
+                  {timeline.map((stage: any, i: number) => {
+                    const isCompleted = stage.status?.toLowerCase() === 'completed';
+                    const isCurrent = stage.status?.toLowerCase() === 'current';
+
+                    return (
+                      <div key={i} className="relative pl-6">
+                        {/* Timeline Dot */}
+                        <div className={`absolute -left-[9px] top-1 w-4 h-4 rounded-full border-4 border-zinc-900 ${isCompleted ? 'bg-emerald-500' :
+                            isCurrent ? 'bg-blue-500 ring-2 ring-blue-500/30' :
+                              'bg-zinc-600'
+                          }`} />
+
+                        {/* Optional Connecting Line (shows green track for completed stages) */}
+                        {isCompleted && i < timeline.length - 1 && (
+                          <div className="absolute -left-[2px] top-5 w-[2px] h-[calc(100%+16px)] bg-emerald-500" />
+                        )}
+
+                        <div className="flex flex-col">
+                          <span className="text-xs font-bold text-zinc-500 mb-1">{stage.date}</span>
+                          <h4 className={`text-base font-semibold ${isCompleted ? 'text-zinc-200' :
+                              isCurrent ? 'text-blue-400' :
+                                'text-zinc-500'
+                            }`}>
+                            {stage.title}
+                          </h4>
+                          {stage.desc && (
+                            <p className="text-sm text-zinc-400 mt-1 leading-snug">
+                              {stage.desc}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {timeline.length === 0 && (
+                    <div className="relative pl-6">
+                      <div className="absolute -left-[9px] top-1 w-4 h-4 rounded-full border-4 border-zinc-900 bg-zinc-600" />
+                      <p className="text-zinc-500 italic text-sm">No timeline stages defined.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
-        </div>
         </DragDropContext>
       </motion.div>
 
@@ -1029,7 +1027,7 @@ function CareerDetailsContent() {
         />
       )}
 
-      <SkillDetailsModal 
+      <SkillDetailsModal
         skill={selectedSkillForDetails}
         onClose={() => setSelectedSkillForDetails(null)}
       />

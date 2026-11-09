@@ -45,7 +45,7 @@ export const ADMIN_SIDEBAR_ITEMS: SidebarItem[] = [
   { id: "gigs-tracker", label: "Gigs Tracker", icon: Briefcase, desc: "Freelance & gigs pipeline" },
   { id: "job-websites", label: "Job Websites", icon: Building, desc: "Saved career pages" },
   { id: "company-research", label: "Company Research", icon: Search, desc: "Deep dive companies" },
-  { id: "interview-prep", label: "Interview Prep", icon: MessageSquare, desc: "Notes & questions" },
+  { id: "interview-prep", label: "Study", icon: MessageSquare, desc: "Notes & questions" },
   { id: "salary-benchmarker", label: "Salary Benchmarker", icon: DollarSign, desc: "Compare offers" },
   { id: "budget-strategy", label: "Budget Strategy", icon: PiggyBank, desc: "50/30/20 Budgeting" },
   { id: "lifestyle-cost", label: "Lifestyle Cost", icon: PiggyBank, desc: "Income vs Expenses" },
@@ -135,8 +135,8 @@ export default function AdminSidebar({
       {/* Sidebar - fixed left */}
       <aside
         className={`fixed inset-y-0 left-0 z-50 border-r border-zinc-800 bg-zinc-950 flex flex-col transition-all duration-300 ${isSidebarOpen
-            ? "w-72 md:w-64 p-4 md:p-6 translate-x-0"
-            : "w-20 p-4 items-center -translate-x-full md:translate-x-0"
+          ? "w-72 md:w-64 p-4 md:p-6 translate-x-0"
+          : "w-20 p-4 items-center -translate-x-full md:translate-x-0"
           }`}
       >
         {/* Header / Brand */}
@@ -184,8 +184,8 @@ export default function AdminSidebar({
                 key={item.id}
                 onClick={() => handleItemClick(item)}
                 className={`flex items-center transition-all cursor-pointer ${isSidebarOpen
-                    ? "w-full justify-between p-3 rounded-xl"
-                    : "w-12 h-12 justify-center rounded-xl mx-auto"
+                  ? "w-full justify-between p-3 rounded-xl"
+                  : "w-12 h-12 justify-center rounded-xl mx-auto"
                   } ${isActive
                     ? "bg-white text-black shadow-md font-semibold"
                     : "text-zinc-400 hover:bg-zinc-900 hover:text-white"
