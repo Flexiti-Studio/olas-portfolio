@@ -11,7 +11,30 @@ export async function GET() {
         modules: { select: { id: true, _count: { select: { lessons: true } } } },
       }
     });
-    return NextResponse.json(courses);
+
+    // Ensure overall_percentage accurately reflects completed_lessons in real-time
+    const enriched = courses.map(c => {
+      const totalLessons = c.modules?.reduce((acc: number, m: any) => acc + (m._count?.lessons || 0), 0) || 0;
+      const completedCount = c.progress?.completed_lessons?.length || 0;
+      const calculatedPct = totalLessons > 0 ? Math.min(100, Math.round((completedCount / totalLessons) * 100)) : 0;
+
+      return {
+        ...c,
+        progress: c.progress
+          ? {
+            ...c.progress,
+            overall_percentage: calculatedPct > 0 ? calculatedPct : (c.progress.overall_percentage || 0),
+          }
+          : {
+            overall_percentage: calculatedPct,
+            completed_lessons: [],
+            quiz_average: 0,
+            flashcard_mastery: 0,
+          }
+      };
+    });
+
+    return NextResponse.json(enriched);
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

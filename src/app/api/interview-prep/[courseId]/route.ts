@@ -20,7 +20,28 @@ export async function GET(req: NextRequest, context: { params: Promise<{ courseI
       }
     });
     if (!course) return NextResponse.json({ error: 'Course not found' }, { status: 404 });
-    return NextResponse.json(course);
+
+    // Ensure progress overall_percentage is accurately aligned with completed lessons
+    const totalLessons = course.modules?.reduce((acc: number, m: any) => acc + (m.lessons?.length || 0), 0) || 0;
+    const completedCount = course.progress?.completed_lessons?.length || 0;
+    const calculatedPct = totalLessons > 0 ? Math.min(100, Math.round((completedCount / totalLessons) * 100)) : 0;
+
+    const enrichedCourse = {
+      ...course,
+      progress: course.progress
+        ? {
+          ...course.progress,
+          overall_percentage: calculatedPct > 0 ? calculatedPct : (course.progress.overall_percentage || 0),
+        }
+        : {
+          overall_percentage: calculatedPct,
+          completed_lessons: [],
+          quiz_average: 0,
+          flashcard_mastery: 0,
+        }
+    };
+
+    return NextResponse.json(enrichedCourse);
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
@@ -69,12 +90,29 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ cours
     const { completed_lessons } = body;
 
     if (Array.isArray(completed_lessons)) {
-      await prisma.courseProgress.upsert({
-        where: { course_id: courseId },
-        update: { completed_lessons },
-        create: { course_id: courseId, completed_lessons },
+      // Fetch total lessons across all modules to calculate overall percentage correctly
+      const course = await prisma.course.findUnique({
+        where: { id: courseId },
+        include: { modules: { select: { _count: { select: { lessons: true } } } } }
       });
-      return NextResponse.json({ success: true });
+      const totalLessons = course?.modules.reduce((acc, m) => acc + (m._count?.lessons || 0), 0) || 1;
+      const overallPercentage = Math.min(100, Math.round((completed_lessons.length / totalLessons) * 100));
+
+      const progress = await prisma.courseProgress.upsert({
+        where: { course_id: courseId },
+        update: {
+          completed_lessons,
+          overall_percentage: overallPercentage,
+          last_studied_at: new Date()
+        },
+        create: {
+          course_id: courseId,
+          completed_lessons,
+          overall_percentage: overallPercentage,
+          last_studied_at: new Date()
+        },
+      });
+      return NextResponse.json(progress);
     }
 
     return NextResponse.json({ error: 'Nothing to update' }, { status: 400 });

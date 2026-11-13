@@ -2,12 +2,14 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { BookOpen, Plus, Trash2, Briefcase, GraduationCap, Clock, BarChart2, Zap, FileText, XCircle, CheckCircle2, X, ChevronRight, Activity, Award, Sparkles, BookMarked, ListFilter } from "lucide-react";
+import { BookOpen, Plus, Trash2, Briefcase, GraduationCap, Clock, BarChart2, Zap, FileText, XCircle, CheckCircle2, X, ChevronRight, Activity, Award, Sparkles, BookMarked, ListFilter, Play, Check } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
+import CourseLineup from "@/components/admin/interview-prep/CourseLineup";
 
 export default function InterviewPrepList() {
   const router = useRouter();
   const [courses, setCourses] = useState<any[]>([]);
+  const [lineupIds, setLineupIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
   const [sort, setSort] = useState("last_studied");
@@ -23,7 +25,10 @@ export default function InterviewPrepList() {
   // Creation Mode Selection Modal
   const [creationModalOpen, setCreationModalOpen] = useState(false);
 
-  useEffect(() => { fetchCourses(); }, []);
+  useEffect(() => {
+    fetchCourses();
+    fetchLineup();
+  }, []);
 
   const fetchCourses = async () => {
     setLoading(true);
@@ -34,6 +39,40 @@ export default function InterviewPrepList() {
       }
     } catch { }
     finally { setLoading(false); }
+  };
+
+  const fetchLineup = async () => {
+    try {
+      const r = await fetch("/api/interview-prep/lineup");
+      if (r.ok) {
+        const data = await r.json();
+        if (Array.isArray(data.lineupIds)) {
+          setLineupIds(data.lineupIds);
+        }
+      }
+    } catch { }
+  };
+
+  const handleUpdateLineup = async (newLineupIds: string[]) => {
+    setLineupIds(newLineupIds);
+    try {
+      await fetch("/api/interview-prep/lineup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lineupIds: newLineupIds })
+      });
+    } catch (e) {
+      console.error("Failed to persist lineup:", e);
+    }
+  };
+
+  const toggleCourseInLineup = async (courseId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const inLineup = lineupIds.includes(courseId);
+    const updated = inLineup
+      ? lineupIds.filter(id => id !== courseId)
+      : [...lineupIds, courseId];
+    handleUpdateLineup(updated);
   };
 
   const showConfirm = (title: string, message: string, onConfirm: () => void) => {
@@ -101,8 +140,8 @@ export default function InterviewPrepList() {
         {/* Top Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-zinc-800 pb-6">
           <div>
-            <h1 className="text-3xl font-bold flex items-center gap-3"><GraduationCap className="text-indigo-400" /> Prep Dashboard</h1>
-            <p className="text-zinc-500 mt-1">Track and manage your AI-generated technical interview preparations</p>
+            <h1 className="text-3xl font-bold flex items-center gap-3"><GraduationCap className="text-indigo-400" /> Study Dashboard</h1>
+            <p className="text-zinc-500 mt-1">Track and manage your AI-generated technical interview preparations and learning paths</p>
           </div>
           <button
             onClick={() => setCreationModalOpen(true)}
@@ -111,6 +150,14 @@ export default function InterviewPrepList() {
             <Plus size={18} /> New Prep Course
           </button>
         </div>
+
+        {/* Study Line-up Section */}
+        <CourseLineup
+          courses={courses}
+          lineupIds={lineupIds}
+          onUpdateLineup={handleUpdateLineup}
+          onOpenNewCourseModal={() => setCreationModalOpen(true)}
+        />
 
         {/* Dashboard Analytics & Metrics Section */}
         {courses.length > 0 && (
@@ -255,12 +302,30 @@ export default function InterviewPrepList() {
                       onClick={() => router.push(`/admin/interview-prep/${course.id}`)}
                       className="bg-zinc-900/60 border border-zinc-800 hover:bg-zinc-900 hover:border-zinc-700 rounded-2xl p-5 cursor-pointer transition-all group relative flex flex-col justify-between shadow-md">
                       <div>
-                        <button onClick={e => handleDelete(course.id, e)}
-                          className="absolute top-4 right-4 p-1.5 text-zinc-600 hover:text-red-400 hover:bg-red-950/30 rounded-lg opacity-0 group-hover:opacity-100 transition-all z-10">
-                          <Trash2 size={14} />
-                        </button>
+                        <div className="absolute top-4 right-4 flex items-center gap-1 z-10">
+                          <button
+                            onClick={e => toggleCourseInLineup(course.id, e)}
+                            title={lineupIds.includes(course.id) ? "In Study Line-up" : "Add to Study Line-up"}
+                            className={`p-1.5 rounded-lg transition-all text-xs flex items-center gap-1 ${lineupIds.includes(course.id)
+                                ? "bg-indigo-600 text-white shadow-sm"
+                                : "bg-zinc-800 text-zinc-400 hover:text-indigo-300 hover:bg-zinc-700 opacity-0 group-hover:opacity-100"
+                              }`}
+                          >
+                            {lineupIds.includes(course.id) ? (
+                              <Check size={13} />
+                            ) : (
+                              <Plus size={13} />
+                            )}
+                          </button>
+                          <button
+                            onClick={e => handleDelete(course.id, e)}
+                            className="p-1.5 text-zinc-600 hover:text-red-400 hover:bg-red-950/30 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
 
-                        <div className="flex items-start gap-2 mb-3 pr-6">
+                        <div className="flex items-start gap-2 mb-3 pr-16">
                           {course.source_type === "pdf" ?
                             <FileText size={15} className="text-indigo-400 mt-0.5 shrink-0" /> :
                             <Zap size={15} className="text-amber-400 mt-0.5 shrink-0" />}

@@ -2,7 +2,7 @@
 import { useState, useEffect, use, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronRight, CheckCircle2, XCircle, RefreshCw, Shuffle, Check, X, Loader2, Target, Brain, ArrowLeft, Clock, Timer, LineChart as LineChartIcon, Video, Upload, Trash2, Film, Plus, Copy, ListFilter, Sparkles, BookOpen } from "lucide-react";
+import { ChevronLeft, ChevronRight, CheckCircle2, XCircle, RefreshCw, Shuffle, Check, X, Loader2, Target, Brain, ArrowLeft, Clock, Timer, LineChart as LineChartIcon, Video, Upload, Trash2, Film, Plus, Copy, ListFilter, Sparkles, BookOpen, ListOrdered } from "lucide-react";
 import { FormattedMathText } from "@/components/admin/interview-prep/FormattedMathText";
 import AddSectionModal from "@/components/admin/interview-prep/AddSectionModal";
 import { CodeSectionViewer } from "@/components/admin/interview-prep/CodeSectionViewer";
@@ -65,6 +65,8 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
   const [showAddSectionModal, setShowAddSectionModal] = useState(false);
   const [isSavingSections, setIsSavingSections] = useState(false);
   const [isGeneratingAssessments, setIsGeneratingAssessments] = useState(false);
+  const [isInLineup, setIsInLineup] = useState(false);
+  const [isLineupLoading, setIsLineupLoading] = useState(false);
 
   const handleCopyCode = (code: string, idx: number) => {
     navigator.clipboard.writeText(code).then(() => {
@@ -114,11 +116,48 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
         setCourse(null);
         setLoading(false);
       });
+
+    // Check lineup state
+    fetch("/api/interview-prep/lineup")
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (Array.isArray(data?.lineupIds)) {
+          setIsInLineup(data.lineupIds.includes(courseId));
+        }
+      })
+      .catch(() => { });
   }, [courseId]);
+
+  const handleToggleLineup = async () => {
+    setIsLineupLoading(true);
+    try {
+      const res = await fetch("/api/interview-prep/lineup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "toggle", courseId }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const queued = Array.isArray(data.lineupIds) && data.lineupIds.includes(courseId);
+        setIsInLineup(queued);
+        showToast(queued ? "Added to your Study Line-up!" : "Removed from Study Line-up", "success");
+      }
+    } catch {
+      showToast("Failed to update lineup", "error");
+    } finally {
+      setIsLineupLoading(false);
+    }
+  };
 
   const activeModule = course?.modules?.find((m: any) => m.id === activeModuleId);
   const activeLesson = activeModule?.lessons?.find((l: any) => l.id === activeViewId);
-  const completedLessons = course?.progress?.completed_lessons || [];
+  const completedLessons: string[] = course?.progress?.completed_lessons || [];
+
+  // Calculate live total lessons and live percentage so progress never relies solely on stagnant database percentages
+  const totalCourseLessons = (course?.modules ?? []).reduce((acc: number, m: any) => acc + (m.lessons?.length || 0), 0);
+  const courseOverallPercentage = totalCourseLessons > 0
+    ? Math.min(100, Math.round((completedLessons.length / totalCourseLessons) * 100))
+    : (course?.progress?.overall_percentage || 0);
 
   const allQuestions = (course?.modules ?? []).map((m: any) => (m.quiz?.questions || []).map((q: any) => ({ ...q, id: `${m.id}_${q.id || Math.random()}` }))).flat();
   const allFlashcards = (course?.modules ?? []).map((m: any) => m.flashcards || []).flat();
@@ -322,24 +361,60 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
     );
   };
 
-  const updateProgress = async (lessonId: string): Promise<boolean> => {
+  const toggleLessonCompletion = async (lessonId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     try {
-      const currentCompleted = course?.progress?.completed_lessons || [];
-      if (currentCompleted.includes(lessonId)) return true;
-      const newCompleted = [...currentCompleted, lessonId];
+      const currentCompleted: string[] = course?.progress?.completed_lessons || [];
+      const isAlreadyDone = currentCompleted.includes(lessonId);
+      const newCompleted = isAlreadyDone
+        ? currentCompleted.filter(id => id !== lessonId)
+        : [...currentCompleted, lessonId];
+
+      // Optimistic update
+      const totalLessons = (course?.modules ?? []).reduce((acc: number, m: any) => acc + (m.lessons?.length || 0), 0) || 1;
+      const optimisticPct = Math.min(100, Math.round((newCompleted.length / totalLessons) * 100));
+
+      setCourse((prev: any) => ({
+        ...prev,
+        progress: {
+          ...(prev?.progress || {}),
+          completed_lessons: newCompleted,
+          overall_percentage: optimisticPct,
+        }
+      }));
+
       const res = await fetch(`/api/interview-prep/${courseId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ completed_lessons: newCompleted }),
       });
+
       if (res.ok) {
-        setCourse((prev: any) => ({ ...prev, progress: { ...(prev?.progress || {}), completed_lessons: newCompleted } }));
+        const savedProgress = await res.json();
+        setCourse((prev: any) => ({
+          ...prev,
+          progress: {
+            ...(prev?.progress || {}),
+            ...savedProgress,
+          }
+        }));
+        showToast(
+          isAlreadyDone ? "Marked as uncompleted" : "Topic marked as complete! Progress updated.",
+          "success"
+        );
         return true;
       }
       return false;
     } catch {
+      showToast("Failed to update progress", "error");
       return false;
     }
+  };
+
+  const updateProgress = async (lessonId: string): Promise<boolean> => {
+    const currentCompleted = course?.progress?.completed_lessons || [];
+    if (currentCompleted.includes(lessonId)) return true;
+    return await toggleLessonCompletion(lessonId);
   };
 
   const handleLessonComplete = async () => {
@@ -664,14 +739,29 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
           </div>
           <h2 className="font-semibold text-sm leading-tight">{course.title}</h2>
           <div className="mt-3">
-            <div className="flex justify-between text-xs text-zinc-500 mb-1"><span>Progress</span><span>{course.progress?.overall_percentage || 0}%</span></div>
-            <div className="w-full bg-zinc-800 rounded-full h-1"><div className="bg-indigo-500 h-1 rounded-full transition-all" style={{ width: `${course.progress?.overall_percentage || 0}%` }} /></div>
+            <div className="flex justify-between text-xs text-zinc-400 font-semibold mb-1">
+              <span>Course Progress</span>
+              <span className={courseOverallPercentage === 100 ? "text-emerald-400 font-bold" : "text-indigo-300"}>
+                {courseOverallPercentage}%
+              </span>
+            </div>
+            <div className="w-full bg-zinc-800 rounded-full h-1.5 overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-300 ${courseOverallPercentage === 100 ? "bg-emerald-500" : "bg-indigo-500"
+                  }`}
+                style={{ width: `${courseOverallPercentage}%` }}
+              />
+            </div>
+            <div className="flex justify-between text-[10px] text-zinc-500 mt-1 font-medium">
+              <span>{completedLessons.length} of {totalCourseLessons} topics</span>
+              <span>{totalCourseLessons - completedLessons.length} left</span>
+            </div>
           </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-3">
-          {/* Table of Contents Button */}
-          <div className="mb-4">
+          {/* Action Row: Table of Contents & Lineup toggle */}
+          <div className="space-y-2 mb-4">
             <button
               onClick={() => { setActiveViewId("table-of-contents"); setSidebarOpen(false); }}
               className={`w-full text-left text-xs font-semibold px-3 py-2.5 rounded-xl flex items-center gap-2 border transition-all ${activeViewId === "table-of-contents"
@@ -682,31 +772,90 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
               <BookOpen size={15} className={activeViewId === "table-of-contents" ? "text-white" : "text-indigo-400"} />
               <span className="flex-1">Table of Contents</span>
             </button>
+
+            <button
+              onClick={handleToggleLineup}
+              disabled={isLineupLoading}
+              className={`w-full text-left text-xs font-semibold px-3 py-2 rounded-xl flex items-center gap-2 border transition-all ${isInLineup
+                ? "bg-indigo-950/40 text-indigo-300 border-indigo-700/50 hover:bg-indigo-950/70"
+                : "bg-zinc-950/40 text-zinc-400 border-zinc-800 hover:border-zinc-700 hover:text-zinc-200"
+                }`}
+            >
+              {isLineupLoading ? (
+                <Loader2 size={14} className="animate-spin text-indigo-400" />
+              ) : (
+                <ListOrdered size={14} className={isInLineup ? "text-indigo-400" : "text-zinc-500"} />
+              )}
+              <span className="flex-1">{isInLineup ? "In Study Line-up ✓" : "+ Add to Line-up"}</span>
+            </button>
           </div>
 
           <div className="space-y-4">
             {(course?.modules ?? []).map((m: any, i: number) => {
-              const modDone = m.lessons?.every((l: any) => completedLessons.includes(l.id)) ?? false;
+              const modLessons: any[] = m.lessons || [];
+              const modCompletedCount = modLessons.filter((l: any) => completedLessons.includes(l.id)).length;
+              const modDone = modLessons.length > 0 && modCompletedCount === modLessons.length;
+              const modPct = modLessons.length > 0 ? Math.round((modCompletedCount / modLessons.length) * 100) : 0;
+
               return (
                 <div key={m.id} className="space-y-1">
-                  <button onClick={() => { setActiveModuleId(m.id); setActiveViewId(m.lessons?.[0]?.id || "final-quiz"); setSidebarOpen(false); }}
-                    className={`w-full text-left text-sm font-medium px-2 py-1.5 rounded-lg flex items-center justify-between ${activeModuleId === m.id ? "text-indigo-400" : "text-zinc-300 hover:bg-zinc-800/50"}`}>
-                    <span>Module {i + 1}</span>
-                    {modDone && <CheckCircle2 size={14} className="text-emerald-500" />}
-                  </button>
+                  <div className="rounded-xl p-1 bg-zinc-950/40 border border-zinc-850/50">
+                    <button
+                      onClick={() => { setActiveModuleId(m.id); setActiveViewId(m.lessons?.[0]?.id || "final-quiz"); setSidebarOpen(false); }}
+                      className={`w-full text-left text-xs font-semibold px-2 py-1.5 rounded-lg flex items-center justify-between ${activeModuleId === m.id ? "text-indigo-400" : "text-zinc-300 hover:bg-zinc-800/50"
+                        }`}
+                    >
+                      <span className="truncate pr-1">Module {i + 1}: {m.title}</span>
+                      {modDone ? (
+                        <CheckCircle2 size={13} className="text-emerald-400 shrink-0" />
+                      ) : (
+                        <span className="text-[10px] text-zinc-500 font-mono shrink-0">{modCompletedCount}/{modLessons.length}</span>
+                      )}
+                    </button>
+
+                    {/* Sub-module progress mini bar */}
+                    {modLessons.length > 0 && (
+                      <div className="px-2 pb-1 pt-0.5">
+                        <div className="w-full bg-zinc-850 rounded-full h-1 overflow-hidden">
+                          <div
+                            className={`h-full transition-all duration-300 ${modDone ? "bg-emerald-500" : "bg-indigo-500"}`}
+                            style={{ width: `${modPct}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   {activeModuleId === m.id && (
                     <div className="pl-3 space-y-0.5 border-l border-zinc-800 ml-2 mt-1">
                       {(m.lessons ?? []).map((l: any) => {
                         const done = completedLessons.includes(l.id);
                         const active = activeViewId === l.id;
                         return (
-                          <button key={l.id} onClick={() => { setActiveViewId(l.id); setSidebarOpen(false); }}
-                            className={`w-full text-left text-xs px-3 py-1.5 rounded flex items-center gap-2 ${active ? "bg-indigo-950/40 text-indigo-300" : "text-zinc-400 hover:text-zinc-200"}`}>
-                            <div className={`w-3 h-3 rounded-full border flex items-center justify-center shrink-0 ${done ? "bg-emerald-500/20 border-emerald-500" : "border-zinc-600"}`}>
-                              {done && <Check size={8} className="text-emerald-500" />}
-                            </div>
-                            <span className="truncate">{l.title}</span>
-                          </button>
+                          <div
+                            key={l.id}
+                            className={`group/item w-full text-xs px-2.5 py-1.5 rounded-lg flex items-center justify-between gap-2 transition-all ${active
+                              ? "bg-indigo-950/60 text-indigo-200 border border-indigo-800/60"
+                              : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40"
+                              }`}
+                          >
+                            <button
+                              onClick={() => { setActiveViewId(l.id); setSidebarOpen(false); }}
+                              className="flex items-center gap-2 flex-1 min-w-0 text-left"
+                            >
+                              <span className="truncate">{l.title}</span>
+                            </button>
+                            <button
+                              onClick={(e) => toggleLessonCompletion(l.id, e)}
+                              title={done ? "Mark as uncompleted" : "Mark as completed"}
+                              className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition-all ${done
+                                ? "bg-emerald-500 border-emerald-400 text-white shadow-sm"
+                                : "border-zinc-600 hover:border-emerald-400 hover:bg-emerald-500/10 text-transparent hover:text-emerald-400"
+                                }`}
+                            >
+                              <Check size={9} strokeWidth={3} className={done ? "text-white" : ""} />
+                            </button>
+                          </div>
                         );
                       })}
                     </div>
@@ -765,11 +914,27 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
               </div>
 
               <h1 className="text-3xl font-bold mb-2 leading-tight">{activeLesson.title}</h1>
-              <div className="flex items-center gap-4 text-sm text-zinc-500 mb-8">
-                <span className="flex items-center gap-1"><Clock size={13} /> {activeLesson.estimated_minutes} min read</span>
-                {completedLessons.includes(activeLesson.id) && (
-                  <span className="flex items-center gap-1 text-emerald-400"><CheckCircle2 size={13} /> Completed</span>
-                )}
+              <div className="flex flex-wrap items-center justify-between gap-4 text-sm text-zinc-500 mb-8 pb-4 border-b border-zinc-800/80">
+                <div className="flex items-center gap-4">
+                  <span className="flex items-center gap-1"><Clock size={13} /> {activeLesson.estimated_minutes} min read</span>
+                  {completedLessons.includes(activeLesson.id) && (
+                    <span className="flex items-center gap-1 text-emerald-400 font-semibold bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
+                      <CheckCircle2 size={13} /> Completed
+                    </span>
+                  )}
+                </div>
+
+                {/* Quick Toggle Button in Lesson Header */}
+                <button
+                  onClick={() => toggleLessonCompletion(activeLesson.id)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm ${completedLessons.includes(activeLesson.id)
+                    ? "bg-emerald-950/60 text-emerald-300 border border-emerald-700/60 hover:bg-emerald-900/60"
+                    : "bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 hover:text-white"
+                    }`}
+                >
+                  <Check size={13} className={completedLessons.includes(activeLesson.id) ? "text-emerald-400" : "text-zinc-500"} />
+                  <span>{completedLessons.includes(activeLesson.id) ? "Completed (Click to Uncheck)" : "Check as Done"}</span>
+                </button>
               </div>
 
               {/* Introduction */}
@@ -1013,20 +1178,30 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
 
               {/* Footer */}
               <div className="mt-10 pt-6 border-t border-zinc-800 flex items-center justify-between">
-                <div className="text-xs text-zinc-600">
+                <div className="text-xs text-zinc-500 font-medium">
                   {activeModule?.lessons && `Lesson ${(activeModule.lessons.findIndex((l: any) => l.id === activeLesson.id) + 1)} of ${activeModule.lessons.length}`}
+                  <span className="mx-2">•</span>
+                  <span>{course.progress?.overall_percentage || 0}% overall course progress</span>
                 </div>
-                <button
-                  onClick={handleLessonComplete}
-                  disabled={isCompletingLesson || completedLessons.includes(activeLesson.id)}
-                  className={`px-6 py-3 rounded-xl font-semibold flex items-center gap-2 transition-all disabled:opacity-60 shadow-lg ${completedLessons.includes(activeLesson.id)
-                    ? "bg-emerald-950/50 text-emerald-400 border border-emerald-800/50"
-                    : "bg-indigo-600 text-white hover:bg-indigo-500"
-                    }`}
-                >
-                  {isCompletingLesson ? <Loader2 size={18} className="animate-spin" /> : completedLessons.includes(activeLesson.id) ? <CheckCircle2 size={18} /> : null}
-                  {isCompletingLesson ? "Saving..." : completedLessons.includes(activeLesson.id) ? "✓ Completed" : "Mark as Complete →"}
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => toggleLessonCompletion(activeLesson.id)}
+                    className="px-4 py-2.5 rounded-xl font-medium text-xs bg-zinc-850 hover:bg-zinc-800 text-zinc-300 border border-zinc-750 transition-colors"
+                  >
+                    {completedLessons.includes(activeLesson.id) ? "Uncheck Topic" : "Check as Done"}
+                  </button>
+                  <button
+                    onClick={handleLessonComplete}
+                    disabled={isCompletingLesson}
+                    className={`px-6 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition-all shadow-lg ${completedLessons.includes(activeLesson.id)
+                      ? "bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/30"
+                      : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/30"
+                      }`}
+                  >
+                    {isCompletingLesson ? <Loader2 size={15} className="animate-spin" /> : <ChevronRight size={15} />}
+                    {completedLessons.includes(activeLesson.id) ? "Next Topic →" : "Save & Continue →"}
+                  </button>
+                </div>
               </div>
             </motion.div>
 
@@ -1068,33 +1243,59 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
               {/* Modules & Topics Tree */}
               <div className="space-y-6">
                 {(course.modules ?? []).map((mod: any, mIdx: number) => {
-                  const modDone = mod.lessons?.length > 0 && mod.lessons.every((l: any) => completedLessons.includes(l.id));
+                  const modLessons: any[] = mod.lessons || [];
+                  const modCompletedCount = modLessons.filter((l: any) => completedLessons.includes(l.id)).length;
+                  const modDone = modLessons.length > 0 && modCompletedCount === modLessons.length;
+                  const modPct = modLessons.length > 0 ? Math.round((modCompletedCount / modLessons.length) * 100) : 0;
+
                   return (
                     <div
                       key={mod.id}
                       className="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-6 shadow-xl hover:border-zinc-700 transition-colors"
                     >
                       <div className="flex items-start justify-between gap-4 mb-4">
-                        <div>
+                        <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
                             <span className="px-2 py-0.5 rounded text-[11px] font-bold tracking-wider uppercase bg-indigo-950/60 text-indigo-400 border border-indigo-800/50">
                               Module {mIdx + 1}
                             </span>
-                            {modDone && (
+                            {modDone ? (
                               <span className="px-2 py-0.5 rounded text-[11px] font-bold tracking-wider uppercase bg-emerald-950/60 text-emerald-400 border border-emerald-800/50 flex items-center gap-1">
                                 <CheckCircle2 size={11} /> Done
                               </span>
-                            )}
+                            ) : modCompletedCount > 0 ? (
+                              <span className="px-2 py-0.5 rounded text-[11px] font-bold tracking-wider uppercase bg-amber-950/50 text-amber-300 border border-amber-800/50">
+                                {modCompletedCount}/{modLessons.length} Topics Complete
+                              </span>
+                            ) : null}
                           </div>
                           <h2 className="text-xl font-bold text-white">{mod.title}</h2>
                           {mod.description && (
                             <p className="text-xs text-zinc-400 mt-1">{mod.description}</p>
                           )}
                         </div>
-                        <span className="text-xs font-semibold text-zinc-500 bg-zinc-950 px-2.5 py-1 rounded-lg border border-zinc-800 shrink-0">
-                          {mod.lessons?.length || 0} topics
-                        </span>
+                        <div className="text-right shrink-0">
+                          <span className="text-xs font-semibold text-zinc-400 bg-zinc-950 px-2.5 py-1 rounded-lg border border-zinc-800 inline-block">
+                            {modCompletedCount} of {modLessons.length} topics
+                          </span>
+                        </div>
                       </div>
+
+                      {/* Sub-module Progress Bar */}
+                      {modLessons.length > 0 && (
+                        <div className="mb-4">
+                          <div className="flex justify-between text-[11px] text-zinc-500 font-semibold mb-1">
+                            <span>Module Progress</span>
+                            <span className={modDone ? "text-emerald-400 font-bold" : "text-zinc-400"}>{modPct}%</span>
+                          </div>
+                          <div className="w-full bg-zinc-950 rounded-full h-1.5 overflow-hidden border border-zinc-800/80">
+                            <div
+                              className={`h-full transition-all duration-300 ${modDone ? "bg-emerald-500" : "bg-indigo-500"}`}
+                              style={{ width: `${modPct}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
 
                       {/* Sub-headings / Topic list */}
                       <div className="grid grid-cols-1 gap-2 pt-2 border-t border-zinc-800/80">
@@ -1102,21 +1303,26 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
                           const isDone = completedLessons.includes(les.id);
                           const hasSections = les.content?.sections && les.content.sections.length > 0;
                           return (
-                            <button
+                            <div
                               key={les.id}
                               onClick={() => {
                                 setActiveModuleId(mod.id);
                                 setActiveViewId(les.id);
                               }}
-                              className="w-full text-left p-3.5 rounded-xl bg-zinc-950/70 hover:bg-zinc-800/60 border border-zinc-800/60 hover:border-indigo-500/50 flex items-center justify-between gap-3 group transition-all"
+                              className="w-full text-left p-3.5 rounded-xl bg-zinc-950/70 hover:bg-zinc-800/60 border border-zinc-800/60 hover:border-indigo-500/50 flex items-center justify-between gap-3 group transition-all cursor-pointer"
                             >
                               <div className="flex items-center gap-3 min-w-0">
-                                <div className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 transition-colors ${isDone
-                                  ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                                  : "bg-zinc-800 text-zinc-400 group-hover:bg-indigo-600 group-hover:text-white"
-                                  }`}>
-                                  {isDone ? <Check size={12} /> : lIdx + 1}
-                                </div>
+                                <button
+                                  type="button"
+                                  onClick={(e) => toggleLessonCompletion(les.id, e)}
+                                  title={isDone ? "Mark as uncompleted" : "Mark as completed"}
+                                  className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 transition-all ${isDone
+                                    ? "bg-emerald-500 border border-emerald-400 text-white shadow-md shadow-emerald-500/20"
+                                    : "bg-zinc-800 text-zinc-400 border border-zinc-700 hover:border-emerald-500 hover:text-emerald-300"
+                                    }`}
+                                >
+                                  {isDone ? <Check size={12} strokeWidth={3} /> : lIdx + 1}
+                                </button>
                                 <div className="min-w-0">
                                   <div className="text-sm font-semibold text-zinc-200 group-hover:text-white truncate">
                                     {les.title}
@@ -1127,13 +1333,19 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
                                     <span className={hasSections ? "text-emerald-400" : "text-amber-400/90"}>
                                       {hasSections ? `${les.content.sections.length} content sections` : "Needs content sections"}
                                     </span>
+                                    {isDone && (
+                                      <>
+                                        <span>•</span>
+                                        <span className="text-emerald-400 font-semibold">Completed</span>
+                                      </>
+                                    )}
                                   </div>
                                 </div>
                               </div>
                               <span className="text-xs text-indigo-400 font-semibold group-hover:translate-x-1 transition-transform flex items-center gap-1 shrink-0">
                                 Open Topic <ChevronRight size={14} />
                               </span>
-                            </button>
+                            </div>
                           );
                         })}
                       </div>

@@ -1,5 +1,44 @@
 # Project State
 
+- Build Verification & Typecheck Success (`npm run build`):
+  - **Successful Production Build (`npm run build`)**:
+    - Build compiled and generated all 74 routes (static and dynamic) with exit code 0.
+    - Verified TypeScript type checking (finished in 58s with 0 errors in application code).
+    - Verified all newly created Study features (`CourseLineup`, `/api/interview-prep/lineup`, sub-module progress tracking, interactive topic checkmarks).
+
+- Multi-Tier Progress Bars & Real-Time Sub-Module Completion Tracking (`src/app/admin/interview-prep/[courseId]/page.tsx`, `src/app/api/interview-prep/[courseId]/route.ts`, `src/app/api/interview-prep/route.ts`):
+  - **Sub-Module Progress Bars & Indicators**:
+    - **Sidebar Sub-Module Progress Bars**: Every module in the sidebar now features a live progress bar showing its exact sub-module completion ratio (e.g. `1/3` topics) and percentage. Checking or unchecking any topic instantly animates that module's progress bar.
+    - **Table of Contents Module Progress Bars**: Each module card in the Table of Contents overview features a dedicated module progress bar and status badge (`X/Y Topics Complete` or `Done`).
+  - **Full-Course Live Progress Alignment**:
+    - Both `/api/interview-prep` (dashboard list & line-up) and `/api/interview-prep/[courseId]` (course detail) dynamically compute `overall_percentage` directly from the ratio of `completed_lessons` to total course topics across all modules.
+    - The top course progress bar in the sidebar, the lesson completion tracker, the Study Line-up cards, and the main Study dashboard cards reflect topic progress immediately.
+
+- Topic Checkmarks & Real-Time Course Progress Tracking (`src/app/admin/interview-prep/[courseId]/page.tsx`, `src/app/api/interview-prep/[courseId]/route.ts`):
+  - **Bi-Directional Interactive Topic Completion Checkmarks**:
+    - **In Module Sidebar**: Each topic under any module now features an interactive circular checkmark button. Users can click to toggle completed/uncompleted directly from the sidebar. Active topics are cleanly differentiated without breaking layout.
+    - **In Table of Contents View**: Each topic card features an interactive sequence/check button. Checking a topic instantly turns it green with a checkmark and updates the topic's status to "Completed".
+    - **In Lesson Page Header & Footer**: Added direct "Check as Done" / "Uncheck Topic" toggle buttons in the lesson header and next-step footer alongside the "Next Topic" action.
+  - **Dynamic Progress Calculation & Instant UI Sync**:
+    - Updated `/api/interview-prep/[courseId]` `PATCH` handler to accurately recompute `overall_percentage` against total course lessons across all modules on every check/uncheck event, returning the updated progress record.
+    - Added optimistic UI updates so the course progress bar in the sidebar, header stats, and Table of Contents completion badges update immediately without lagging.
+
+- Study Course Line-up & Sequential Study Path (`src/components/admin/interview-prep/CourseLineup.tsx`, `src/app/admin/interview-prep/page.tsx`, `src/app/api/interview-prep/lineup/route.ts`, `src/app/admin/interview-prep/[courseId]/page.tsx`):
+  - **Sequential Study Line-up**:
+    - Created `CourseLineup.tsx` component positioned prominently at the top of the Study dashboard (`/admin/interview-prep`).
+    - Arranges courses into a numbered linear line-up representing the step-by-step order in which to study them.
+    - Each course in the line-up shows its sequence number badge, title, module count, estimated duration, quiz average, and real-time progress bar.
+    - Highlights the current course to study with an **"Up Next"** badge, subtle indigo glow, and a prominent 1-click **"Continue Line-up"** header action.
+    - Clicking any course in the line-up immediately opens its Table of Contents / study modules.
+  - **Reordering & Line-up Management**:
+    - Users can reorder courses in the study path using up/down controls (`↑` / `↓`).
+    - Ability to add unqueued courses into the line-up via a collapsible quick picker or directly from course cards using a 1-click `+` button.
+    - Courses can be removed from the line-up without deleting the course itself.
+  - **Inside-Course Line-up Toggle**:
+    - Added an interactive **"In Study Line-up ✓" / "+ Add to Line-up"** toggle directly within the course sidebar so learners can easily add or remove any course while reading.
+  - **Persistent Storage**:
+    - Backed by `/api/interview-prep/lineup` utilizing the existing `prisma.setting` key-value model for seamless persistence across reloads.
+
 - Build Verification & Typecheck Success (`package.json`, `src/app/admin/career/[id]/page.tsx`, `src/app/admin/interview-prep/[courseId]/page.tsx`):
   - **Successful Production Build (`npm run build`)**:
     - Build compiled and generated all 73 routes (static and dynamic) with exit code 0.
