@@ -9,44 +9,44 @@ datasource db {
 }
 
 model Application {
-  id               String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  job_title        String
-  company          String
-  location         String?
-  job_url          String?
-  job_description  String?
-  source           String?
-  salary_min       Int?
-  salary_max       Int?
-  salary_currency  String?      @default("USD")
-  stage            String?      @default("Wishlist")
-  tags             String[]     @default([])
-  linked_cv_id     String?      @db.Uuid
-  linked_cv_slug   String?
-  cover_letter_url   String?
-  date_applied       DateTime?
-  follow_up_date     DateTime?
-  notes              String?
-  timeline           Json[]       @default([])
-  interviews         Json[]       @default([])
-  offer              Json?
-  stage_history      Json[]       @default([])
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  job_title           String
+  company             String
+  location            String?
+  job_url             String?
+  job_description     String?
+  source              String?
+  salary_min          Int?
+  salary_max          Int?
+  salary_currency     String?   @default("USD")
+  stage               String?   @default("Wishlist")
+  tags                String[]  @default([])
+  linked_cv_id        String?   @db.Uuid
+  linked_cv_slug      String?
+  cover_letter_url    String?
+  date_applied        DateTime?
+  follow_up_date      DateTime?
+  notes               String?
+  timeline            Json[]    @default([])
+  interviews          Json[]    @default([])
+  offer               Json?
+  stage_history       Json[]    @default([])
   company_research_id String?
-  created_at         DateTime?    @default(now()) @db.Timestamptz(6)
-  updated_at         DateTime?    @default(now()) @db.Timestamptz(6)
+  created_at          DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime? @default(now()) @db.Timestamptz(6)
 
-  CoverLetter        CoverLetter[]
-  companyResearch    CompanyResearch[]
-  courses            Course[]
-  goals              Goal[]
-  
+  CoverLetter     CoverLetter[]
+  companyResearch CompanyResearch[]
+  courses         Course[]
+  goals           Goal[]
+
   @@map("applications")
 }
 
 model CoverLetter {
-  id                  String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  application_id      String?      @db.Uuid
-  linked_cv_id        String?      @db.Uuid
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  application_id      String?   @db.Uuid
+  linked_cv_id        String?   @db.Uuid
   linked_cv_slug      String?
   company             String
   job_title           String
@@ -55,59 +55,59 @@ model CoverLetter {
   tone                String?
   length              String?
   custom_instructions String?
-  slug                String?      @unique
-  versions            Json[]       @default([])
-  current_version     Int?         @default(0)
-  status              String?      @default("draft")
-  created_at          DateTime?    @default(now()) @db.Timestamptz(6)
-  updated_at          DateTime?    @default(now()) @db.Timestamptz(6)
+  slug                String?   @unique
+  versions            Json[]    @default([])
+  current_version     Int?      @default(0)
+  status              String?   @default("draft")
+  created_at          DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime? @default(now()) @db.Timestamptz(6)
 
-  application         Application? @relation(fields: [application_id], references: [id], onDelete: SetNull)
-  
+  application Application? @relation(fields: [application_id], references: [id], onDelete: SetNull)
+
   @@map("cover_letters")
 }
 
 model Template {
-  id           String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name         String
-  raw_text     String?
-  pdf_url      String?
-  sections     Json?       @default("{}")
-  is_default   Boolean     @default(false)
-  created_at   DateTime?   @default(now()) @db.Timestamptz(6)
-  updated_at   DateTime?   @default(now()) @db.Timestamptz(6)
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name       String
+  raw_text   String?
+  pdf_url    String?
+  sections   Json?     @default("{}")
+  is_default Boolean   @default(false)
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at DateTime? @default(now()) @db.Timestamptz(6)
 
-  CvRecord     CvRecord[]
+  CvRecord CvRecord[]
 
   @@map("templates")
 }
 
 model CvRecord {
-  id               String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  slug             String       @unique
-  job_title        String
-  company          String
-  job_description  String?
-  instructions     String?
-  tone             String?
-  template_id      String?      @db.Uuid
-  versions         Json[]       @default([])
-  current_version  Int?         @default(0)
-  status           String?      @default("draft")
-  created_at       DateTime?    @default(now()) @db.Timestamptz(6)
-  updated_at       DateTime?    @default(now()) @db.Timestamptz(6)
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug            String    @unique
+  job_title       String
+  company         String
+  job_description String?
+  instructions    String?
+  tone            String?
+  template_id     String?   @db.Uuid
+  versions        Json[]    @default([])
+  current_version Int?      @default(0)
+  status          String?   @default("draft")
+  created_at      DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime? @default(now()) @db.Timestamptz(6)
 
-  template         Template?    @relation(fields: [template_id], references: [id], onDelete: SetNull)
+  template Template? @relation(fields: [template_id], references: [id], onDelete: SetNull)
 
   @@map("cv_records")
 }
 
 model Setting {
-  id         String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  key        String      @unique
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key        String    @unique
   value      Json
-  created_at DateTime?   @default(now()) @db.Timestamptz(6)
-  updated_at DateTime?   @default(now()) @db.Timestamptz(6)
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at DateTime? @default(now()) @db.Timestamptz(6)
 
   @@map("settings")
 }
@@ -137,20 +137,20 @@ model CompanyResearch {
 }
 
 model Course {
-  id                String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  title             String
-  description       String?
-  source_type       String          @default("text")
-  source_text       String?
-  focus_areas       String[]        @default([])
-  depth             String          @default("standard")
+  id                 String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title              String
+  description        String?
+  source_type        String          @default("text")
+  source_text        String?
+  focus_areas        String[]        @default([])
+  depth              String          @default("standard")
   estimated_duration String?
-  application_id    String?         @db.Uuid
-  application       Application?    @relation(fields: [application_id], references: [id], onDelete: SetNull)
-  modules           CourseModule[]
-  progress          CourseProgress?
-  created_at        DateTime?       @default(now()) @db.Timestamptz(6)
-  updated_at        DateTime?       @default(now()) @db.Timestamptz(6)
+  application_id     String?         @db.Uuid
+  application        Application?    @relation(fields: [application_id], references: [id], onDelete: SetNull)
+  modules            CourseModule[]
+  progress           CourseProgress?
+  created_at         DateTime?       @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime?       @default(now()) @db.Timestamptz(6)
 
   @@index([application_id])
   @@map("courses")
@@ -200,9 +200,9 @@ model Quiz {
 }
 
 model QuizAttempt {
-  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  quiz_id      String   @db.Uuid
-  quiz         Quiz     @relation(fields: [quiz_id], references: [id], onDelete: Cascade)
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  quiz_id      String    @db.Uuid
+  quiz         Quiz      @relation(fields: [quiz_id], references: [id], onDelete: Cascade)
   answers      Json
   score        Int
   passed       Boolean
@@ -237,44 +237,44 @@ model FlashcardRating {
 }
 
 model CourseProgress {
-  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  course_id           String   @unique @db.Uuid
-  course              Course   @relation(fields: [course_id], references: [id], onDelete: Cascade)
-  completed_lessons   String[]
-  current_module_id   String?
-  current_lesson_id   String?
-  overall_percentage  Int      @default(0)
-  flashcard_mastery   Int      @default(0)
-  flashcard_history   Json[]   @default([])
-  quiz_average        Int      @default(0)
-  assessment_history  Json[]   @default([])
-  last_studied_at     DateTime? @default(now()) @db.Timestamptz(6)
-  updated_at          DateTime? @default(now()) @db.Timestamptz(6)
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  course_id          String    @unique @db.Uuid
+  course             Course    @relation(fields: [course_id], references: [id], onDelete: Cascade)
+  completed_lessons  String[]
+  current_module_id  String?
+  current_lesson_id  String?
+  overall_percentage Int       @default(0)
+  flashcard_mastery  Int       @default(0)
+  flashcard_history  Json[]    @default([])
+  quiz_average       Int       @default(0)
+  assessment_history Json[]    @default([])
+  last_studied_at    DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime? @default(now()) @db.Timestamptz(6)
 
   @@map("course_progress")
 }
 
 model TaskProfile {
-  id             String   @id @default("task-profile")
-  personal_info  Json     @default("{}")
-  experience     Json[]   @default([])
-  projects       Json[]   @default([])
-  skills         Json[]   @default([])
-  education      Json[]   @default([])
-  certifications Json[]   @default([])
+  id             String  @id @default("task-profile")
+  personal_info  Json    @default("{}")
+  experience     Json[]  @default([])
+  projects       Json[]  @default([])
+  skills         Json[]  @default([])
+  education      Json[]  @default([])
+  certifications Json[]  @default([])
   base_prompt    String?
 }
 
 model TaskApplication {
-  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  job_description    String
-  cv_content         Json
-  cover_letter       String
-  job_url            String?
-  screenshot_url     String?
-  status             String   @default("Applied")
-  created_at         DateTime @default(now()) @db.Timestamptz(6)
-  updated_at         DateTime @default(now()) @db.Timestamptz(6)
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  job_description String
+  cv_content      Json
+  cover_letter    String
+  job_url         String?
+  screenshot_url  String?
+  status          String   @default("Applied")
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime @default(now()) @db.Timestamptz(6)
 }
 
 model TaskSessionCounter {
@@ -291,9 +291,9 @@ model TaskSessionCounter {
 model TaskLinkRecord {
   id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   url        String
-  date       String   // Format: YYYY-MM-DD
+  date       String // Format: YYYY-MM-DD
   created_at DateTime @default(now()) @db.Timestamptz(6)
-  
+
   @@map("task_link_records")
 }
 
@@ -321,11 +321,11 @@ model TaskWeeklyTarget {
 // -----------------------------------------------------------------------------
 
 model BankAccount {
-  id            String        @id @default(cuid())
-  name          String        @unique // e.g. "GTBank", "Opay", "Cash"
-  balance       Decimal       @default(0) // running ledger balance, source of truth
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  id        String   @id @default(cuid())
+  name      String   @unique // e.g. "GTBank", "Opay", "Cash"
+  balance   Decimal  @default(0) // running ledger balance, source of truth
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   incomes       Income[]
   subcategories Subcategory[]
@@ -339,7 +339,7 @@ model IncomeCategory {
   name      String   @unique // e.g. "xoxo", "Day Job", "Qefas Pallative"
   createdAt DateTime @default(now())
 
-  incomes   Income[]
+  incomes Income[]
 }
 
 model Income {
@@ -355,19 +355,19 @@ model Income {
 }
 
 model Transfer {
-  id             String      @id @default(cuid())
-  amount         Decimal
-  note           String?
-  fromAccountId  String
-  fromAccount    BankAccount @relation("TransferFrom", fields: [fromAccountId], references: [id])
-  toAccountId    String
-  toAccount      BankAccount @relation("TransferTo", fields: [toAccountId], references: [id])
-  createdAt      DateTime    @default(now())
+  id            String      @id @default(cuid())
+  amount        Decimal
+  note          String?
+  fromAccountId String
+  fromAccount   BankAccount @relation("TransferFrom", fields: [fromAccountId], references: [id])
+  toAccountId   String
+  toAccount     BankAccount @relation("TransferTo", fields: [toAccountId], references: [id])
+  createdAt     DateTime    @default(now())
 }
 
 model Category {
   id            String        @id @default(cuid())
-  name          String        // "Needs" | "Wants" | "Savings & Investments"
+  name          String // "Needs" | "Wants" | "Savings & Investments"
   group         BudgetGroup
   subcategories Subcategory[]
 }
@@ -380,7 +380,7 @@ enum BudgetGroup {
 
 model Subcategory {
   id            String        @id @default(cuid())
-  name          String        // "Groceries", "Emergency Fund", etc.
+  name          String // "Groceries", "Emergency Fund", etc.
   categoryId    String
   category      Category      @relation(fields: [categoryId], references: [id])
   bankAccountId String?
@@ -401,46 +401,46 @@ model BudgetGoal {
 }
 
 model Transaction {
-  id            String      @id @default(cuid())
+  id            String       @id @default(cuid())
   amount        Decimal
   rawText       String?
-  source        String      @default("telegram")
+  source        String       @default("telegram")
   subcategoryId String
-  subcategory   Subcategory @relation(fields: [subcategoryId], references: [id])
+  subcategory   Subcategory  @relation(fields: [subcategoryId], references: [id])
   bankAccountId String?
   bankAccount   BankAccount? @relation(fields: [bankAccountId], references: [id])
-  createdAt     DateTime    @default(now())
+  createdAt     DateTime     @default(now())
 }
 
 model Goal {
-  id             String    @id @default(cuid())
-  title          String    // e.g. "Save ₦500,000 for new laptop"
-  targetAmount   Decimal?
-  currentAmount  Decimal?  @default(0)
-  deadline       DateTime?
-  aiGenerated    Boolean   @default(false)
-  status         String    @default("active") // active | achieved | abandoned
-  subcategoryId  String?
-  timeline       Json?     @default("[]") // [{ id: string, text: string, completed: boolean }]
-  order          Int       @default(0)
-  createdAt      DateTime  @default(now())
-  
+  id            String    @id @default(cuid())
+  title         String // e.g. "Save ₦500,000 for new laptop"
+  targetAmount  Decimal?
+  currentAmount Decimal?  @default(0)
+  deadline      DateTime?
+  aiGenerated   Boolean   @default(false)
+  status        String    @default("active") // active | achieved | abandoned
+  subcategoryId String?
+  timeline      Json?     @default("[]") // [{ id: string, text: string, completed: boolean }]
+  order         Int       @default(0)
+  createdAt     DateTime  @default(now())
+
   application_id String?      @db.Uuid
   application    Application? @relation(fields: [application_id], references: [id], onDelete: Cascade)
 }
 
 model Period {
-  id            String       @id @default(cuid())
-  label         String       // e.g. "2/3/2027" or "Mar 2027" — display only
-  startDate     DateTime     @default(now())
-  rolloverAmount Decimal     @default(0)
-  createdAt     DateTime     @default(now())
-  goals         BudgetGoal[]
+  id             String       @id @default(cuid())
+  label          String // e.g. "2/3/2027" or "Mar 2027" — display only
+  startDate      DateTime     @default(now())
+  rolloverAmount Decimal      @default(0)
+  createdAt      DateTime     @default(now())
+  goals          BudgetGoal[]
 }
 
 model AppConfig {
-  id              String @id @default("singleton")
-  activePeriodId  String
+  id             String @id @default("singleton")
+  activePeriodId String
 }
 
 // -----------------------------------------------------------------------------
@@ -479,25 +479,25 @@ model FocusState {
 // -----------------------------------------------------------------------------
 
 model KnowledgeEntry {
-  id           String    @id @default(cuid())
-  type         String    // "IDEA" | "KNOWLEDGE"
-  content      String    // current/latest text
-  summary      String?   // optional short summary for quick scanning in the dashboard
-  tags         String[]  @default([])
-  isFavourite  Boolean   @default(false)
-  projectId    String?   // optional — link to a Project from the focus tracker
-  vectorId     String    // Pinecone vector id, same as this row's id for simplicity
-  source       String    @default("telegram") // telegram_text | telegram_voice | telegram_photo | dashboard
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  versions     KnowledgeEntryVersion[]
+  id          String                  @id @default(cuid())
+  type        String // "IDEA" | "KNOWLEDGE"
+  content     String // current/latest text
+  summary     String? // optional short summary for quick scanning in the dashboard
+  tags        String[]                @default([])
+  isFavourite Boolean                 @default(false)
+  projectId   String? // optional — link to a Project from the focus tracker
+  vectorId    String // Pinecone vector id, same as this row's id for simplicity
+  source      String                  @default("telegram") // telegram_text | telegram_voice | telegram_photo | dashboard
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+  versions    KnowledgeEntryVersion[]
 }
 
 model KnowledgeEntryVersion {
   id        String         @id @default(cuid())
   entryId   String
   entry     KnowledgeEntry @relation(fields: [entryId], references: [id])
-  content   String         // snapshot of content before this version's edit
+  content   String // snapshot of content before this version's edit
   createdAt DateTime       @default(now())
 }
 
@@ -506,23 +506,23 @@ model KnowledgeEntryVersion {
 // -----------------------------------------------------------------------------
 
 model CreatorProject {
-  id        String   @id @default(cuid())
-  name      String
-  client    String?
-  creator   String
+  id            String   @id @default(cuid())
+  name          String
+  client        String?
+  creator       String
   creatorHandle String?
   creatorImage  String?
-  status    String   @default("Planning") // Planning, In Progress, Review, Completed
-  budget    String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  status        String   @default("Planning") // Planning, In Progress, Review, Completed
+  budget        String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  timeline  Json?    @default("[]")
-  titles    Json?    @default("[]")
-  contents  Json?    @default("[]")
-  videos    Json?    @default("[]")
-  images    Json?    @default("[]")
-  posts     Post[]
+  timeline Json?  @default("[]")
+  titles   Json?  @default("[]")
+  contents Json?  @default("[]")
+  videos   Json?  @default("[]")
+  images   Json?  @default("[]")
+  posts    Post[]
 }
 
 // -----------------------------------------------------------------------------
@@ -530,33 +530,33 @@ model CreatorProject {
 // -----------------------------------------------------------------------------
 
 model Career {
-  id          String   @id @default(cuid())
-  title       String
-  category    String   // e.g., "Goal", "Milestone", "Achievement", "Skill"
-  status      String   @default("Planned") // e.g., "Planned", "In Progress", "Achieved"
-  date        String?
-  description String?
-  skills      Json?    @default("[]") // [{ name: "React", status: "have" | "need" | "progress" }]
-  education   Json?    @default("[]") // [{ name: "BSc Computer Science", status: "have" | "need" | "progress" }]
-  certifications Json? @default("[]") // [{ name: "AWS Certified Developer", status: "have" | "need" | "progress" }]
-  timeline    Json?    @default("[]") // [{ title: "Started learning", date: "2023", status: "completed" }]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id             String   @id @default(cuid())
+  title          String
+  category       String // e.g., "Goal", "Milestone", "Achievement", "Skill"
+  status         String   @default("Planned") // e.g., "Planned", "In Progress", "Achieved"
+  date           String?
+  description    String?
+  skills         Json?    @default("[]") // [{ name: "React", status: "have" | "need" | "progress" }]
+  education      Json?    @default("[]") // [{ name: "BSc Computer Science", status: "have" | "need" | "progress" }]
+  certifications Json?    @default("[]") // [{ name: "AWS Certified Developer", status: "have" | "need" | "progress" }]
+  timeline       Json?    @default("[]") // [{ title: "Started learning", date: "2023", status: "completed" }]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   @@map("careers")
 }
 
 model SocialTemplate {
-  id          String   @id @default(cuid())
-  platform    String   // "youtube" | "tiktok" | "instagram" | "twitter" | "linkedin"
-  name        String
-  description String?
-  body        String
+  id                  String   @id @default(cuid())
+  platform            String // "youtube" | "tiktok" | "instagram" | "twitter" | "linkedin"
+  name                String
+  description         String?
+  body                String
   imagePromptTemplate String?
-  placeholders Json?    @default("[]")
-  is_primary  Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  placeholders        Json?    @default("[]")
+  is_primary          Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
   @@map("social_templates")
 }
@@ -580,10 +580,10 @@ model WidgetRelease {
 }
 
 model FinancialHistory {
-  id             String    @id @default(cuid())
-  date           DateTime  @default(now())
-  netWorth       Decimal
-  monthlyIncome  Decimal
+  id            String   @id @default(cuid())
+  date          DateTime @default(now())
+  netWorth      Decimal
+  monthlyIncome Decimal
 
   @@map("financial_history")
 }
@@ -593,14 +593,14 @@ model FinancialHistory {
 // -----------------------------------------------------------------------------
 
 model StandaloneQuiz {
-  id           String                  @id @default(cuid())
-  title        String
-  topic        String?
-  sourceText   String?                 @db.Text
-  questions    Json                    // Array of { id, question, options: string[], correctAnswer: string, explanation: string }
-  attempts     StandaloneQuizAttempt[]
-  createdAt    DateTime                @default(now())
-  updatedAt    DateTime                @updatedAt
+  id         String                  @id @default(cuid())
+  title      String
+  topic      String?
+  sourceText String?                 @db.Text
+  questions  Json // Array of { id, question, options: string[], correctAnswer: string, explanation: string }
+  attempts   StandaloneQuizAttempt[]
+  createdAt  DateTime                @default(now())
+  updatedAt  DateTime                @updatedAt
 
   @@map("standalone_quizzes")
 }
@@ -609,8 +609,8 @@ model StandaloneQuizAttempt {
   id           String         @id @default(cuid())
   quizId       String
   quiz         StandaloneQuiz @relation(fields: [quizId], references: [id], onDelete: Cascade)
-  answers      Json           // Map of questionId -> selectedOption text
-  score        Int            // Score percentage (e.g. 80)
+  answers      Json // Map of questionId -> selectedOption text
+  score        Int // Score percentage (e.g. 80)
   totalCount   Int
   correctCount Int
   passed       Boolean
@@ -654,73 +654,71 @@ enum Novelty {
 }
 
 model WatchlistItem {
-  id        String   @id @default(uuid())
-  ticker    String   @unique
-  addedAt   DateTime @default(now())
-  notes     String?
+  id      String   @id @default(uuid())
+  ticker  String   @unique
+  addedAt DateTime @default(now())
+  notes   String?
 }
 
 model JournalEntry {
-  strategyId String?
-  strategy   TradingStrategy? @relation(fields: [strategyId], references: [id])
-  notes      String?
-  title      String?
-  images     String?
-  id         String   @id @default(uuid())
-  date       DateTime
-  ticker     String?
-  analysis   String
-  entryPlan  String
-  exitPlan   String
-  plannedEntry Float?
-  stopLoss     Float?
-  takeProfit   Float?
-  positionSize Float?
-  riskPercent  Float?
-  actualEntry  Float?
-  actualExit   Float?
-  realizedPnL  Float?
-  followedPlan Boolean?
+  strategyId      String?
+  strategy        TradingStrategy? @relation(fields: [strategyId], references: [id])
+  notes           String?
+  title           String?
+  images          String?
+  id              String           @id @default(uuid())
+  date            DateTime
+  ticker          String?
+  analysis        String
+  entryPlan       String
+  exitPlan        String
+  plannedEntry    Float?
+  stopLoss        Float?
+  takeProfit      Float?
+  positionSize    Float?
+  riskPercent     Float?
+  actualEntry     Float?
+  actualExit      Float?
+  realizedPnL     Float?
+  followedPlan    Boolean?
   emotionalState  String?
   confidenceLevel String?
   lessonLearned   String?
   wouldRepeat     Boolean?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 
   @@index([date])
   @@index([ticker])
 }
 
-
 model MT5Trade {
-  id           String   @id @default(uuid())
-  ticket       String   @unique
-  symbol       String
-  type         String
-  volume       Float
-  openPrice    Float
-  closePrice   Float?
-  profit       Float
-  openTime     DateTime
-  closeTime    DateTime?
-  magicNumber  String?
-  comment      String?
-  ingestedAt   DateTime @default(now())
+  id          String    @id @default(uuid())
+  ticket      String    @unique
+  symbol      String
+  type        String
+  volume      Float
+  openPrice   Float
+  closePrice  Float?
+  profit      Float
+  openTime    DateTime
+  closeTime   DateTime?
+  magicNumber String?
+  comment     String?
+  ingestedAt  DateTime  @default(now())
 }
 
-
 model Post {
-  id              String        @id @default(cuid())
+  id              String   @id @default(cuid())
   creatorId       String
   sourceSocialId  String
-  name            String?       
-  originalContent String        @db.Text
-  imagePrompt     String?       @db.Text
-  createdAt       DateTime      @default(now())
+  name            String?
+  originalContent String   @db.Text
+  imagePrompt     String?  @db.Text
+  createdAt       DateTime @default(now())
 
-  creator         CreatorProject @relation(fields: [creatorId], references: [id], onDelete: Cascade)
-  versions        PostVersion[]
+  creator  CreatorProject @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  versions PostVersion[]
 
   @@map("posts")
 }
@@ -738,49 +736,50 @@ model PostVersion {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  post        Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
 
   @@map("post_versions")
 }
+
 model TradingStrategy {
-  id              String   @id @default(uuid())
-  name            String
-  status          String   @default("testing")
-  
+  id     String @id @default(uuid())
+  name   String
+  status String @default("testing")
+
   targetCondition String?
   edge            String?
   instruments     String?
   timeframes      String?
   timeframeBias   String?
   checklist       String?
-  
-  requiredStructure String?
-  confirmingSignals String?
+
+  requiredStructure   String?
+  confirmingSignals   String?
   fundamentalBackdrop String?
-  skipChecklist     String?
-  
-  triggerCondition  String?
-  entryMethod       String?
-  
-  stopLossLogic     String?
-  takeProfitLogic   String?
-  invalidation      String?
-  
-  maxRiskPerTrade   Float?
-  maxConcurrent     Int?
-  correlationRules  String?
-  
-  sampleSize        Int?
-  winRate           Float?
-  averageR          Float?
-  expectancy        Float?
-  weaknesses        String?
-  images            String?
-  
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  
-  journalEntries    JournalEntry[]
+  skipChecklist       String?
+
+  triggerCondition String?
+  entryMethod      String?
+
+  stopLossLogic   String?
+  takeProfitLogic String?
+  invalidation    String?
+
+  maxRiskPerTrade  Float?
+  maxConcurrent    Int?
+  correlationRules String?
+
+  sampleSize Int?
+  winRate    Float?
+  averageR   Float?
+  expectancy Float?
+  weaknesses String?
+  images     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  journalEntries JournalEntry[]
 }
 
 // -----------------------------------------------------------------------------
@@ -806,37 +805,37 @@ model VideoTemplate {
 // -----------------------------------------------------------------------------
 
 model MonthlyBudget {
-  id            String   @id @default(cuid())
+  id            String         @id @default(cuid())
   userId        String
   year          Int
-  month         Int      // 0-11
+  month         Int // 0-11
   incomes       IncomeEntry[]
   expenses      ExpenseEntry[]
   savePercent   Int?
   investPercent Int?
-  updatedAt     DateTime @updatedAt
+  updatedAt     DateTime       @updatedAt
 
   @@unique([userId, year, month])
   @@map("monthly_budgets")
 }
 
 model IncomeEntry {
-  id        String   @id @default(cuid())
-  budgetId  String
-  budget    MonthlyBudget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
-  source    String
-  amount    Decimal  @default(0)
+  id       String        @id @default(cuid())
+  budgetId String
+  budget   MonthlyBudget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  source   String
+  amount   Decimal       @default(0)
 
   @@unique([budgetId, source])
   @@map("income_entries")
 }
 
 model ExpenseEntry {
-  id        String   @id @default(cuid())
-  budgetId  String
-  budget    MonthlyBudget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
-  category  String
-  amount    Decimal  @default(0)
+  id       String        @id @default(cuid())
+  budgetId String
+  budget   MonthlyBudget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  category String
+  amount   Decimal       @default(0)
 
   @@unique([budgetId, category])
   @@map("expense_entries")
@@ -876,57 +875,57 @@ model EaStrategy {
 model EaVersion {
   id          String   @id @default(cuid())
   strategyId  String
-  label       String   // e.g. "v1", "v2"
+  label       String // e.g. "v1", "v2"
   code        String   @db.Text
-  codeHash    String   // sha256
+  codeHash    String // sha256
   changeNotes String?  @db.Text
   createdAt   DateTime @default(now())
 
-  strategy    EaStrategy  @relation(fields: [strategyId], references: [id], onDelete: Cascade)
-  testRuns    EaTestRun[]
+  strategy EaStrategy  @relation(fields: [strategyId], references: [id], onDelete: Cascade)
+  testRuns EaTestRun[]
 
   @@map("ea_versions")
 }
 
 model EaTestRun {
-  id              String   @id @default(cuid())
-  strategyId      String
-  versionId       String
-  testedAt        DateTime @default(now())
-  symbol          String
-  timeframe       String?
-  periodFrom      DateTime?
-  periodTo        DateTime?
-  initialDeposit  Float    @default(10000)
-  currency        String   @default("USD")
-  leverage        String?  @default("1:100")
-  finalBalance    Float    @default(10000)
-  inputsJson      Json     @default("{}")
-  rawLog          String   @db.Text
-  journal         String?  @db.Text
-  
+  id             String    @id @default(cuid())
+  strategyId     String
+  versionId      String
+  testedAt       DateTime  @default(now())
+  symbol         String
+  timeframe      String?
+  periodFrom     DateTime?
+  periodTo       DateTime?
+  initialDeposit Float     @default(10000)
+  currency       String    @default("USD")
+  leverage       String?   @default("1:100")
+  finalBalance   Float     @default(10000)
+  inputsJson     Json      @default("{}")
+  rawLog         String    @db.Text
+  journal        String?   @db.Text
+
   // Computed metrics columns
-  netProfit       Float    @default(0)
-  returnPct       Float    @default(0)
-  tradesCount     Int      @default(0)
-  winRate         Float    @default(0)
-  profitFactor    Float    @default(0)
-  avgR            Float    @default(0)
-  maxDrawdownR    Float    @default(0)
-  maxConsecLosses Int      @default(0)
-  tpCount         Int      @default(0)
-  slCount         Int      @default(0)
-  errorCount      Int      @default(0)
-  breakCount      Int      @default(0)
-  retestCount     Int      @default(0)
+  netProfit       Float @default(0)
+  returnPct       Float @default(0)
+  tradesCount     Int   @default(0)
+  winRate         Float @default(0)
+  profitFactor    Float @default(0)
+  avgR            Float @default(0)
+  maxDrawdownR    Float @default(0)
+  maxConsecLosses Int   @default(0)
+  tpCount         Int   @default(0)
+  slCount         Int   @default(0)
+  errorCount      Int   @default(0)
+  breakCount      Int   @default(0)
+  retestCount     Int   @default(0)
 
-  skipCounts      Json     @default("{}")
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  skipCounts Json     @default("{}")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  strategy        EaStrategy @relation(fields: [strategyId], references: [id], onDelete: Cascade)
-  version         EaVersion  @relation(fields: [versionId], references: [id], onDelete: Cascade)
-  trades          EaTrade[]
+  strategy EaStrategy @relation(fields: [strategyId], references: [id], onDelete: Cascade)
+  version  EaVersion  @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  trades   EaTrade[]
 
   @@index([strategyId, testedAt])
   @@index([symbol])
@@ -939,19 +938,19 @@ model EaTrade {
   ticket     String?
   openedAt   DateTime?
   closedAt   DateTime?
-  direction  String    // "buy" | "sell"
+  direction  String // "buy" | "sell"
   lots       Float
   entry      Float
   sl         Float?
   tp         Float?
   exitPrice  Float?
-  exitReason String?   // "TP" | "SL" | "END_OF_TEST" | "OTHER"
-  tag        String?   // trade comment, e.g. "RetestBO"
+  exitReason String? // "TP" | "SL" | "END_OF_TEST" | "OTHER"
+  tag        String? // trade comment, e.g. "RetestBO"
   rMultiple  Float?
-  profit     Float?    // optional manual profit edit
+  profit     Float? // optional manual profit edit
   createdAt  DateTime  @default(now())
 
-  testRun    EaTestRun @relation(fields: [testRunId], references: [id], onDelete: Cascade)
+  testRun EaTestRun @relation(fields: [testRunId], references: [id], onDelete: Cascade)
 
   @@map("ea_trades")
 }
@@ -959,12 +958,12 @@ model EaTrade {
 model EaDayJournal {
   id         String   @id @default(cuid())
   strategyId String
-  date       String   // "YYYY-MM-DD" local day (Africa/Lagos)
+  date       String // "YYYY-MM-DD" local day (Africa/Lagos)
   notes      String   @db.Text
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  strategy   EaStrategy @relation(fields: [strategyId], references: [id], onDelete: Cascade)
+  strategy EaStrategy @relation(fields: [strategyId], references: [id], onDelete: Cascade)
 
   @@unique([strategyId, date])
   @@map("ea_day_journals")
@@ -978,7 +977,7 @@ model EaPairNote {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  strategy   EaStrategy @relation(fields: [strategyId], references: [id], onDelete: Cascade)
+  strategy EaStrategy @relation(fields: [strategyId], references: [id], onDelete: Cascade)
 
   @@unique([strategyId, symbol])
   @@map("ea_pair_notes")
@@ -989,69 +988,103 @@ model EaPairNote {
 // =========================================================
 
 model FsProject {
-  id               String                @id @default(cuid())
-  userId           String                @default("guest")
-  name             String
-  symbol           String                @default("XAUUSD")
-  timeframe        String                @default("5m")
-  chartDrawings    Json?
-  createdAt        DateTime              @default(now())
-  updatedAt        DateTime              @updatedAt
+  id            String   @id @default(cuid())
+  userId        String   @default("guest")
+  name          String
+  symbol        String   @default("XAUUSD")
+  timeframe     String   @default("5m")
+  chartDrawings Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  versions         FsStrategyVersion[]
-  simulations      FsSimulation[]
-  messages         FsChatMessage[]
+  versions    FsStrategyVersion[]
+  simulations FsSimulation[]
+  messages    FsChatMessage[]
 
   @@index([userId])
   @@map("fs_projects")
 }
 
 model FsStrategyVersion {
-  id               String         @id @default(cuid())
-  projectId        String
-  version          Int
-  name             String
-  paramsSchema     Json           // Array of { key, type, default, label, min, max, options }
-  params           Json           // Key-value map of parameter values
-  code             String         @db.Text
-  createdBy        String         // "user" | "ai"
-  createdAt        DateTime       @default(now())
+  id           String   @id @default(cuid())
+  projectId    String
+  version      Int
+  name         String
+  paramsSchema Json // Array of { key, type, default, label, min, max, options }
+  params       Json // Key-value map of parameter values
+  code         String   @db.Text
+  createdBy    String // "user" | "ai"
+  createdAt    DateTime @default(now())
 
-  project          FsProject      @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  simulations      FsSimulation[]
+  project     FsProject      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  simulations FsSimulation[]
 
   @@unique([projectId, version])
   @@map("fs_strategy_versions")
 }
 
 model FsSimulation {
-  id                String            @id @default(cuid())
+  id                String   @id @default(cuid())
   projectId         String
   strategyVersionId String
-  paramsSnapshot    Json              // Parameters used for this simulation run
-  stats             Json              // Win rate, profit factor, net profit, drawdown, etc.
-  trades            Json              // Serialized array of completed trades
-  createdAt         DateTime          @default(now())
+  paramsSnapshot    Json // Parameters used for this simulation run
+  stats             Json // Win rate, profit factor, net profit, drawdown, etc.
+  trades            Json // Serialized array of completed trades
+  createdAt         DateTime @default(now())
 
-  project           FsProject         @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  strategyVersion   FsStrategyVersion @relation(fields: [strategyVersionId], references: [id], onDelete: Cascade)
+  project         FsProject         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  strategyVersion FsStrategyVersion @relation(fields: [strategyVersionId], references: [id], onDelete: Cascade)
 
   @@index([projectId])
   @@map("fs_simulations")
 }
 
 model FsChatMessage {
-  id               String       @id @default(cuid())
-  projectId        String
-  role             String       // "user" | "assistant" | "system"
-  content          String       @db.Text
-  toolStatus       String?      // e.g. "writing_script", "running_simulation", "ready"
-  versionCreated   Int?         // Strategy version created by this message, if applicable
-  createdAt        DateTime     @default(now())
+  id             String   @id @default(cuid())
+  projectId      String
+  role           String // "user" | "assistant" | "system"
+  content        String   @db.Text
+  toolStatus     String? // e.g. "writing_script", "running_simulation", "ready"
+  versionCreated Int? // Strategy version created by this message, if applicable
+  createdAt      DateTime @default(now())
 
-  project          FsProject    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project FsProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId, createdAt])
   @@map("fs_chat_messages")
 }
 
+enum DemoType {
+  SANDBOX
+  COMPONENT
+  API_TESTER
+  EXPLAINER
+  SELF_CHECK
+}
+
+enum LabStatus {
+  LEARNING
+  PRACTICING
+  CONFIRMED
+}
+
+model LabEntry {
+  id           String    @id @default(cuid())
+  slug         String    @unique
+  title        String
+  category     String
+  demoType     DemoType
+  notes        String?   @db.Text
+  whyItMatters String?   @db.Text
+  config       Json
+  status       LabStatus @default(LEARNING)
+  isPublic     Boolean   @default(false)
+  featured     Boolean   @default(false)
+  sortOrder    Int       @default(0)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([category, status])
+  @@index([isPublic, featured])
+  @@map("lab_entries")
+}

@@ -25,6 +25,7 @@ import {
   X,
   ChevronRight,
   LogOut,
+  FlaskConical,
 } from "lucide-react";
 
 export interface SidebarItem {
@@ -46,6 +47,7 @@ export const ADMIN_SIDEBAR_ITEMS: SidebarItem[] = [
   { id: "job-websites", label: "Job Websites", icon: Building, desc: "Saved career pages" },
   { id: "company-research", label: "Company Research", icon: Search, desc: "Deep dive companies" },
   { id: "interview-prep", label: "Study", icon: MessageSquare, desc: "Notes & questions" },
+  { id: "lab", label: "Learning Lab", icon: FlaskConical, desc: "Interactive Demos", href: "/admin/lab" },
   { id: "salary-benchmarker", label: "Salary Benchmarker", icon: DollarSign, desc: "Compare offers" },
   { id: "budget-strategy", label: "Budget Strategy", icon: PiggyBank, desc: "50/30/20 Budgeting" },
   { id: "lifestyle-cost", label: "Lifestyle Cost", icon: PiggyBank, desc: "Income vs Expenses" },

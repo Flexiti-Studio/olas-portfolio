@@ -701,9 +701,9 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
   if (!course) return <div className="min-h-screen bg-zinc-950 text-white p-8">Course not found.</div>;
 
   return (
-    <div className="min-h-screen md:h-screen bg-zinc-950 text-white flex flex-col md:flex-row relative">
+    <div className="min-h-screen md:h-screen bg-zinc-950 text-white flex flex-col md:flex-row relative md:overflow-hidden">
       {/* Mobile Top Header */}
-      <div className="md:hidden flex items-center justify-between p-4 border-b border-zinc-800 bg-zinc-900/80 backdrop-blur-md sticky top-0 z-30 w-full shrink-0">
+      <div className="md:hidden flex items-center justify-between p-4 border-b border-zinc-800 bg-zinc-900/95 backdrop-blur-md sticky top-0 z-30 w-full shrink-0">
         <button
           onClick={() => setSidebarOpen(true)}
           className="p-2 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition-colors"
@@ -886,8 +886,8 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
       </div>
 
       {/* Centre Panel */}
-      <div className="flex-1 overflow-y-auto overscroll-contain bg-zinc-950 relative md:h-full">
-        <div className="max-w-4xl mx-auto py-10 px-8 pb-32">
+      <main className="flex-1 min-w-0 w-full min-h-0 overflow-y-auto overscroll-contain bg-zinc-950 relative md:h-full">
+        <div className="max-w-4xl mx-auto py-6 sm:py-10 px-4 sm:px-8 pb-32">
           {activeLesson ? (
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} key={activeLesson.id} className="max-w-3xl mx-auto">
               {/* Lesson Header */}
@@ -1926,7 +1926,7 @@ export default function CourseView({ params }: { params: Promise<{ courseId: str
             </motion.div>
           ) : null}
         </div>
-      </div>
+      </main>
 
       {/* Video Upload & Editing Modal */}
       <AnimatePresence>

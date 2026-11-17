@@ -1,5 +1,31 @@
 # Project State
 
+- Learning Lab (`/admin/lab`) & Public Showcase (`/demo`) [Phase 1 & Phase 2 Complete]:
+  - **Prisma Data Model & Migration**:
+    - Added `LabEntry` model with enums `DemoType` (`SANDBOX`, `COMPONENT`, `API_TESTER`, `EXPLAINER`, `SELF_CHECK`) and `LabStatus` (`LEARNING`, `PRACTICING`, `CONFIRMED`).
+    - Successfully pushed to database and generated Prisma Client.
+  - **Zod Validation & Discriminated Unions (`src/lib/lab/schema.ts`)**:
+    - Created type-safe discriminated union validation schemas for all 5 demo types (`SANDBOX`, `COMPONENT`, `API_TESTER`, `EXPLAINER`, `SELF_CHECK`) on create and update.
+  - **Admin Lab Interface (`/admin/lab` & `/admin/lab/[id]`)**:
+    - Implemented `/admin/lab` listing page with category, status, and demoType filters, search, quick creation modal, order management (`↑` / `↓`), and instant public/featured toggles.
+    - Implemented `/admin/lab/[id]` edit form with dynamic visual input configurations adapting per `demoType`, raw JSON schema fallback editor, and a live side-by-side interactive demo preview.
+    - Added Learning Lab link with `FlaskConical` icon to `AdminSidebar.tsx`.
+    - Protected all admin lab routes with `AdminGuard`.
+  - **Component Registry & Error Boundaries (`src/lib/lab/registry.ts`, `src/components/lab/DemoRenderer.tsx`, `src/components/lab/DemoErrorBoundary.tsx`)**:
+    - Built extensible component registry using Next.js `dynamic()` imports to isolate demo code bundles.
+    - Created two sample interactive demos in `src/components/lab/demos/`: `InteractiveButtonDemo` (micro-interactions, spring mechanics, async state) and `DebouncedSearchDemo` (debouncing input dispatching, mock throttling).
+    - Wrapped runners in `DemoErrorBoundary` so runtime demo errors do not crash the host page.
+  - **Public Demo Pages (`/demo` & `/demo/[slug]`)**:
+    - Implemented `/demo` public gallery grouped by category, showing only `isPublic: true` entries (featured first), with status badges and full Suspense wrapping for Next.js prerendering.
+    - Implemented `/demo/[slug]` route displaying interactive runners, `whyItMatters` production context banner, and collapsible Markdown notes.
+    - Strict 404 security check ensuring non-public or draft slugs are never exposed to the public.
+    - Included Presenter Mode toggle (`?present=1`) with larger typography and cleaner presentation layout.
+  - **Database Seeding (`prisma/seed-lab.ts`)**:
+    - Seeded two complete public component demos (`interactive-button-matrix` and `debounced-search-pipeline`) into PostgreSQL.
+  - **Production Build Verified**:
+    - Clean `npm run build` compilation across all 79 static and dynamic routes with exit code 0.
+
+
 - Build Verification & Typecheck Success (`npm run build`):
   - **Successful Production Build (`npm run build`)**:
     - Build compiled and generated all 74 routes (static and dynamic) with exit code 0.
